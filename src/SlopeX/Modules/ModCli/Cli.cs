@@ -279,7 +279,8 @@ namespace SlopeX.Modules.ModCli
 
             var plan = LaunchBuilder.Build(resolved, options, java.Path);
             Out($"Java：{java.Path}（Java {java.Major}）");
-            Out($"游戏目录：{gameDir}（版本隔离：{(VersionEnv.IsIsolated(root, gameDir) ? "开" : "关")}）");
+            Out($"游戏目录：{gameDir}（存档隔离：强制开启）");
+            Out($"存档目录：{VersionEnv.SavesDir(root, versionId)}");
             Out($"mainClass：{resolved.MainClass}");
             Out($"参数数量：{plan.Args.Count}，解压原生库 {plan.ExtractedNatives} 个");
             Out("---- 命令行 ----");

@@ -47,8 +47,8 @@ namespace SlopeX.Pages
                 ChkResolution.IsChecked = c.CustomResolution;
                 ChkMinimize.IsChecked = c.CloseOnLaunch;
                 ChkAutoJava.IsChecked = c.AutoInstallJava;
-                ChkIsolation.IsChecked = c.VersionIsolation;
                 JavaRuntimeHint.Text = "托管运行时目录：" + Paths.RuntimeDir;
+                UpdateIsolationInfo(c);
 
                 ChipMirror.IsChecked = c.UseMirror;
                 ChipOfficial.IsChecked = !c.UseMirror;
@@ -68,6 +68,44 @@ namespace SlopeX.Pages
                 MemoryHint.Text = $"约 {mb / 1024.0:0.#} GB";
             else
                 MemoryHint.Text = "";
+        }
+
+        /// <summary>
+        /// 显示当前版本的存档路径。根目录若还有旧版"共用模式"留下的存档，只做提示，
+        /// 不自动搬移、不自动共享——是否共用由用户自己复制文件决定。
+        /// </summary>
+        private void UpdateIsolationInfo(Config c)
+        {
+            var root = c.GameDir;
+
+            if (string.IsNullOrWhiteSpace(c.LastVersion))
+            {
+                SavesPathText.Text = "尚未启动过任何版本；启动一次后会显示该版本的存档目录。";
+            }
+            else
+            {
+                try
+                {
+                    SavesPathText.Text = "当前版本（" + c.LastVersion + "）存档目录：" +
+                                         VersionEnv.SavesDir(root, c.LastVersion);
+                }
+                catch (Exception ex)
+                {
+                    SavesPathText.Text = "存档目录解析失败：" + ex.Message;
+                }
+            }
+
+            if (VersionEnv.HasLegacySharedSaves(root, out var legacy))
+            {
+                LegacySavesHint.Text =
+                    $"注意：根目录 {Path.Combine(root, "saves")} 仍有 {legacy} 个旧存档（旧版共用模式遗留）。" +
+                    "它们不会自动共享给任何版本；需要的话请手动复制到目标版本的 saves 目录。";
+                LegacySavesHint.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                LegacySavesHint.Visibility = Visibility.Collapsed;
+            }
         }
 
         private void Save_Click(object sender, RoutedEventArgs e)
@@ -100,11 +138,6 @@ namespace SlopeX.Pages
                 c.AutoInstallJava = ChkAutoJava.IsChecked == true;
                 c.UseMirror = ChipMirror.IsChecked == true;
 
-                var isolationChanged = c.VersionIsolation != (ChkIsolation.IsChecked == true);
-                c.VersionIsolation = ChkIsolation.IsChecked == true;
-                if (isolationChanged)
-                    Log.Info($"版本隔离已{(c.VersionIsolation ? "启用" : "关闭")}");
-
                 c.Save();
                 MainWindow.Current?.ApplyConfigChanged();
                 MainWindow.Current?.SetStatus("设置已保存", null);
@@ -129,37 +162,29 @@ namespace SlopeX.Pages
             MainWindow.Current?.ApplyConfigChanged();
         }
 
-        /// <summary>把根目录里的存档 / 材质包 / 模组复制到当前（最近启动的）版本的隔离目录。</summary>
-        private async void ImportShared_Click(object sender, RoutedEventArgs e)
+        /// <summary>
+        /// 打开该版本自己的存档目录。<b>只做导航，不复制任何文件</b>——
+        /// 跨版本共用存档由用户自行复制，启动器不提供共享通道。
+        /// </summary>
+        private void OpenSaves_Click(object sender, RoutedEventArgs e)
         {
             var c = Config.Current;
-            var id = c.LastVersion;
-
-            if (string.IsNullOrWhiteSpace(id))
+            if (string.IsNullOrWhiteSpace(c.LastVersion))
             {
-                MessageBox.Show("还没有启动过任何版本，先启动一次游戏再回来导入。", "SlopeX");
+                MessageBox.Show("还没有启动过任何版本，先启动一次游戏。", "SlopeX");
                 return;
             }
 
-            var target = VersionEnv.Resolve(c.GameDir, id, true);
-            var r = MessageBox.Show(
-                $"把游戏根目录里的 mods / 资源包 / 存档 / 设置复制到版本「{id}」：\n{target}\n\n已存在的文件不会被覆盖。",
-                "导入到当前版本", MessageBoxButton.OKCancel, MessageBoxImage.Question);
-            if (r != MessageBoxResult.OK) return;
-
             try
             {
-                var result = await Task.Run(() => VersionEnv.CopyShared(c.GameDir, target));
-                var msg = result.Files > 0
-                    ? $"已复制 {result.Files} 个文件（{VersionEnv.FormatSize(result.Bytes)}）到版本「{id}」。"
-                    : "没有需要复制的内容（目标已有同名文件，或公共目录为空）。";
-                Log.Info($"导入公共目录内容到 {id}：{result.Files} 个文件");
-                MessageBox.Show(msg, "SlopeX");
+                var dir = VersionEnv.SavesDir(c.GameDir, c.LastVersion);
+                if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                Process.Start(new ProcessStartInfo("explorer.exe", "\"" + dir + "\"") { UseShellExecute = true });
             }
             catch (Exception ex)
             {
-                Log.Error("导入公共目录内容失败", ex);
-                MessageBox.Show("导入失败：" + ex.Message, "SlopeX");
+                Log.Warn("打开存档目录失败：" + ex.Message);
+                MessageBox.Show("打开存档目录失败：" + ex.Message, "SlopeX");
             }
         }
 

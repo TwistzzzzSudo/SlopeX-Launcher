@@ -284,8 +284,6 @@ namespace SlopeX.Modules.ModBase
         private bool _customResolution = false;
         private string _lastVersion = "";
         private bool _autoInstallJava = true;
-        private bool _versionIsolation = true;
-        private bool _isolationSeeded = false;
 
         /// <summary>游戏目录（.minecraft 根），内存中始终是绝对路径。</summary>
         [JsonIgnore]
@@ -343,14 +341,9 @@ namespace SlopeX.Modules.ModBase
         /// <summary>当前版本缺少所需 Java 时，自动下载安装（国内镜像）。</summary>
         public bool AutoInstallJava { get => _autoInstallJava; set => Set(ref _autoInstallJava, value); }
 
-        /// <summary>
-        /// 版本隔离：每个版本使用独立的游戏目录 versions\&lt;版本 ID&gt;，
-        /// mods / 资源包 / 存档 / 设置互不影响。
-        /// </summary>
-        public bool VersionIsolation { get => _versionIsolation; set => Set(ref _versionIsolation, value); }
-
-        /// <summary>是否已经做过一次"公共目录 → 首个隔离版本"的数据继承。</summary>
-        public bool IsolationSeeded { get => _isolationSeeded; set => Set(ref _isolationSeeded, value); }
+        // 注：原 VersionIsolation / IsolationSeeded 两个配置项已移除。
+        // 版本隔离（含存档）现在是强制行为，不再是可配置项，也就不该存在"关闭"的记录。
+        // 旧配置文件里的这两个字段会在反序列化时被忽略，不需要迁移。
 
         public static Config Load()
         {
@@ -358,7 +351,8 @@ namespace SlopeX.Modules.ModBase
             {
                 if (File.Exists(Paths.ConfigFile))
                 {
-                    var cfg = JsonSerializer.Deserialize<Config>(File.ReadAllText(Paths.ConfigFile),
+                    var json = File.ReadAllText(Paths.ConfigFile);
+                    var cfg = JsonSerializer.Deserialize<Config>(json,
                         new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                     if (cfg != null)
                     {
@@ -379,6 +373,15 @@ namespace SlopeX.Modules.ModBase
                         if (cfg.StoredGameDirWasAbsolute &&
                             !Path.IsPathRooted(Paths.ToStorablePath(cfg.GameDir)))
                             cfg.Save();
+
+                        // 已移除的隔离开关：若旧配置里还留着，重写一次把字段清掉，
+                        // 免得日志/配置文件里还显示一个"可以关闭存档隔离"的痕迹。
+                        if (json.Contains("VersionIsolation", StringComparison.OrdinalIgnoreCase) ||
+                            json.Contains("IsolationSeeded", StringComparison.OrdinalIgnoreCase))
+                        {
+                            Log.Info("检测到旧版隔离开关配置，已清理（存档隔离现为强制行为）");
+                            cfg.Save();
+                        }
 
                         return cfg;
                     }

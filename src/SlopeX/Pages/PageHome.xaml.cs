@@ -68,18 +68,11 @@ namespace SlopeX.Pages
             StatMemory.Text = (Config.Current.MemoryMb / 1024.0).ToString("0.#") + " GB";
             StatSource.Text = Config.Current.UseMirror ? "BMCLAPI" : "官方";
 
-            // 游戏目录卡片：说明当前是隔离模式还是共用模式
+            // 游戏目录卡片：版本隔离是强制行为，这里只显示该版本自己的目录
             var root = Config.Current.GameDir;
-            if (Config.Current.VersionIsolation)
-            {
-                GameDirMode.Text = _selected == null
-                    ? "版本隔离：已启用（每个版本独立的 mods / 资源包 / 存档）"
-                    : "版本隔离：已启用 → " + VersionEnv.Resolve(root, _selected.Id, true);
-            }
-            else
-            {
-                GameDirMode.Text = "版本隔离：已关闭（所有版本共用上面这个目录）";
-            }
+            GameDirMode.Text = _selected == null
+                ? "存档隔离：强制开启（每个版本独立的 mods / 资源包 / 存档）"
+                : "存档隔离：强制开启 → " + VersionEnv.Resolve(root, _selected.Id);
 
             if (_selected == null)
             {
@@ -443,10 +436,10 @@ namespace SlopeX.Pages
         {
             try
             {
-                // 开启版本隔离时，打开的是当前版本自己的目录（材质包 / 存档都在里面）
+                // 版本隔离是强制的：打开的就是当前版本自己的目录（材质包 / 存档都在里面）
                 var dir = _selected == null
                     ? Config.Current.GameDir
-                    : VersionEnv.Resolve(Config.Current.GameDir, _selected.Id, Config.Current.VersionIsolation);
+                    : VersionEnv.Resolve(Config.Current.GameDir, _selected.Id);
                 if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
                 Process.Start(new ProcessStartInfo("explorer.exe", "\"" + dir + "\"") { UseShellExecute = true });
             }

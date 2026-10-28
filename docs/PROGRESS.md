@@ -1,11 +1,12 @@
 # SlopeX Launcher 进度报告与实施计划
 
-> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-29 03:01
-> 对应产物：`SlopeX.exe` 1.0.0（自包含单文件，138.5 MB，win-x64）
-> 代码规模：26 个 C# / XAML 源文件，6,525 行
+> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-29 03:20
+> 对应产物：`SlopeX.exe` 1.0.0（自包含单文件，139 MB，win-x64）
+> 代码规模：26 个 C# / XAML 源文件，6,477 行
 > 版本控制：git 已初始化，`main` 基线提交 `8cc0cd1`
-> 当前状态：**四项决策 + 美术排期 + 主题命名已定，尚未开工**；下一个执行项 = 美术地基 S1（双主题 token 层 + 设计规范）→ Fabric 安装
-> 本轮改动：仅记录决策与命名，**未修改任何源码**
+> 当前状态：**存档隔离已改为强制（无关闭入口），真机验证通过**；四项决策 + 美术排期 + 主题命名均已定
+> 下一个执行项 = 美术地基 S1（双主题 token 层 + 设计规范）→ Fabric 安装
+> 本轮改动：**存档隔离改为强制行为**（删除开关、删除自动继承、删除导入按钮），源码已改并重新打包
 > **工作量口径**：全文一律以「产出物 / 改动范围」描述，不使用时间估算。
 
 ---
@@ -49,7 +50,7 @@
 | Java 探测 | ✅ | 注册表 + Program Files / Adoptium / Microsoft / Zulu / Corretto / `.jdks` / PATH |
 | Java 版本匹配 | ✅ | 以 JSON `javaVersion` 为权威：1.17→16、1.18+→17、1.20.5+→21、26.x→25、≤1.12→8 |
 | **Java 缺失自动安装** | ✅ | 清华 TUNA 55.8 MB / 3.9 秒；四镜像顺序回退 |
-| **版本隔离** | ✅ | 每版本独立 `versions\<id>`，首次启用继承旧存档 |
+| **存档隔离（强制）** | ✅ | 恒用 `versions\<id>`；无开关、不继承、不共享；真机验证 `--gameDir` 指向版本目录 |
 | 登录 | ⚠️ | 仅离线登录（自定义玩家名），无正版验证 |
 | 任务与日志 | ✅ | 安装进度卡 + 游戏实时日志（增量缓冲刷新） |
 | 设置持久化 | ✅ | `%APPDATA%\SlopeX\config.json`，路径存相对形式 |
@@ -68,17 +69,17 @@ PCL2 是 VB.NET + WPF（`Meloong-Git/PCL`，`Modules/Mod*` 分层 + `Controls`/`
 ### 3.2 模块分层
 
 ```
-ModBase      路径 / 日志 / 配置 / JSON 工具 / MVVM 基类        526 行
+ModBase      路径 / 日志 / 配置 / JSON 工具 / MVVM 基类        529 行
 ModNet       并发下载 / 镜像改写 / 源回落 / 单文件超时 / SHA1    387 行
-ModMinecraft 版本扫描 / inheritsFrom 合并 / 版本隔离环境        486 行
+ModMinecraft 版本扫描 / inheritsFrom 合并 / 强制存档隔离         411 行
 ModJava      运行时探测 / 版本匹配 / 自动下载安装               789 行
 ModLaunch    规则引擎 / classpath / natives / 命令行 / 进程     562 行
 ModDownload  版本安装 / 资源补齐 / 任务中心                     477 行
-ModCli       无界面模式                                      379 行
-Pages+Windows+Themes+App  UI 层（5 页 + 主窗口 + 样式字典）  2,919 行
+ModCli       无界面模式                                      380 行
+Pages+Windows+Themes+App  UI 层（5 页 + 主窗口 + 样式字典）  2,942 行
 ```
 
-（模块层 3,606 行 + UI 层 2,919 行 = 6,525 行）
+（模块层 3,535 行 + UI 层 2,942 行 = 6,477 行）
 
 ### 3.3 三个关键设计取舍
 
@@ -104,6 +105,7 @@ Pages+Windows+Themes+App  UI 层（5 页 + 主窗口 + 样式字典）  2,919 �
 | 5 | 找不到够高 Java 时静默顶替 | 高版本 MC“启动没反应”，退出码 1 | 返回无兼容 + 自动安装 + 秒退诊断 |
 | 6 | 配置存绝对路径 | 目录搬走后版本“消失” | 启动器目录内改存相对路径 |
 | 7 | 无版本历史 | 改坏了只能靠备份恢复，无法 diff 定位 | 初始化 git，基线 `8cc0cd1`；`.gitignore` 排掉 1.4 GB 产物与运行时 |
+| 8 | **存档隔离可被关闭，且会自动继承/导入公用存档** | 版本之间可共用存档与材质包，隔离形同虚设；用户无法预期哪个版本用哪份存档 | 删除 `VersionIsolation` / `IsolationSeeded` 配置项；`Resolve` 去掉"共用根目录"分支（版本 ID 为空直接抛错）；删除 `CopyShared` 自动继承与「导入公共目录内容」按钮；设置页改为只读说明 + 打开存档目录；旧配置残留字段自动清理 |
 
 ---
 
@@ -115,7 +117,7 @@ Pages+Windows+Themes+App  UI 层（5 页 + 主窗口 + 样式字典）  2,919 �
 - 无 Forge / NeoForge / Fabric 一键安装（能启动别家装好的模组版本，但自己不装）
 - 无模组管理（批量启停、依赖检查）
 - 无整合包导入（CurseForge / Modrinth）
-- 版本隔离只有“全隔离 / 全共用”两态，没有“材质包共享 + 存档隔离”的混合模式
+- 存档隔离为强制行为，不提供“材质包共享但存档隔离”这类混合模式；需要共用只能手动复制文件
 
 ### 工程风险
 - SHA1 校验只对 < 8 MB 文件做（大文件只比大小），极端情况下可能放过损坏包
@@ -131,7 +133,7 @@ Pages+Windows+Themes+App  UI 层（5 页 + 主窗口 + 样式字典）  2,919 �
 
 ### 环境
 - `%APPDATA%\SlopeX\`（config、logs、Java 运行时 180 MB）仍不在便携目录内
-- 版本隔离后根目录的 `saves` / `resourcepacks`（16 MB）作为“公共源”保留，属冗余
+- 根目录 `saves` / `resourcepacks`（16 MB）是旧版共用模式遗留，现已不被任何版本使用；设置页只提示数量与路径，不自动搬移
 
 ---
 
@@ -288,7 +290,10 @@ Pages+Windows+Themes+App  UI 层（5 页 + 主窗口 + 样式字典）  2,919 �
 | 1.20.1 启动 | 进游戏，`Setting user: Steve`，OpenAL 初始化，退出码 143（主动结束） |
 | 26.3 启动 | Java 25、LWJGL 3.4.3、SDL 建窗、RTX 3060 OpenGL 3.3 |
 | Java 25 自动安装 | 清华 TUNA，55.8 MB，3.9 秒，解压到 `runtime\java-25` |
-| 版本隔离继承 | 存档「新的世界」16 MB + `options.txt`(137 行) 复制到 `versions\1.20.1` |
+| ~~版本隔离继承~~（旧行为，已移除） | 曾把「新的世界」16 MB + `options.txt`(137 行) 复制到 `versions\1.20.1`；自动继承逻辑已删除 |
+| 存档隔离（强制） | `--cli plan` 输出：1.20.1 → `versions\1.20.1\saves`，26.3 → `versions\26.3\saves`，互不可见 |
+| 存档隔离真机验证 | 26.3 运行时 java 命令行含 `--gameDir I:\SlopeX Launcher\.minecraft\versions\26.3`；`versions\26.3\saves` 保持空（未继承任何存档），根目录 `saves` 的 `mtime` 未变（未被读取/写入） |
+| 旧配置清理 | 启动一次后 `config.json` 中 `VersionIsolation` / `IsolationSeeded` 两字段自动消失 |
 | 便携实测 | exe 复制到 `I:\sxtest`，正确解析到 `I:\sxtest\.minecraft` |
 | 构建 | 0 警告 0 错误 |
 | git 基线 | 40 个文件 / 0.64 MB，`.git` 565 KB，忽略规则 5/5 命中，工作区 0 改动 |

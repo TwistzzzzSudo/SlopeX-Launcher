@@ -112,7 +112,7 @@ namespace SlopeX.Pages
 
                 var result = MessageBox.Show(
                     $"确定删除版本「{id}」吗？\n\n将移除目录：{dir}\n" +
-                    (Config.Current.VersionIsolation ? "该目录同时包含此版本的存档、材质包与模组，会一并删除。\n" : "") +
+                    "该目录同时包含此版本的存档、材质包与模组，会一并删除。\n" +
                     "此操作不可撤销。",
                     "删除版本", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
                 if (result != MessageBoxResult.OK) return;

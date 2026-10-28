@@ -69,13 +69,18 @@
                         </Grid>
 
                         <Border Style="{StaticResource HRule}" Margin="0,16,0,12"/>
-                        <CheckBox x:Name="ChkIsolation" Style="{StaticResource Chk}"
-                                  Content="版本隔离（每个版本独立的 mods / 资源包 / 存档）"/>
-                        <TextBlock Style="{StaticResource TCaption}" Margin="24,6,0,0" TextWrapping="Wrap"
-                                   Text="开启后每个版本使用 .minecraft\versions\&lt;版本 ID&gt; 作为游戏目录，材质包、存档、设置互不影响；libraries 与 assets 仍然共用。"/>
-                        <StackPanel Orientation="Horizontal" Margin="24,10,0,0">
+                        <TextBlock Style="{StaticResource TBody}" Text="存档隔离（强制开启，无关闭入口）"/>
+                        <TextBlock Style="{StaticResource TCaption}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                   Text="每个版本固定使用 .minecraft\versions\&lt;版本 ID&gt; 作为游戏目录：存档、材质包、模组、设置互不影响，libraries 与 assets 仍然共用。"/>
+                        <TextBlock Style="{StaticResource TCaption}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                   Text="需要跨版本共用存档时，请自行把存档文件夹复制到目标版本的 saves 目录——启动器不会自动共享，也不会自动搬移。"/>
+                        <TextBlock x:Name="SavesPathText" Style="{StaticResource TMono}" Margin="0,8,0,0"
+                                   TextWrapping="Wrap"/>
+                        <TextBlock x:Name="LegacySavesHint" Style="{StaticResource TCaption}" Margin="0,6,0,0"
+                                   TextWrapping="Wrap" Foreground="{StaticResource Warn}" Visibility="Collapsed"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                             <Button Style="{StaticResource BtnGhost}" Height="30" Padding="12,0"
-                                    Content="把公共目录内容导入当前版本" Click="ImportShared_Click"/>
+                                    Content="打开该版本存档目录" Click="OpenSaves_Click"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>
