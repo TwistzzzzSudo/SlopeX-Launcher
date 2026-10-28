@@ -4,6 +4,7 @@ param(
     [int]$WaitMs = 7000,
     [int]$ClickRelX = -1,
     [int]$ClickRelY = -1,
+    [string]$Page = "",
     [switch]$KeepOpen
 )
 
@@ -58,6 +59,45 @@ if ($hwnd -eq [IntPtr]::Zero) {
 
 [WinCap]::SetForegroundWindow($hwnd) | Out-Null
 Start-Sleep -Milliseconds 800
+
+# -Page: select a nav item by its name via UI Automation (DPI independent)
+if ($Page -ne "") {
+    try {
+        Add-Type -AssemblyName UIAutomationClient
+        Add-Type -AssemblyName UIAutomationTypes
+        $aeRoot = [System.Windows.Automation.AutomationElement]::FromHandle($hwnd)
+        $aeCond = New-Object System.Windows.Automation.PropertyCondition(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::ListItem)
+        $aeItems = $aeRoot.FindAll([System.Windows.Automation.TreeScope]::Descendants, $aeCond)
+        $aePat = $null
+        foreach ($it in $aeItems) {
+            # WPF ListBoxItem has no Name of its own; collect text from its descendants
+            $kids = $it.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.Condition]::TrueCondition)
+            $label = ""
+            foreach ($k in $kids) {
+                if ($k.Current.Name) { $label = $label + $k.Current.Name }
+            }
+            if ($label -like "*$Page*") {
+                $aePat = $it.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
+                Write-Output ("PAGE_LABEL=" + $label)
+                break
+            }
+        }
+        if ($null -ne $aePat) {
+            $aePat.Select()
+            Start-Sleep -Milliseconds 1000
+            Write-Output "PAGE_SELECTED"
+        }
+        else {
+            Write-Output "PAGE_NOT_FOUND"
+        }
+    }
+    catch {
+        Write-Output ("PAGE_ERR " + $_.Exception.Message)
+    }
+}
 
 $rect = New-Object WinCap+RECT
 [WinCap]::GetWindowRect($hwnd, [ref]$rect) | Out-Null
