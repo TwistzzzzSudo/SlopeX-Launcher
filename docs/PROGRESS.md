@@ -1,9 +1,10 @@
 # SlopeX Launcher 进度报告与实施计划
 
-> 生成时间：2026-10-29 02:32
+> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-29 02:42
 > 对应产物：`SlopeX.exe` 1.0.0（自包含单文件，138.5 MB，win-x64）
 > 代码规模：26 个 C# / XAML 源文件，6,525 行
-> 本轮仅出报告，未修改任何源码
+> 版本控制：git 已初始化，`main` 基线提交 `8cc0cd1`
+> 本轮改动：仅工程基建（git 初始化 + `.gitignore` 补强），**未修改任何源码**
 
 ---
 
@@ -25,6 +26,7 @@
 | `README.md` | 功能、架构、构建、限制说明 | ✅ |
 | `build.cmd` | 一键构建（纯 ASCII，规避 cmd 编码问题） | ✅ |
 | `tools/screenshot.ps1` | 内部工具：启动并截窗口图，用于视觉回归 | ✅ |
+| `.git/` + `.gitignore` | 版本历史基线 `8cc0cd1`，只跟踪 40 个源文件（产物全排除） | ✅ |
 | `.workbuddy/memory/` | 项目决策与踩坑记录 | ✅ |
 
 ---
@@ -97,6 +99,7 @@ Pages+Windows+Themes+App  UI 层（5 页 + 主窗口 + 样式字典）  2,919 �
 | 4 | Segoe MDL2 部分字形渲染成空心方框 | 导航图标变“□” | 全部改成矢量 Path |
 | 5 | 找不到够高 Java 时静默顶替 | 高版本 MC“启动没反应”，退出码 1 | 返回无兼容 + 自动安装 + 秒退诊断 |
 | 6 | 配置存绝对路径 | 目录搬走后版本“消失” | 启动器目录内改存相对路径 |
+| 7 | 无版本历史 | 改坏了只能靠备份恢复，无法 diff 定位 | 初始化 git，基线 `8cc0cd1`；`.gitignore` 排掉 1.4 GB 产物与运行时 |
 
 ---
 
@@ -114,7 +117,13 @@ Pages+Windows+Themes+App  UI 层（5 页 + 主窗口 + 样式字典）  2,919 �
 - SHA1 校验只对 < 8 MB 文件做（大文件只比大小），极端情况下可能放过损坏包
 - 下载重试为“每源 2 次”，断点续传只做到“已完整文件跳过”，不是按字节续传
 - 无自动化测试，回归靠 CLI + 截图人工验证
-- 仓库**尚未初始化 git**，历史版本只能靠备份
+- ~~仓库尚未初始化 git~~（已于 2026-10-29 02:42 解决，见第 4 节 #7）
+
+### 工程基建（已就位）
+- **git**：`main` 分支基线 `8cc0cd1`，40 个文件 / 0.64 MB，`.git` 仅 565 KB
+- **忽略规则**：`bin/` `obj/` `/SlopeX.exe` `/.minecraft/` `/.workbuddy/` `/SlopeXData/` `/runtime/` `*.sxpart`，`git check-ignore` 逐项验证通过
+- **CRLF**：`core.autocrlf=false`，避免 Windows 换行转换产生全文件伪 diff
+- **约定**：Forge / 登录等大改动必须在干净工作区开 `feature/*` 分支，`main` 始终保持可构建
 
 ### 环境
 - `%APPDATA%\SlopeX\`（config、logs、Java 运行时 180 MB）仍不在便携目录内
@@ -166,12 +175,17 @@ Pages+Windows+Themes+App  UI 层（5 页 + 主窗口 + 样式字典）  2,919 �
 
 ---
 
-## 7. 需要你决策的四件事
+## 7. 待决策事项
 
-1. **Forge 要不要做**：工作量最大的单项（预估是 Fabric 的 3–4 倍），但对整合包覆盖率影响最大。
+> 2026-10-29 02:42：第 4 项已决并落地，其余 3 项仍待定。
+
+1. **Forge 要不要做**：工作量最大的单项（预估是 Fabric 的 3–4 倍），但对整合包覆盖率影响最大。可选 A 自研 processors / B 调官方 installer `--installClient` / C 暂不做。
 2. **微软登录是否接受自建 Azure 应用**：需要你去 portal 建一个“公共客户端”应用并给我 client_id；不建就只能保持离线。
 3. **是否要完全便携**：把 config / logs / Java 运行时也搬进启动器目录。
-4. **是否初始化 git 仓库**：现在没有任何版本历史，改动只能靠 `.workbuddy/memory` 记录。
+4. ~~**是否初始化 git 仓库**~~ ✅ **已决（2026-10-29 02:42）**
+   - 已 `git init -b main`，基线提交 `8cc0cd1`；身份仅本仓库生效（`SlopeX Dev <dev@slopex.local>`），未改全局配置
+   - `.gitignore` 补强：`/SlopeXData/`、`/runtime/`、`*.sxpart`（为第 3 项预埋）、`*.pdb`、`.idea/`、`*.log`、`*.tmp`、`Thumbs.db`、`.DS_Store`
+   - 验证：`git status` 干净 0 行，跟踪 40 个文件，`SlopeX.exe` / `.minecraft` / `bin` / `obj` 全部被拦
 
 ---
 
@@ -188,6 +202,7 @@ Pages+Windows+Themes+App  UI 层（5 页 + 主窗口 + 样式字典）  2,919 �
 | 版本隔离继承 | 存档「新的世界」16 MB + `options.txt`(137 行) 复制到 `versions\1.20.1` |
 | 便携实测 | exe 复制到 `I:\sxtest`，正确解析到 `I:\sxtest\.minecraft` |
 | 构建 | 0 警告 0 错误 |
+| git 基线 | 40 个文件 / 0.64 MB，`.git` 565 KB，忽略规则 5/5 命中，工作区 0 改动 |
 
 ### 8.2 命令速查
 
@@ -211,3 +226,19 @@ build.cmd                             # 构建单文件到仓库根目录
 | 版本隔离目录 | `.minecraft\versions\<版本 ID>` |
 | 配置与日志 | `%APPDATA%\SlopeX\` |
 | 托管 Java 运行时 | `%APPDATA%\SlopeX\runtime\java-<主版本>` |
+
+### 8.4 git 速查
+
+```bash
+git log --oneline              # 提交历史（当前 1 条：8cc0cd1）
+git show --stat                # 查看某次提交改了哪些文件
+git diff                       # 工作区 vs 暂存区的具体差异
+git diff --cached              # 暂存区 vs 上次提交
+git status                     # 当前状态（应为 clean）
+git add -A && git commit -m "" # 提交全部改动
+git checkout -b feature/forge  # 大改动前开分支
+git checkout -- <file>         # 丢弃单个文件的改动
+git checkout 8cc0cd1 -- <file> # 从基线取回单个文件
+```
+
+**注意**：`.minecraft/`、`SlopeX.exe`、`bin/`、`obj/` 永远不入库。如果 `git status` 里出现它们，说明 `.gitignore` 被改坏了，先修规则再提交。
