@@ -1,10 +1,11 @@
 # SlopeX Launcher 进度报告与实施计划
 
-> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-29 02:42
+> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-29 02:50
 > 对应产物：`SlopeX.exe` 1.0.0（自包含单文件，138.5 MB，win-x64）
 > 代码规模：26 个 C# / XAML 源文件，6,525 行
 > 版本控制：git 已初始化，`main` 基线提交 `8cc0cd1`
-> 本轮改动：仅工程基建（git 初始化 + `.gitignore` 补强），**未修改任何源码**
+> 当前状态：**四项决策已全部拍板，尚未开工**；下一个执行项 = Fabric 安装
+> 本轮改动：仅记录决策（git 初始化 + 决策结论），**未修改任何源码**
 
 ---
 
@@ -12,6 +13,7 @@
 
 **已经是一个能真正装、真正启动的启动器**：原版版本安装、Java 自动补齐、版本隔离、离线启动全链路跑通，两条不同世代的版本（1.20.1 / 26.3）都在本机实机进过游戏。
 缺的是**账号体系**（微软正版登录）与**模组生态**（Forge/Fabric 安装、模组管理、整合包导入）。
+四项决策已全部拍板（详见 §7）：Forge 走 B 方案、微软登录必做、便携走折中、**下一步从 Fabric 安装开始**。
 
 ---
 
@@ -133,21 +135,25 @@ Pages+Windows+Themes+App  UI 层（5 页 + 主窗口 + 样式字典）  2,919 �
 
 ## 6. 后续计划
 
+> **执行顺序（已定 2026-10-29 02:50）**：Fabric 安装 → 便携折中改造 → 微软登录 → Forge（B 方案）。
+> 每一步在独立 `feature/*` 分支上做，`main` 始终保持可构建。
+
 ### P0 — 补齐“能玩主流整合包”的最小闭环
 
-**1. Fabric / Quilt 安装**
+**1. Fabric / Quilt 安装 ← 下一个执行项**
 - 做法：拉 `fabric-meta` 的 loader 列表 → 生成 `inheritsFrom` 版本 JSON → 补 loader 依赖库
 - 验收：`--cli install-fabric 1.20.1` 后能直接启动，且隔离目录里有 `mods`
 - 风险：低（无 processors，纯 JSON 合并）
 
-**2. Forge / NeoForge 安装**
-- 做法：下载 installer → 解析 `install_profile.json` → 跑 processors（含 `client-extra`、`srg` 映射）
+**2. Forge / NeoForge 安装**（已定：**B 方案**）
+- 做法：下载官方 installer → 用托管 Java 无头执行 `--installClient`；UI 只显示“安装中 + 耗时”，**不解析 `install_profile.json`、不跑 processors**
 - 验收：装完 `--cli verify` 通过、能进游戏、崩溃日志无缺失类
-- 风险：高（processors 依赖 Java 环境与临时目录，失败模式多），建议放最后
+- 风险：中（成功率依赖 installer 自身行为，进度不可见；installer 走官方 maven，国内可能慢）
+- 备注：若后续需要细粒度进度或离线复装，再升级为 A 方案（自研 processors），B 保留为兜底
 
-**3. 微软正版登录**
+**3. 微软正版登录**（已定：**必须做**）
 - 做法：OAuth 2.0 设备码流程（`live.com/oauth20_connect.srf`）+ XBL / XSTS 换 token + `/minecraft/profile`
-- 需要你提供：**自建 Azure 应用（公共客户端）的 client_id**，否则只能继续离线
+- **阻塞项**：等用户提供自建 Azure 公共客户端的 **client_id**（不提供则无法开工）
 - 验收：登录后 skin 正常显示、服务器可进（非正版服仍拒绝属正常）
 - 风险：中（token 刷新、设备码轮询超时处理）
 
@@ -160,7 +166,7 @@ Pages+Windows+Themes+App  UI 层（5 页 + 主窗口 + 样式字典）  2,919 �
 
 ### P2 — 打磨
 
-**8. 完全便携**：`config / logs / runtime` 迁到 `SlopeXData\`，实现“一个文件夹拷走即用”
+**8. 便携改造（折中方案，已定）**：`config.json` + `logs\` 迁到 `SlopeXData\`；`runtime\java-*` 留在 `%APPDATA%` 但设置页可改位置；启动器目录不可写时自动回落 `%APPDATA%`
 **9. 启动器自更新**：检查 GitHub Release / 自建清单，下载新 exe 并替换
 **10. 崩溃诊断**：解析 `crash-reports`，把 `UnsupportedClassVersionError`、缺模组、OOM 翻成人话
 **11. 界面细节**：高 DPI 适配、键盘导航、日志搜索与导出
@@ -175,17 +181,48 @@ Pages+Windows+Themes+App  UI 层（5 页 + 主窗口 + 样式字典）  2,919 �
 
 ---
 
-## 7. 待决策事项
+## 7. 决策结论（2026-10-29 02:50 全部确定）
 
-> 2026-10-29 02:42：第 4 项已决并落地，其余 3 项仍待定。
+> 四项事项已全部拍板，不再等待确认。**尚未开工**，下一个执行项是 Fabric 安装。
 
-1. **Forge 要不要做**：工作量最大的单项（预估是 Fabric 的 3–4 倍），但对整合包覆盖率影响最大。可选 A 自研 processors / B 调官方 installer `--installClient` / C 暂不做。
-2. **微软登录是否接受自建 Azure 应用**：需要你去 portal 建一个“公共客户端”应用并给我 client_id；不建就只能保持离线。
-3. **是否要完全便携**：把 config / logs / Java 运行时也搬进启动器目录。
-4. ~~**是否初始化 git 仓库**~~ ✅ **已决（2026-10-29 02:42）**
-   - 已 `git init -b main`，基线提交 `8cc0cd1`；身份仅本仓库生效（`SlopeX Dev <dev@slopex.local>`），未改全局配置
-   - `.gitignore` 补强：`/SlopeXData/`、`/runtime/`、`*.sxpart`（为第 3 项预埋）、`*.pdb`、`.idea/`、`*.log`、`*.tmp`、`Thumbs.db`、`.DS_Store`
-   - 验证：`git status` 干净 0 行，跟踪 40 个文件，`SlopeX.exe` / `.minecraft` / `bin` / `obj` 全部被拦
+| # | 事项 | 结论 | 落地方式 |
+|---|---|---|---|
+| ① | Forge / NeoForge | **要做，采用 B 方案** | 官方 installer + `--installClient` 无头执行，不自研 processors |
+| ② | 微软正版登录 | **必须做**（尊重正版玩家，没理由不做） | OAuth 设备码 → XBL/XSTS → `/minecraft/profile`；**待提供 Azure client_id** |
+| ③ | 便携 | **折中方案** | config + logs 进 `SlopeXData\`；runtime 留 `%APPDATA%` 但可改位置 |
+| ④ | 下一步 | **先做 Fabric 安装** | 见 §6 P0-1 |
+
+### 7.1 ① Forge 为何选 B 方案
+
+- **选它的理由**：官方 installer 自己知道怎么装（processors、srg 映射、client-extra 拆分全都是它的内部逻辑），我们只负责“下载 + 用正确的 Java 跑 + 收集输出”。成功率接近 100%，预计 1 天内完成。
+- **接受的代价**：进度不可见（只能显示“安装中 + 已耗时”，拿不到“正在处理第 3 个库”这类细粒度信息）；installer 自己走官方 maven，国内可能慢，只能靠镜像环境变量缓解。
+- **不是终局**：Fabric / Quilt 那套是我们自己拼 JSON，Forge 这块是“外包”给官方。将来若需要离线复装或细粒度进度，再升级到 A 方案（自研 processors），B 保留为兜底路径。
+
+### 7.2 ② 微软登录的阻塞项
+
+- 技术路径已明确：设备码流程 → Xbox Live → XSTS → Minecraft profile。代码侧是新增 `ModAccount` 模块 + token 刷新 + 皮肤渲染。
+- **唯一阻塞**：需要一个 Azure 应用注册产出的 **client_id**（公共客户端流，无需密钥、免费）。没有它微软不会认这个启动器。
+- 拿到 client_id 之前，这部分**无法开工**，只能先保持离线登录。其余三项不受影响。
+
+### 7.3 ③ 便携折中方案的具体内容
+
+- **迁走**：`config.json`、`logs\`（几十 KB，拷走即带设置和日志）。
+- **留下**：`runtime\java-<主版本>\`（180 MB）仍在 `%APPDATA%\SlopeX`，避免每次拷贝多搬 180 MB；但**设置页提供修改入口**，想彻底便携的用户可自行指到启动器目录。
+- **回落**：`Core.Paths` 增加 `DataDir`，优先级 `SlopeXData\`（可写）→ `%APPDATA%\SlopeX`。防止启动器被放到 `C:\Program Files` 时因无写权限直接崩。
+- **迁移规则**：首次启动若发现旧 `%APPDATA%\SlopeX\config.json` 且 `SlopeXData\` 不存在，则复制过去，**保留原文件**不删除，作为回滚保险。
+- **换取的结果**：换机/换盘只需拷启动器目录，设置不丢；代价是 Java 运行时仍需重新解析或手动指定。
+
+### 7.4 ④ 下一步：Fabric 安装的验收标准
+
+- `--cli install-fabric <mc版本>` 生成 `versions\fabric-loader-<loader>-<mc>\`，其 JSON 含 `inheritsFrom` 指向原版。
+- `--cli verify` 通过；`--cli launch` 能进游戏；隔离目录下存在 `mods\` 目录。
+- 装一个真实模组（Sodium 之类）验证 loader 确实生效，而不只是版本能启动。
+
+### 7.5 已完成项（原第 4 项：git）
+
+- 已 `git init -b main`，基线提交 `8cc0cd1`；身份仅本仓库生效（`SlopeX Dev <dev@slopex.local>`），未改全局配置。
+- `.gitignore` 补强：`/SlopeXData/`、`/runtime/`、`*.sxpart`（正是为 §7.3 预埋）、`*.pdb`、`.idea/`、`*.log`、`*.tmp`、`Thumbs.db`、`.DS_Store`。
+- 验证：`git status` 干净 0 行，跟踪 40 个文件，`SlopeX.exe` / `.minecraft` / `bin` / `obj` 全部被拦。
 
 ---
 
