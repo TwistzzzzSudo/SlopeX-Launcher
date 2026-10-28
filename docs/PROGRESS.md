@@ -30,7 +30,7 @@
 | `docs/screenshots/` | 7 张界面截图（首页 / 版本 / 下载 / 任务 / 设置 / Java 缺失 / 自动安装） | ✅ |
 | `README.md` | 功能、架构、构建、限制说明 | ✅ |
 | `build.cmd` | 一键构建（纯 ASCII，规避 cmd 编码问题） | ✅ |
-| `tools/screenshot.ps1` | 内部工具：启动并截窗口图，用于视觉回归 | ✅ |
+| `tools/screenshot.ps1` | 内部工具：启动并截窗口图；`-Page "设置"` 可用 UI 自动化直接切页（不依赖点击坐标，规避 DPI 偏移） | ✅ |
 | `.git/` + `.gitignore` | 版本历史基线 `8cc0cd1`，只跟踪 40 个源文件（产物全排除） | ✅ |
 | `.workbuddy/memory/` | 项目决策与踩坑记录 | ✅ |
 
