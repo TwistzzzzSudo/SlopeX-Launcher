@@ -1,0 +1,379 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Win32.SafeHandles;
+using SlopeX.Modules.ModBase;
+using SlopeX.Modules.ModDownload;
+using SlopeX.Modules.ModJava;
+using SlopeX.Modules.ModLaunch;
+using SlopeX.Modules.ModMinecraft;
+using SlopeX.Modules.ModNet;
+
+namespace SlopeX.Modules.ModCli
+{
+    /// <summary>
+    /// 无界面模式：便于自动化测试与排障。
+    /// SlopeX.exe --cli [list|java|manifest|install|plan|verify|launch] [参数]
+    /// </summary>
+    public static class Cli
+    {
+        [DllImport("kernel32.dll")]
+        private static extern bool AttachConsole(int processId);
+
+        [DllImport("kernel32.dll")]
+        private static extern IntPtr GetStdHandle(int handle);
+
+        private static string _outFile;
+        private static StreamWriter _out;
+        private static readonly object WriteGate = new object();
+
+        public static int Run(string[] argv)
+        {
+            AttachToConsole();
+            _outFile = Path.Combine(Paths.LogDir, "cli.log");
+            try { File.WriteAllText(_outFile, ""); } catch { }
+
+            try
+            {
+                return RunCore(argv);
+            }
+            catch (Exception ex)
+            {
+                Out("ERROR " + ex.GetType().Name + ": " + ex.Message);
+                Out(ex.StackTrace ?? "");
+                return 1;
+            }
+        }
+
+        private static int RunCore(string[] argv)
+        {
+            // 过滤 --cli 自身
+            var args = argv.Where(a => a != "--cli").ToList();
+            var cmd = args.Count > 0 ? args[0].ToLowerInvariant() : "help";
+            args.RemoveAt(0);
+
+            // 支持 --dir <路径>
+            var dirIdx = args.FindIndex(a => a == "--dir" || a == "-d");
+            if (dirIdx >= 0 && dirIdx + 1 < args.Count)
+            {
+                Config.Current.GameDir = args[dirIdx + 1];
+                args.RemoveRange(dirIdx, 2);
+            }
+
+            Out("SlopeX Launcher " + "1.0.0" + "  |  gameDir = " + Config.Current.GameDir);
+
+            switch (cmd)
+            {
+                case "help":
+                    Out("用法：SlopeX.exe --cli <命令> [参数]");
+                    Out("  list                     列出已安装版本");
+                    Out("  java                     列出检测到的 Java");
+                    Out("  java-ensure <主版本>     确保存在可用 Java，缺失则自动下载安装");
+                    Out("  manifest [数量]          列出可安装的版本（默认 20 条）");
+                    Out("  install <版本>           安装原版版本");
+                    Out("  verify <版本>            校验依赖/资源是否齐全");
+                    Out("  plan <版本>              打印启动命令行（不启动）");
+                    Out("  launch <版本>            启动游戏");
+                    return 0;
+
+                case "list":
+                    return ListVersions();
+
+                case "java":
+                    return ListJava();
+
+                case "java-ensure":
+                    return EnsureJava(args.Count > 0 && int.TryParse(args[0], out var jm) ? jm : 21);
+
+                case "manifest":
+                    return Manifest(args.Count > 0 && int.TryParse(args[0], out var n) ? n : 20);
+
+                case "install":
+                    return Install(args.FirstOrDefault());
+
+                case "verify":
+                    return Verify(args.FirstOrDefault());
+
+                case "plan":
+                    return Plan(args.FirstOrDefault());
+
+                case "launch":
+                    return Launch(args.FirstOrDefault());
+
+                default:
+                    Out("未知命令：" + cmd);
+                    return 2;
+            }
+        }
+
+        private static int ListVersions()
+        {
+            var list = VersionManager.Scan(Config.Current.GameDir);
+            Out($"共 {list.Count} 个已安装版本：");
+            foreach (var v in list)
+                Out($"  {v.Id,-32} {v.Loader,-10} 基础版本 {v.BaseVersion,-10} {v.CreatedHint}  jar={(v.HasJar ? "有" : "无")}");
+            return 0;
+        }
+
+        private static int ListJava()
+        {
+            var list = JavaFinder.All(true);
+            Out($"共 {list.Count} 个 Java：");
+            foreach (var j in list)
+                Out($"  Java {j.Major,-3} {j.Arch,-8} {j.Vendor,-12} {j.Version,-14} {j.Path}");
+            if (list.Count == 0) Out("  未检测到任何 Java 运行时");
+            return 0;
+        }
+
+        private static int EnsureJava(int major)
+        {
+            Out($"确保存在 Java {major}……");
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var progress = new Progress<JavaInstallProgress>(p => Out("  " + p.Text));
+            try
+            {
+                var java = JavaProvisioner.EnsureAsync(major, progress).GetAwaiter().GetResult();
+                sw.Stop();
+                Out($"就绪：Java {java.Major}（{java.Vendor}）{java.Version}  {java.Path}");
+                Out($"耗时 {sw.Elapsed.TotalSeconds:0.0} 秒");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Out("失败：" + ex.Message);
+                return 1;
+            }
+        }
+
+        private static int Manifest(int count)
+        {
+            var list = Mojang.GetVersionListAsync(true).GetAwaiter().GetResult();
+            Out($"版本清单共 {list.Count} 条，前 {count} 条：");
+            foreach (var v in list.Take(count))
+                Out($"  {v.Id,-24} {v.TypeLabel,-10} {v.DateLabel}");
+            return 0;
+        }
+
+        private static int Install(string versionId)
+        {
+            if (string.IsNullOrEmpty(versionId)) { Out("请指定要安装的版本 ID"); return 2; }
+
+            var task = new InstallTask { VersionId = versionId };
+            var lastMilestone = -10;
+            task.Updated += t =>
+            {
+                var p = (int)t.Percent;
+                if (p >= lastMilestone + 10 || t.Completed || t.Failed)
+                {
+                    lastMilestone = p / 10 * 10;
+                    Out($"[{p,3}%] {t.Stage} {t.SizeText} {t.SpeedText}".TrimEnd());
+                }
+            };
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            task.RunAsync().GetAwaiter().GetResult();
+            sw.Stop();
+
+            if (task.Failed)
+            {
+                Out("安装失败：" + task.Error);
+                return 1;
+            }
+            Out($"安装完成，耗时 {sw.Elapsed.TotalSeconds:0.0} 秒");
+            return 0;
+        }
+
+        private static int Verify(string versionId)
+        {
+            if (string.IsNullOrEmpty(versionId)) { Out("请指定版本 ID"); return 2; }
+
+            var gameDir = Config.Current.GameDir;
+            var resolved = VersionManager.Resolve(gameDir, versionId);
+            var libsDir = Paths.LibrariesDir(gameDir);
+            var missing = new List<string>();
+
+            foreach (var lib in resolved.Libraries)
+            {
+                var arch = JavaFinder.ArchOfCurrentProcess;
+                if (!Rules.Allowed(J.Arr(lib, "rules"), new Dictionary<string, bool>(), arch)) continue;
+
+                var artifact = J.Obj(J.Obj(lib, "downloads"), "artifact");
+                var rel = J.Str(artifact, "path") ?? LaunchBuilder.MavenPath(J.Str(lib, "name"));
+                if (string.IsNullOrEmpty(rel)) continue;
+
+                var full = Path.Combine(libsDir, rel.Replace('/', Path.DirectorySeparatorChar));
+                if (!File.Exists(full)) missing.Add("lib  " + rel);
+            }
+
+            if (string.IsNullOrEmpty(resolved.JarPath) || !File.Exists(resolved.JarPath))
+                missing.Add("jar  客户端主文件");
+
+            var indexFile = Path.Combine(Paths.AssetsDir(gameDir), "indexes", resolved.EffectiveAssetIndex + ".json");
+            if (!File.Exists(indexFile)) missing.Add("index 资源索引 " + resolved.EffectiveAssetIndex);
+            else
+            {
+                try
+                {
+                    var idx = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(indexFile));
+                    var objects = J.Obj(idx, "objects");
+                    var objectsDir = Path.Combine(Paths.AssetsDir(gameDir), "objects");
+                    var missingAssets = 0;
+                    if (objects != null)
+                        foreach (var kv in objects)
+                        {
+                            var hash = J.Str(kv.Value, "hash");
+                            if (string.IsNullOrEmpty(hash) || hash.Length < 2) continue;
+                            if (!File.Exists(Path.Combine(objectsDir, hash.Substring(0, 2), hash))) missingAssets++;
+                        }
+                    if (missingAssets > 0) missing.Add($"asset 缺失 {missingAssets} 个资源对象");
+                }
+                catch (Exception ex) { missing.Add("index 解析失败 " + ex.Message); }
+            }
+
+            Out($"版本 {versionId}：库 {resolved.Libraries.Count} 个，继承链 {string.Join(" -> ", resolved.Chain)}");
+            Out($"Java 要求：{JavaFinder.RequiredMajor(versionId, resolved.JavaMajor)}");
+
+            if (missing.Count == 0) { Out("校验通过，依赖齐全 ✓"); return 0; }
+
+            Out($"缺失 {missing.Count} 项：");
+            foreach (var m in missing.Take(20)) Out("  " + m);
+            if (missing.Count > 20) Out($"  …… 另有 {missing.Count - 20} 项");
+            return 1;
+        }
+
+        private static int Plan(string versionId)
+        {
+            if (string.IsNullOrEmpty(versionId)) { Out("请指定版本 ID"); return 2; }
+
+            var root = Config.Current.GameDir;
+            var resolved = VersionManager.Resolve(root, versionId);
+            var gameDir = VersionEnv.Prepare(root, versionId);
+            var required = JavaFinder.RequiredMajor(versionId, resolved.JavaMajor);
+            var java = !string.IsNullOrEmpty(Config.Current.JavaPath) && File.Exists(Config.Current.JavaPath)
+                ? new JavaInfo { Path = Config.Current.JavaPath, Major = required }
+                : JavaFinder.FindBest(required);
+            if (java == null)
+            {
+                Out($"没有可用的 Java {required}（可执行 java-ensure {required} 自动安装）");
+                return 1;
+            }
+
+            var options = new LaunchOptions
+            {
+                GameDir = gameDir,
+                RootGameDir = root,
+                VersionName = versionId,
+                PlayerName = Config.Current.PlayerName,
+                JavaPath = java.Path,
+                MemoryMb = Config.Current.MemoryMb,
+                MinMemoryMb = Config.Current.MinMemoryMb,
+                CustomResolution = Config.Current.CustomResolution,
+                Width = Config.Current.WindowWidth,
+                Height = Config.Current.WindowHeight
+            };
+
+            var plan = LaunchBuilder.Build(resolved, options, java.Path);
+            Out($"Java：{java.Path}（Java {java.Major}）");
+            Out($"游戏目录：{gameDir}（版本隔离：{(VersionEnv.IsIsolated(root, gameDir) ? "开" : "关")}）");
+            Out($"mainClass：{resolved.MainClass}");
+            Out($"参数数量：{plan.Args.Count}，解压原生库 {plan.ExtractedNatives} 个");
+            Out("---- 命令行 ----");
+            Out(plan.ToCommandLine());
+            return 0;
+        }
+
+        private static int Launch(string versionId)
+        {
+            if (string.IsNullOrEmpty(versionId)) { Out("请指定版本 ID"); return 2; }
+
+            var root = Config.Current.GameDir;
+            var resolved = VersionManager.Resolve(root, versionId);
+            var gameDir = VersionEnv.Prepare(root, versionId);
+            var required = JavaFinder.RequiredMajor(versionId, resolved.JavaMajor);
+            var java = JavaFinder.FindBest(required);
+            if (java == null)
+            {
+                Out($"没有可用的 Java {required}，开始自动安装……");
+                try
+                {
+                    var progress = new Progress<JavaInstallProgress>(p => Out("  " + p.Text));
+                    java = JavaProvisioner.EnsureAsync(required, progress).GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    Out("Java 自动安装失败：" + ex.Message);
+                    return 1;
+                }
+            }
+
+            var options = new LaunchOptions
+            {
+                GameDir = gameDir,
+                RootGameDir = root,
+                VersionName = versionId,
+                PlayerName = Config.Current.PlayerName,
+                JavaPath = java.Path,
+                MemoryMb = Config.Current.MemoryMb,
+                MinMemoryMb = Config.Current.MinMemoryMb
+            };
+
+            var plan = LaunchBuilder.Build(resolved, options, java.Path);
+            Out("游戏目录：" + gameDir);
+            Out("命令行：" + plan.ToCommandLine());
+
+            var proc = new GameProcess();
+            proc.Output += line => Out("  | " + line);
+            proc.Start(plan);
+
+            Out("游戏已启动，等待进程退出……");
+            var exitCode = -1;
+            var done = new ManualResetEventSlim(false);
+            proc.Exited += code => { exitCode = code; done.Set(); };
+            done.Wait(TimeSpan.FromMinutes(5));
+            Out("退出码：" + exitCode);
+            return exitCode;
+        }
+
+        private static void Out(string line)
+        {
+            lock (WriteGate)
+            {
+                try { _out?.WriteLine(line); } catch { }
+                try { File.AppendAllText(_outFile, line + Environment.NewLine); } catch { }
+            }
+        }
+
+        /// <summary>接管标准输出：统一用 UTF-8，避免控制台代码页（GBK）导致中文乱码。</summary>
+        private static void AttachToConsole()
+        {
+            try
+            {
+                if (Console.IsOutputRedirected)
+                {
+                    // 管道 / 文件重定向：直接写 UTF-8 原始字节
+                    _out = new StreamWriter(Console.OpenStandardOutput(), new UTF8Encoding(false))
+                    {
+                        AutoFlush = true
+                    };
+                    return;
+                }
+
+                if (!AttachConsole(-1)) return; // 没有父控制台（双击启动）就只写文件
+
+                try { Console.OutputEncoding = new UTF8Encoding(false); } catch { }
+
+                var handle = GetStdHandle(-11);
+                if (handle == IntPtr.Zero || handle == new IntPtr(-1)) return;
+
+                var stream = new FileStream(new SafeFileHandle(handle, false), FileAccess.Write);
+                _out = new StreamWriter(stream, new UTF8Encoding(false)) { AutoFlush = true };
+            }
+            catch { /* 忽略，仍会写入日志文件 */ }
+        }
+    }
+}

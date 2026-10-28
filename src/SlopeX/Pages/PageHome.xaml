@@ -1,0 +1,277 @@
+<UserControl x:Class="SlopeX.Pages.PageHome"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FontFamily="{StaticResource UiFont}">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="34,26,34,28">
+
+            <!-- 页头 -->
+            <Grid Margin="0,0,0,20">
+                <StackPanel>
+                    <TextBlock x:Name="Greeting" Style="{StaticResource TTitle}" Text="准备起飞"/>
+                    <TextBlock x:Name="GreetSub" Style="{StaticResource TSub}" Margin="0,5,0,0"
+                               Text="选择一个版本，开始你的世界。"/>
+                </StackPanel>
+                <Button Style="{StaticResource BtnGhost}" Content="刷新" HorizontalAlignment="Right"
+                        VerticalAlignment="Bottom" Click="Refresh_Click"/>
+            </Grid>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="300"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- ===== 左：当前版本 ===== -->
+                <StackPanel Grid.Column="0">
+                    <Border Style="{StaticResource Card}" Padding="22,20,22,20">
+                        <StackPanel>
+                            <Grid>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock x:Name="CurVersionName" FontSize="25" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Ink}" Text="—"/>
+                                    <Border x:Name="CurLoaderTag" Style="{StaticResource Tag}"
+                                            Background="{StaticResource Ink}" Margin="10,0,0,0">
+                                        <TextBlock x:Name="CurLoaderText" Text="原版" FontSize="11"
+                                                   Foreground="#FFFFFF"/>
+                                    </Border>
+                                    <Border x:Name="CurTypeTag" Style="{StaticResource Tag}">
+                                        <TextBlock x:Name="CurTypeText" Style="{StaticResource TCaption}"
+                                                   Foreground="{StaticResource Sub}" Text="正式版"/>
+                                    </Border>
+                                </StackPanel>
+                                <Button x:Name="BtnSwitch" Style="{StaticResource BtnText}" Content="切换版本"
+                                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                                        Click="GoVersions_Click"/>
+                            </Grid>
+
+                            <Border Style="{StaticResource HRule}" Margin="0,17,0,0"/>
+
+                            <StackPanel Margin="0,14,0,0">
+                                <Grid Margin="0,0,0,9">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Style="{StaticResource TSub}" Text="基础版本"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="InfoBase" Grid.Column="1" Style="{StaticResource TBody}"
+                                               HorizontalAlignment="Right" Text="—"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,9">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Style="{StaticResource TSub}" Text="Java 运行时"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="InfoJava" Grid.Column="1" Style="{StaticResource TBody}"
+                                               HorizontalAlignment="Right" Text="检测中…"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,9">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Style="{StaticResource TSub}" Text="内存分配"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="InfoMemory" Grid.Column="1" Style="{StaticResource TBody}"
+                                               HorizontalAlignment="Right" Text="—"/>
+                                </Grid>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Style="{StaticResource TSub}" Text="版本目录"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="InfoPath" Grid.Column="1" Style="{StaticResource TMono}"
+                                               HorizontalAlignment="Right" Text="—"
+                                               TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                                </Grid>
+                            </StackPanel>
+
+                            <Border Style="{StaticResource HRule}" Margin="0,16,0,0"/>
+
+                            <Grid Margin="0,16,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Button x:Name="BtnLaunch" Style="{StaticResource BtnPrimary}" Height="48"
+                                        Click="Launch_Click">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock x:Name="BtnLaunchIcon" Text="&#xE768;"
+                                                   FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                                   VerticalAlignment="Center" Margin="0,0,9,0"/>
+                                        <TextBlock x:Name="BtnLaunchText" Text="启动游戏" FontSize="14"
+                                                   FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="BtnKill" Grid.Column="1" Style="{StaticResource BtnGhost}"
+                                        Content="结束进程" Height="48" Padding="18,0" Margin="10,0,0,0"
+                                        Visibility="Collapsed" Click="Kill_Click"/>
+                            </Grid>
+
+                            <StackPanel x:Name="JavaProgressPanel" Margin="0,12,0,0" Visibility="Collapsed">
+                                <Grid>
+                                    <TextBlock x:Name="JavaProgressText" Style="{StaticResource TCaption}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock x:Name="JavaProgressPct" Style="{StaticResource TCaption}"
+                                               HorizontalAlignment="Right" Margin="10,0,0,0"
+                                               Foreground="{StaticResource Ink}"/>
+                                </Grid>
+                                <ProgressBar x:Name="JavaProgressBar" Style="{StaticResource Bar}"
+                                             Margin="0,7,0,0" Minimum="0" Maximum="100" Value="0"/>
+                            </StackPanel>
+
+                            <TextBlock x:Name="LaunchHint" Style="{StaticResource TCaption}" Margin="0,10,0,0"
+                                       TextWrapping="Wrap" Visibility="Collapsed"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 最近版本 -->
+                    <Border Style="{StaticResource Card}" Padding="10,14,10,10" Margin="0,16,0,0">
+                        <StackPanel>
+                            <Grid Margin="8,0,6,6">
+                                <TextBlock Style="{StaticResource TSection}" Text="全部版本"/>
+                                <Button Style="{StaticResource BtnText}" Content="管理" HorizontalAlignment="Right"
+                                        Click="GoVersions_Click"/>
+                            </Grid>
+                            <ListBox x:Name="RecentList" Style="{StaticResource PlainList}" MaxHeight="228"
+                                     SelectionChanged="RecentList_SelectionChanged">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Id}" Style="{StaticResource TBody}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Style="{StaticResource TCaption}" Margin="0,2,0,0">
+                                                    <Run Text="{Binding Loader, Mode=OneWay}"/>
+                                                    <Run Text=" · "/>
+                                                    <Run Text="{Binding CreatedHint, Mode=OneWay}"/>
+                                                </TextBlock>
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="1" Text="{Binding BaseVersion}"
+                                                       Style="{StaticResource TMono}"
+                                                       VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <TextBlock x:Name="EmptyHint" Style="{StaticResource TCaption}" Margin="8,4,8,10"
+                                       Text="还没有安装任何版本。" Visibility="Collapsed"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 统计条 -->
+                    <Border Style="{StaticResource Card}" Padding="0" Margin="0,16,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="1"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="1"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="1"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Margin="0,15">
+                                <TextBlock x:Name="StatVersions" Text="0" FontSize="19" FontWeight="SemiBold"
+                                           Foreground="{StaticResource Ink}" HorizontalAlignment="Center"/>
+                                <TextBlock Text="已安装版本" Style="{StaticResource TCaption}"
+                                           HorizontalAlignment="Center" Margin="0,3,0,0"/>
+                            </StackPanel>
+
+                            <Border Grid.Column="1" Background="{StaticResource Line}" Margin="0,14"/>
+
+                            <StackPanel Grid.Column="2" Margin="0,15">
+                                <TextBlock x:Name="StatJava" Text="—" FontSize="19" FontWeight="SemiBold"
+                                           Foreground="{StaticResource Ink}" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Java 版本" Style="{StaticResource TCaption}"
+                                           HorizontalAlignment="Center" Margin="0,3,0,0"/>
+                            </StackPanel>
+
+                            <Border Grid.Column="3" Background="{StaticResource Line}" Margin="0,14"/>
+
+                            <StackPanel Grid.Column="4" Margin="0,15">
+                                <TextBlock x:Name="StatMemory" Text="—" FontSize="19" FontWeight="SemiBold"
+                                           Foreground="{StaticResource Ink}" HorizontalAlignment="Center"/>
+                                <TextBlock Text="内存上限" Style="{StaticResource TCaption}"
+                                           HorizontalAlignment="Center" Margin="0,3,0,0"/>
+                            </StackPanel>
+
+                            <Border Grid.Column="5" Background="{StaticResource Line}" Margin="0,14"/>
+
+                            <StackPanel Grid.Column="6" Margin="0,15">
+                                <TextBlock x:Name="StatSource" Text="—" FontSize="19" FontWeight="SemiBold"
+                                           Foreground="{StaticResource Ink}" HorizontalAlignment="Center"/>
+                                <TextBlock Text="下载源" Style="{StaticResource TCaption}"
+                                           HorizontalAlignment="Center" Margin="0,3,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <!-- ===== 右：账号与环境 ===== -->
+                <StackPanel Grid.Column="2">
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <Grid>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Width="38" Height="38" CornerRadius="19"
+                                            Background="{StaticResource Paper2}">
+                                        <TextBlock x:Name="AvatarText" Text="S" FontSize="15"
+                                                   FontWeight="SemiBold" Foreground="{StaticResource Sub}"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock x:Name="AccountName" Style="{StaticResource TBody}"
+                                                   FontWeight="SemiBold" Text="Steve"/>
+                                        <TextBlock Style="{StaticResource TCaption}" Text="离线登录 · 无需验证"
+                                                   Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <Button Style="{StaticResource BtnText}" Content="编辑"
+                                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                                        Click="EditAccount_Click"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}" Margin="0,16,0,0">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource TSection}" Text="游戏目录" Margin="0,0,0,10"/>
+                            <TextBlock x:Name="GameDirText" Style="{StaticResource TMono}" TextWrapping="Wrap"
+                                       Text="—"/>
+                            <TextBlock x:Name="GameDirMode" Style="{StaticResource TCaption}" Margin="0,8,0,0"
+                                       TextWrapping="Wrap" Text="—"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                <Button Style="{StaticResource BtnGhost}" Content="打开文件夹" Height="30"
+                                        Padding="12,0" Click="OpenFolder_Click"/>
+                                <Button Style="{StaticResource BtnGhost}" Content="设置" Height="30"
+                                        Padding="12,0" Margin="8,0,0,0" Click="EditAccount_Click"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}" Margin="0,16,0,0">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource TSection}" Text="小提示" Margin="0,0,0,8"/>
+                            <TextBlock Style="{StaticResource TSub}" TextWrapping="Wrap" LineHeight="20"
+                                       Text="首次使用请先在「下载」页安装一个版本，启动器会自动扫描已有 .minecraft 目录。开启版本隔离后，每个版本的材质包、存档、模组都在各自目录里，互不影响。"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

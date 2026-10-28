@@ -1,0 +1,470 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
+using SlopeX.Modules.ModBase;
+using SlopeX.Modules.ModJava;
+using SlopeX.Modules.ModLaunch;
+using SlopeX.Modules.ModMinecraft;
+using SlopeX.Windows;
+
+namespace SlopeX.Pages
+{
+    public partial class PageHome : UserControl, ILauncherPage
+    {
+        private List<InstalledVersion> _versions = new List<InstalledVersion>();
+        private InstalledVersion _selected;
+        private GameProcess _game;
+        private StreamWriter _gameLog;
+        private readonly object _logGate = new object();
+        private readonly List<string> _recentOutput = new List<string>();
+        private DateTime _launchAt;
+        private bool _loading;
+
+        public PageHome()
+        {
+            InitializeComponent();
+        }
+
+        public void OnShown() => Reload();
+
+        public async void Reload()
+        {
+            if (_loading) return;
+            _loading = true;
+            try
+            {
+                var gameDir = Config.Current.GameDir;
+                _versions = VersionManager.Scan(gameDir);
+                RecentList.ItemsSource = _versions;
+                EmptyHint.Visibility = _versions.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+                _selected = _versions.FirstOrDefault(v => v.Id == Config.Current.LastVersion)
+                            ?? _versions.FirstOrDefault();
+
+                ApplySelection();
+                UpdateAccount();
+                await UpdateJavaInfoAsync();
+            }
+            catch (Exception ex)
+            {
+                Log.Error("刷新首页失败", ex);
+            }
+            finally
+            {
+                _loading = false;
+            }
+        }
+
+        private void ApplySelection()
+        {
+            var running = _game != null && _game.IsRunning;
+
+            StatVersions.Text = _versions.Count.ToString();
+            StatMemory.Text = (Config.Current.MemoryMb / 1024.0).ToString("0.#") + " GB";
+            StatSource.Text = Config.Current.UseMirror ? "BMCLAPI" : "官方";
+
+            // 游戏目录卡片：说明当前是隔离模式还是共用模式
+            var root = Config.Current.GameDir;
+            if (Config.Current.VersionIsolation)
+            {
+                GameDirMode.Text = _selected == null
+                    ? "版本隔离：已启用（每个版本独立的 mods / 资源包 / 存档）"
+                    : "版本隔离：已启用 → " + VersionEnv.Resolve(root, _selected.Id, true);
+            }
+            else
+            {
+                GameDirMode.Text = "版本隔离：已关闭（所有版本共用上面这个目录）";
+            }
+
+            if (_selected == null)
+            {
+                CurVersionName.Text = "尚未安装版本";
+                CurLoaderTag.Visibility = Visibility.Collapsed;
+                CurTypeTag.Visibility = Visibility.Collapsed;
+                InfoBase.Text = "—";
+                InfoMemory.Text = "—";
+                InfoPath.Text = "—";
+                BtnLaunchText.Text = "去下载一个版本";
+                BtnLaunchIcon.Text = "\uE896";
+                BtnSwitch.Visibility = Visibility.Collapsed;
+                LaunchHint.Visibility = Visibility.Visible;
+                LaunchHint.Text = "还没有可用的游戏版本，先到「下载」页安装一个吧。";
+                return;
+            }
+
+            CurVersionName.Text = _selected.Id;
+            CurLoaderTag.Visibility = Visibility.Visible;
+            CurTypeTag.Visibility = Visibility.Visible;
+            CurLoaderText.Text = _selected.Loader;
+            CurTypeText.Text = _selected.TypeLabel;
+            CurLoaderTag.Background = _selected.Loader == "原版"
+                ? (System.Windows.Media.Brush)FindResource("Ink")
+                : (System.Windows.Media.Brush)FindResource("Sub");
+
+            InfoBase.Text = _selected.BaseVersion;
+            InfoMemory.Text = $"{Config.Current.MemoryMb} MB";
+            InfoPath.Text = _selected.Dir;
+            BtnSwitch.Visibility = Visibility.Visible;
+            LaunchHint.Visibility = Visibility.Collapsed;
+
+            if (!running)
+            {
+                BtnLaunchText.Text = "启动游戏";
+                BtnLaunchIcon.Text = "\uE768";
+            }
+
+            if (RecentList.SelectedItem != _selected)
+                RecentList.SelectedItem = _selected;
+        }
+
+        private void UpdateAccount()
+        {
+            var name = string.IsNullOrWhiteSpace(Config.Current.PlayerName) ? "Steve" : Config.Current.PlayerName;
+            AccountName.Text = name;
+            AvatarText.Text = name.Substring(0, 1).ToUpperInvariant();
+            GameDirText.Text = Config.Current.GameDir;
+        }
+
+        private async Task UpdateJavaInfoAsync()
+        {
+            if (_selected == null)
+            {
+                InfoJava.Text = "—";
+                StatJava.Text = "—";
+                return;
+            }
+
+            InfoJava.Text = "检测中…";
+            InfoJava.ClearValue(TextBlock.ForegroundProperty);
+            var id = _selected.Id;
+            var baseVersion = _selected.BaseVersion;
+
+            var result = await Task.Run(() =>
+            {
+                try
+                {
+                    var resolved = VersionManager.Resolve(Config.Current.GameDir, id);
+                    var required = JavaFinder.RequiredMajor(baseVersion, resolved.JavaMajor);
+                    var java = JavaFinder.FindBest(required);
+
+                    if (java == null)
+                    {
+                        var text = Config.Current.AutoInstallJava
+                            ? $"缺少 Java {required} · 启动时自动安装"
+                            : $"缺少 Java {required}";
+                        return (text, 0, true);
+                    }
+
+                    // 版本高于要求也能跑，但标黄提醒一下
+                    return ($"Java {java.Major} · {java.Vendor}", java.Major, java.Major != required);
+                }
+                catch (Exception ex)
+                {
+                    return ("无法解析：" + ex.Message, 0, false);
+                }
+            });
+
+            InfoJava.Text = result.Item1;
+            if (result.Item3)
+                InfoJava.Foreground = (System.Windows.Media.Brush)FindResource("Warn");
+            StatJava.Text = result.Item2 > 0 ? result.Item2.ToString() : "—";
+        }
+
+        private void ShowHint(string text, bool warn)
+        {
+            LaunchHint.Visibility = Visibility.Visible;
+            LaunchHint.Text = text;
+            LaunchHint.Foreground = (System.Windows.Media.Brush)FindResource(warn ? "Bad" : "Sub");
+        }
+
+        /// <summary>
+        /// 取得能满足要求的 Java：手动指定 → 已安装 → 自动下载安装。
+        /// 返回 null 表示无法取得（已向用户提示原因）。
+        /// </summary>
+        private async Task<JavaInfo> ResolveJavaAsync(int required)
+        {
+            if (!string.IsNullOrWhiteSpace(Config.Current.JavaPath))
+            {
+                var manual = await Task.Run(() => JavaFinder.FromPath(Config.Current.JavaPath));
+                if (manual != null && JavaFinder.IsSuitable(manual, required)) return manual;
+                if (manual != null)
+                {
+                    Log.Warn($"设置中指定的 Java {manual.Major} 低于要求的 Java {required}，改为自动选择");
+                    ShowHint($"设置中指定的 Java {manual.Major} 无法运行该版本（需要 Java {required}），本次已自动改用其他 Java。", true);
+                }
+            }
+
+            var hit = await Task.Run(() => JavaFinder.FindBest(required));
+            if (hit != null) return hit;
+
+            if (!Config.Current.AutoInstallJava)
+            {
+                ShowHint($"这个版本需要 Java {required}，本机没有检测到。可在「设置」里开启自动下载，或手动指定 Java 路径。", true);
+                return null;
+            }
+
+            // ---- 自动下载安装 ----
+            Log.Info($"本机缺少 Java {required}，准备自动安装");
+            ShowHint($"没有检测到 Java {required}，正在从国内镜像自动下载安装…", false);
+            JavaProgressPanel.Visibility = Visibility.Visible;
+            JavaProgressBar.Value = 0;
+            JavaProgressText.Text = $"Java {required} · 准备中";
+            JavaProgressPct.Text = "";
+            BtnLaunchText.Text = $"安装 Java {required}…";
+
+            var progress = new Progress<JavaInstallProgress>(p =>
+            {
+                JavaProgressText.Text = p.Text;
+                JavaProgressPct.Text = p.Percent > 0 ? $"{p.Percent:0}%" : "";
+                if (p.Percent > 0) JavaProgressBar.Value = p.Percent;
+            });
+
+            try
+            {
+                var java = await JavaProvisioner.EnsureAsync(required, progress);
+                JavaProgressBar.Value = 100;
+                JavaProgressText.Text = $"Java {java.Major} 已就绪";
+                JavaProgressPanel.Visibility = Visibility.Collapsed;
+                ShowHint($"已自动安装 Java {java.Major}（{java.Vendor}），位于 {Paths.JavaDir(java.Major)}", false);
+                _ = UpdateJavaInfoAsync();   // 刷新「Java 运行时」与实际主版本数字
+                return java;
+            }
+            catch (Exception ex)
+            {
+                JavaProgressPanel.Visibility = Visibility.Collapsed;
+                Log.Error("自动安装 Java 失败", ex);
+                ShowHint("Java 自动安装失败：" + ex.Message, true);
+                return null;
+            }
+            finally
+            {
+                BtnLaunchText.Text = "正在启动…";
+            }
+        }
+
+        // ---------------- 启动 ----------------
+
+        private async void Launch_Click(object sender, RoutedEventArgs e)
+        {
+            if (_game != null && _game.IsRunning) return;
+
+            if (_selected == null)
+            {
+                MainWindow.Current?.Navigate(2);
+                return;
+            }
+
+            BtnLaunch.IsEnabled = false;
+            BtnLaunchText.Text = "正在启动…";
+            LaunchHint.Visibility = Visibility.Collapsed;
+            JavaProgressPanel.Visibility = Visibility.Collapsed;
+
+            try
+            {
+                var rootGameDir = Config.Current.GameDir;
+                var versionId = _selected.Id;
+                var baseVersion = _selected.BaseVersion;
+
+                // 1) 解析版本继承链与 Java 需求，并准备好该版本的游戏目录（版本隔离在此生效）
+                var (resolved, required, gameDir) = await Task.Run(() =>
+                {
+                    var r = VersionManager.Resolve(rootGameDir, versionId);
+                    var dir = VersionEnv.Prepare(rootGameDir, versionId);
+                    return (r, JavaFinder.RequiredMajor(baseVersion, r.JavaMajor), dir);
+                });
+
+                // 2) 找 Java；缺失时自动下载安装
+                var java = await ResolveJavaAsync(required);
+                if (java == null)
+                {
+                    SetRunning(false);
+                    return;
+                }
+
+                Log.Info($"{versionId} 要求 Java {required}，选用 Java {java.Major}（{java.Path}）");
+
+                // 3) 拼装启动命令
+                var plan = await Task.Run(() =>
+                {
+                    var options = new LaunchOptions
+                    {
+                        GameDir = gameDir,
+                        RootGameDir = rootGameDir,
+                        VersionName = versionId,
+                        PlayerName = Config.Current.PlayerName,
+                        JavaPath = java.Path,
+                        MemoryMb = Config.Current.MemoryMb,
+                        MinMemoryMb = Config.Current.MinMemoryMb,
+                        JvmExtra = Config.Current.JvmArgs,
+                        CustomResolution = Config.Current.CustomResolution,
+                        Width = Config.Current.WindowWidth,
+                        Height = Config.Current.WindowHeight
+                    };
+
+                    return LaunchBuilder.Build(resolved, options, java.Path);
+                });
+
+                var logDir = Path.Combine(gameDir, "logs");
+                Directory.CreateDirectory(logDir);
+                lock (_logGate)
+                {
+                    _gameLog?.Dispose();
+                    _gameLog = new StreamWriter(
+                        Path.Combine(logDir, $"slopex-{DateTime.Now:yyyyMMdd-HHmmss}.log"), true)
+                    { AutoFlush = true };
+                }
+
+                GameLogHub.Clear();
+                lock (_logGate) _recentOutput.Clear();
+                _launchAt = DateTime.Now;
+                _game = new GameProcess();
+                _game.Output += OnGameOutput;
+                _game.Exited += OnGameExited;
+                _game.Start(plan);
+
+                SetRunning(true);
+                Log.Info($"启动 {versionId}（Java {java.Major} · {java.Path}）");
+                MainWindow.Current?.SetStatus(
+                    $"游戏运行中   ·   {versionId}   ·   Java {java.Major}   ·   PID {_game.Pid}");
+
+                Config.Current.LastVersion = versionId;
+                Config.Current.Save();
+
+                if (Config.Current.CloseOnLaunch)
+                {
+                    var w = Window.GetWindow(this);
+                    if (w != null) w.WindowState = WindowState.Minimized;
+                }
+            }
+            catch (Exception ex)
+            {
+                SetRunning(false);
+                Log.Error("启动失败", ex);
+                LaunchHint.Visibility = Visibility.Visible;
+                LaunchHint.Text = ex is FileNotFoundException
+                    ? "缺少依赖文件：" + ex.Message
+                    : "启动失败：" + ex.Message;
+                MessageBox.Show(ex.Message, "启动失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        private void OnGameOutput(string line)
+        {
+            lock (_logGate)
+            {
+                try { _gameLog?.WriteLine(line); } catch { }
+                _recentOutput.Add(line);
+                if (_recentOutput.Count > 120) _recentOutput.RemoveAt(0);
+            }
+            GameLogHub.Push(line);
+        }
+
+        private void OnGameExited(int code)
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                SetRunning(false);
+                lock (_logGate)
+                {
+                    try { _gameLog?.Dispose(); } catch { }
+                    _gameLog = null;
+                }
+                Log.Info($"游戏进程已退出，退出码 {code}");
+                MainWindow.Current?.SetStatus($"游戏已退出（{_selected?.Id}，退出码 {code}）", null);
+                _ = MainWindow.Current?.RefreshStatusAsync();
+
+                // 秒退：多半是 Java 版本不对或依赖缺失，把原因直接说清楚
+                var elapsed = DateTime.Now - _launchAt;
+                if (code != 0 && elapsed.TotalSeconds < 20)
+                    ShowExitReason(code);
+
+                var win = Window.GetWindow(this);
+                if (win != null && win.WindowState == WindowState.Minimized)
+                    win.WindowState = WindowState.Normal;
+            }));
+        }
+
+        private void ShowExitReason(int code)
+        {
+            string reason;
+            lock (_logGate)
+            {
+                var versionError = _recentOutput.FirstOrDefault(l =>
+                    l.Contains("UnsupportedClassVersionError") || l.Contains("class file version"));
+
+                if (versionError != null)
+                {
+                    reason = "游戏启动后立即退出：当前 Java 版本过低，无法运行该版本。" +
+                             "可开启「缺少 Java 时自动下载」，或到「设置」中更换 Java。";
+                }
+                else
+                {
+                    var err = _recentOutput.FirstOrDefault(l =>
+                        l.Contains("Exception") || l.Contains("Error") || l.Contains("Could not") ||
+                        l.Contains("Caused by"));
+                    reason = err != null
+                        ? $"游戏启动后立即退出（退出码 {code}）：{err.Trim()}"
+                        : $"游戏启动后立即退出（退出码 {code}），完整日志见「任务与日志」页。";
+                }
+            }
+
+            Log.Warn(reason);
+            ShowHint(reason, true);
+        }
+
+        private void SetRunning(bool running)
+        {
+            BtnLaunch.IsEnabled = !running;
+            BtnSwitch.IsEnabled = !running;
+            BtnKill.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
+            BtnLaunchText.Text = running ? "游戏运行中" : "启动游戏";
+            BtnLaunchIcon.Text = running ? "\uE71A" : "\uE768";
+        }
+
+        private void Kill_Click(object sender, RoutedEventArgs e)
+        {
+            _game?.Kill();
+        }
+
+        // ---------------- 交互 ----------------
+
+        private void Refresh_Click(object sender, RoutedEventArgs e) => Reload();
+
+        private void GoVersions_Click(object sender, RoutedEventArgs e) => MainWindow.Current?.Navigate(1);
+
+        private void EditAccount_Click(object sender, RoutedEventArgs e) => MainWindow.Current?.Navigate(4);
+
+        private void OpenFolder_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // 开启版本隔离时，打开的是当前版本自己的目录（材质包 / 存档都在里面）
+                var dir = _selected == null
+                    ? Config.Current.GameDir
+                    : VersionEnv.Resolve(Config.Current.GameDir, _selected.Id, Config.Current.VersionIsolation);
+                if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                Process.Start(new ProcessStartInfo("explorer.exe", "\"" + dir + "\"") { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("打开游戏目录失败：" + ex.Message);
+            }
+        }
+
+        private void RecentList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (RecentList.SelectedItem is InstalledVersion v)
+            {
+                _selected = v;
+                ApplySelection();
+                Config.Current.LastVersion = v.Id;
+                _ = UpdateJavaInfoAsync();
+            }
+        }
+    }
+}

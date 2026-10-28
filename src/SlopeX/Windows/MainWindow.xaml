@@ -1,0 +1,199 @@
+<Window x:Class="SlopeX.Windows.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="SlopeX Launcher"
+        Height="820" Width="1280" MinHeight="620" MinWidth="980"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None" ResizeMode="CanResize"
+        Background="{StaticResource Bg}"
+        FontFamily="{StaticResource UiFont}" FontSize="13"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Ideal"
+        TextOptions.TextRenderingMode="ClearType">
+
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="46" ResizeBorderThickness="6"
+                            GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <!-- 矢量导航图标：描边版（跟随导航项文字颜色） -->
+        <Style x:Key="NavIconStroke" TargetType="Path">
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Height" Value="16"/>
+            <Setter Property="StrokeThickness" Value="1.3"/>
+            <Setter Property="StrokeStartLineCap" Value="Round"/>
+            <Setter Property="StrokeEndLineCap" Value="Round"/>
+            <Setter Property="StrokeLineJoin" Value="Round"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,10,0"/>
+            <Setter Property="Stroke"
+                    Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"/>
+        </Style>
+
+        <Style x:Key="NavIconFill" TargetType="Path">
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Height" Value="16"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,10,0"/>
+            <Setter Property="Fill"
+                    Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"/>
+        </Style>
+
+        <Style x:Key="NavItem" TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{StaticResource Sub}"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Margin" Value="0,1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="bd" Background="Transparent" CornerRadius="7" Padding="11,0">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource Paper}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource Paper2}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border x:Name="RootBorder" BorderBrush="{StaticResource Line}" BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="46"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="26"/>
+            </Grid.RowDefinitions>
+
+            <!-- ========== 标题栏 ========== -->
+            <Border Grid.Row="0" Background="{StaticResource Bg}"
+                    BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1">
+                <Grid Margin="16,0,9,0">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Width="20" Height="20" CornerRadius="5" Background="{StaticResource Ink}" Margin="0,0,9,0">
+                            <Path Data="M4,13.5 L8,9 L10.5,11 L15.5,5"
+                                  Stroke="#FFFFFF" StrokeThickness="1.6"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                        </Border>
+                        <TextBlock Text="SlopeX" FontSize="13.5" FontWeight="SemiBold"
+                                   Foreground="{StaticResource Ink}" VerticalAlignment="Center"/>
+                        <TextBlock Text="LAUNCHER" FontSize="9" Foreground="{StaticResource Muted}"
+                                   Margin="8,1,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                        <Button x:Name="BtnMin" Style="{StaticResource BtnWin}" Click="Minimize_Click"
+                                Content="&#xE921;"/>
+                        <Button x:Name="BtnMax" Style="{StaticResource BtnWin}" Click="Maximize_Click"
+                                Content="&#xE922;" Margin="2,0"/>
+                        <Button x:Name="BtnClose" Style="{StaticResource BtnWinClose}" Click="Close_Click"
+                                Content="&#xE8BB;" Margin="2,0"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ========== 主体 ========== -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="212"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 侧边栏 -->
+                <Border Grid.Column="0" Background="{StaticResource Bg}"
+                        BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
+                    <Grid Margin="11,12,11,10">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <ListBox x:Name="NavList" Grid.Row="0" Style="{StaticResource PlainList}"
+                                 SelectionChanged="Nav_SelectionChanged">
+                            <ListBoxItem Style="{StaticResource NavItem}" Tag="0">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Style="{StaticResource NavIconFill}"
+                                          Data="M5.6,3.9 L11.8,8 L5.6,12.1 Z"/>
+                                    <TextBlock Text="启动" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </ListBoxItem>
+                            <ListBoxItem Style="{StaticResource NavItem}" Tag="1">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Style="{StaticResource NavIconStroke}"
+                                          Data="M8,2.8 L13.2,5.5 L8,8.2 L2.8,5.5 Z M2.8,8.7 L8,11.4 L13.2,8.7"/>
+                                    <TextBlock Text="版本管理" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </ListBoxItem>
+                            <ListBoxItem Style="{StaticResource NavItem}" Tag="2">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Style="{StaticResource NavIconStroke}"
+                                          Data="M8,2.9 L8,10.2 M5.3,7.6 L8,10.3 L10.7,7.6 M3.2,13.1 L12.8,13.1"/>
+                                    <TextBlock Text="下载" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </ListBoxItem>
+                            <ListBoxItem Style="{StaticResource NavItem}" Tag="3">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Style="{StaticResource NavIconStroke}"
+                                          Data="M3.4,3.9 L12.6,3.9 M3.4,7.9 L12.6,7.9 M3.4,11.9 L9.2,11.9"/>
+                                    <TextBlock Text="任务与日志" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </ListBoxItem>
+                            <ListBoxItem Style="{StaticResource NavItem}" Tag="4">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Style="{StaticResource NavIconStroke}"
+                                          Data="M2.9,5.6 L13.1,5.6 M2.9,10.4 L13.1,10.4 M6.1,3.9 L6.1,7.3 M10.2,8.7 L10.2,12.1"/>
+                                    <TextBlock Text="设置" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </ListBoxItem>
+                        </ListBox>
+
+                        <!-- 账号 -->
+                        <Button Grid.Row="1" Style="{StaticResource BtnText}" Height="48" Padding="8,0"
+                                Margin="0,6,0,0" Click="Account_Click" HorizontalContentAlignment="Stretch">
+                            <Grid>
+                                <Border Width="30" Height="30" CornerRadius="15"
+                                        Background="{StaticResource Paper2}" HorizontalAlignment="Left">
+                                    <TextBlock x:Name="SideAvatar" Text="S" FontSize="12.5" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Sub}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel Margin="39,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock x:Name="SideAccount" Text="Steve" FontSize="12.5"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="离线登录" Style="{StaticResource TCaption}" Margin="0,1,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- 页面容器 -->
+                <ContentControl x:Name="PageHost" Grid.Column="1"/>
+            </Grid>
+
+            <!-- ========== 状态栏 ========== -->
+            <Border Grid.Row="2" Background="{StaticResource Paper}"
+                    BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0">
+                <Grid Margin="14,0">
+                    <TextBlock x:Name="StatusLeft" Style="{StaticResource TCaption}" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="StatusRight" Style="{StaticResource TCaption}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

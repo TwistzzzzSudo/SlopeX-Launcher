@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>SlopeX</AssemblyName>
+    <RootNamespace>SlopeX</RootNamespace>
+    <ApplicationIcon></ApplicationIcon>
+    <Version>1.0.0</Version>
+    <Company>SlopeX</Company>
+    <Product>SlopeX Launcher</Product>
+    <StartupObject>SlopeX.App</StartupObject>
+    <!-- 允许在只装了更高版本（如 .NET 10）运行时的机器上直接运行 -->
+    <RollForward>LatestMajor</RollForward>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <NoWarn>$(NoWarn);CS1998;CS0168;CS0219</NoWarn>
+  </PropertyGroup>
+
+</Project>
