@@ -49,9 +49,11 @@
                 <Border Style="{StaticResource Card}" Margin="0,0,0,14">
                     <StackPanel>
                         <TextBlock Style="{StaticResource TSection}" Text="账号"/>
-                        <TextBlock Style="{StaticResource TCaption}" Margin="0,4,0,14" TextWrapping="Wrap"
-                                   Text="当前为离线登录：仅填写玩家名，不校验正版账号。"/>
-                        <Grid>
+                        <TextBlock x:Name="AccountStatus" Style="{StaticResource TSub}" Margin="0,6,0,0"
+                                   TextWrapping="Wrap"/>
+                        <TextBlock x:Name="AccountHint" Style="{StaticResource TCaption}" Margin="0,4,0,0"
+                                   TextWrapping="Wrap"/>
+                        <Grid Margin="0,12,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="112"/>
                                 <ColumnDefinition Width="*"/>
@@ -62,8 +64,14 @@
                             <TextBox x:Name="InputName" Grid.Column="1" Style="{StaticResource Input}"
                                      MaxWidth="300" HorizontalAlignment="Left" Width="300"/>
                             <TextBlock Grid.Column="2" Style="{StaticResource TCaption}" Margin="10,0,0,0"
-                                       VerticalAlignment="Center" Text="用于游戏内显示名"/>
+                                       VerticalAlignment="Center" Text="离线模式下生效"/>
                         </Grid>
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <Button x:Name="BtnLogin" Style="{StaticResource BtnGhost}" Content="登录微软账号"
+                                    Click="Login_Click"/>
+                            <Button x:Name="BtnLogout" Style="{StaticResource BtnGhost}" Content="退出登录"
+                                    Margin="8,0,0,0" Visibility="Collapsed" Click="Logout_Click"/>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 

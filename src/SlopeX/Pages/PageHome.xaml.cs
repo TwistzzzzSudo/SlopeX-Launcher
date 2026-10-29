@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using SlopeX.Modules.ModAccount;
 using SlopeX.Modules.ModBase;
 using SlopeX.Modules.ModJava;
 using SlopeX.Modules.ModLaunch;
@@ -281,6 +282,9 @@ namespace SlopeX.Pages
 
                 Log.Info($"{versionId} 要求 Java {required}，选用 Java {java.Major}（{java.Path}）");
 
+                // 正版账号：令牌过期会自动刷新；刷新失败则回落到离线（不阻塞启动）
+                var session = await Msa.EnsureFreshAsync();
+
                 // 3) 拼装启动命令
                 var plan = await Task.Run(() =>
                 {
@@ -289,7 +293,9 @@ namespace SlopeX.Pages
                         GameDir = gameDir,
                         RootGameDir = rootGameDir,
                         VersionName = versionId,
-                        PlayerName = Config.Current.PlayerName,
+                        PlayerName = session?.Name ?? Config.Current.PlayerName,
+                        Uuid = session?.Uuid,
+                        AccessToken = session?.AccessToken,
                         JavaPath = java.Path,
                         MemoryMb = Config.Current.MemoryMb,
                         MinMemoryMb = Config.Current.MinMemoryMb,

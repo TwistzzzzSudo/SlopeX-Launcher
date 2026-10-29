@@ -1,12 +1,12 @@
 # SlopeX Launcher 进度报告与实施计划
 
-> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-29 18:56
+> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-29 20:05
 > 对应产物：`SlopeX.exe` 1.0.0（自包含单文件，139 MB，win-x64）
-> 代码规模：32 个 C# / XAML 源文件，7,804 行
-> 版本控制：git 分支 `feature/portable`（便携改造），`main` 保持可构建
-> 当前状态：**便携改造完成**——配置与日志进 `SlopeXData\`，运行时目录可配；设置页按文案规范完成首轮瘦身
-> 下一个执行项 = 微软登录（阻塞在 Azure client_id）或 Forge（B 方案）
-> 本轮改动：`Paths` 增加便携数据目录与一次性迁移、运行时目录可配、设置页新增「数据与运行时」并精简存量文案
+> 代码规模：35 个 C# / XAML 源文件，8,600 行
+> 版本控制：git 分支 `feature/ms-login`（微软登录），`main` 保持可构建
+> 当前状态：**微软登录代码完成，卡在 Mojang 白名单**——设备码/XBL/XSTS 全部通过，`login_with_xbox` 返回 403（新应用需人工审核，非代码问题）
+> 下一个执行项 = 用真实账号验证登录 → Forge（B 方案）
+> 本轮改动：新增 `ModAccount` 模块（设备码 / XBL / XSTS / 档案 / 刷新）、登录对话框、CLI `login|account|logout`、启动时使用正版令牌
 > **工作量口径**：全文一律以「产出物 / 改动范围」描述，不使用时间估算。
 
 ---
@@ -58,6 +58,7 @@
 | **Fabric 安装** | ✅ | 拉 meta 选最新稳定加载器 → 写 `inheritsFrom` 版本 JSON → 下载加载器依赖；缺原版自动补装；已加载 Sodium 实测 |
 | **安装类型选择** | ✅ | 点「安装」弹出类型选择：原版 / Fabric 可选，Forge / NeoForge 置灰标「即将支持」；已安装版本仍可点（用于加装加载器或补齐文件） |
 | **便携（折中）** | ✅ | 配置与日志进 `SlopeXData\`，首次启用从 `%APPDATA%` 复制（原文件保留）；Java 运行时目录可配；目录不可写时整体回落 `%APPDATA%` |
+| **微软正版登录** | ✅ 待账号验证 | 设备码 → Xbox Live → XSTS → 档案；令牌存 `SlopeXData\accounts.json`，过期自动刷新；失败回落离线不阻塞启动 |
 | 登录 | ⚠️ | 仅离线登录（自定义玩家名），无正版验证 |
 | 任务与日志 | ✅ | 安装进度卡 + 游戏实时日志（增量缓冲刷新） |
 | 设置持久化 | ✅ | `<启动器目录>\SlopeXData\config.json`（不可写时回落 `%APPDATA%`），路径存相对形式 |
@@ -82,11 +83,12 @@ ModMinecraft 版本扫描 / inheritsFrom 合并 / 强制存档隔离            
 ModJava      运行时探测 / 版本匹配 / 自动下载安装                   789 行
 ModLaunch    规则引擎 / classpath / natives / 命令行 / 进程         562 行
 ModDownload  原版安装 / Fabric 安装 / 任务中心                      747 行
-ModCli       无界面模式                                            460 行
-UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeService  3,700 行
+ModAccount   设备码登录 / XBL / XSTS / 档案 / 令牌刷新                494 行
+ModCli       无界面模式                                            551 行
+UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeService  3,923 行
 ```
 
-（模块层 4,104 行 + UI 层 3,700 行 = 7,804 行）
+（模块层 4,677 行 + UI 层 3,923 行 = 8,600 行）
 
 ### 3.3 三个关键设计取舍
 
@@ -120,7 +122,6 @@ UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeSe
 
 ### 功能缺口
 - 仅 Windows（WPF + 注册表探测）
-- 无微软正版登录，只能离线账号
 - 无 Forge / NeoForge 一键安装（Fabric / Quilt 同类已支持；能启动别家装好的 Forge 版本，但自己不装）
 - 无模组管理（批量启停、依赖检查）
 - 无整合包导入（CurseForge / Modrinth）
@@ -163,9 +164,9 @@ UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeSe
 - 风险：中（成功率依赖 installer 自身行为，进度不可见；installer 走官方 maven，国内可能慢）
 - 备注：若后续需要细粒度进度或离线复装，再升级为 A 方案（自研 processors），B 保留为兜底
 
-**3. 微软正版登录**（已定：**必须做**）
+**3. 微软正版登录** ✅ **已实现（2026-10-29 20:05）**
 - 做法：OAuth 2.0 设备码流程（`live.com/oauth20_connect.srf`）+ XBL / XSTS 换 token + `/minecraft/profile`
-- **阻塞项**：等用户提供自建 Azure 公共客户端的 **client_id**（不提供则无法开工）
+- 已完成：Azure 应用 `5fd00f1e-…`（公共客户端流已开启）；`ModAccount/Msa.cs`；登录对话框；CLI `login/account/logout`；启动时自动刷新令牌
 - 验收：登录后 skin 正常显示、服务器可进（非正版服仍拒绝属正常）
 - 风险：中（token 刷新、设备码轮询超时处理）
 
@@ -266,7 +267,9 @@ UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeSe
 
 - 技术路径已明确：设备码流程 → Xbox Live → XSTS → Minecraft profile。代码侧是新增 `ModAccount` 模块 + token 刷新 + 皮肤渲染。
 - **唯一阻塞**：需要一个 Azure 应用注册产出的 **client_id**（公共客户端流，无需密钥、免费）。没有它微软不会认这个启动器。
-- 拿到 client_id 之前，这部分**无法开工**，只能先保持离线登录。其余三项不受影响。
+- ~~拿到 client_id 之前无法开工~~ → 已有 client_id（`5fd00f1e-…`），代码完成。
+- **新的外部阻塞**：Mojang 对第三方启动器做人工白名单（[官方说明](https://help.minecraft.net/hc/en-us/articles/16254801392141)），未审核通过前 `login_with_xbox` 固定返回 403。需在 https://aka.ms/mce-reviewappid 提交 client_id、应用名与用途；审核由 Mojang 人工处理。
+- 在通过之前：登录按钮保留，失败时给出明确原因与申请入口；离线登录不受影响。
 
 ### 7.3 ③ 便携折中方案的具体内容
 
@@ -320,6 +323,10 @@ UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeSe
 | 便携实测 | exe 单独拷到 `I://sxportable-test` 运行 → 自动生成该目录的 `SlopeXData\`，`--cli list` 输出 `gameDir = I://sxportable-test//.minecraft`（相对路径正确解析） |
 | 运行时位置 | Java 检测仍指向 `%APPDATA%\SlopeX\runtime`（180 MB 未搬），设置页可改到启动器目录内 |
 | 设置页瘦身 | 页头改为「主题即时生效；其余项点保存设置后生效」；存档隔离由 4 层文案压到 2 层（机制进 tooltip）；旧存档提示可「不再提示」 |
+| 设备码申请 | `--cli login` → 网址 `https://www.microsoft.com/link`、8 位代码、有效期 900 秒；主日志 `已申请设备码：…` |
+| 登录对话框 | 「设置 → 账号 → 登录微软账号」弹出模态：8 位代码、网址、打开登录页 / 复制代码、轮询状态、取消；渲染与布局正常 |
+| 正版链路（实测） | 真实账号授权成功（微软发出"新登录"通知，服务名 `SlopeX Launcher`）→ 设备码通过 → **XBL 通过** → **XSTS 通过** → `login_with_xbox` **403 Invalid app registration**；前两次还遇到 `XErr 2148916233`（账号无 Xbox 档案），创建档案后已跨过 |
+| Mojang 白名单 | 官方文档确认：新第三方应用必须人工审核加入白名单（https://aka.ms/mce-reviewappid）；未通过前该步必然 403。申请提交后审核周期以天/周计 |
 | 便携实测 | exe 复制到 `I:\sxtest`，正确解析到 `I:\sxtest\.minecraft` |
 | 构建 | 0 警告 0 错误 |
 | git 基线 | 40 个文件 / 0.64 MB，`.git` 565 KB，忽略规则 5/5 命中，工作区 0 改动 |
@@ -338,6 +345,9 @@ SlopeX.exe --cli launch 1.20.1        # 启动游戏
 SlopeX.exe --cli fabric-list 1.20.1             # 该原版可用的 Fabric 加载器
 SlopeX.exe --cli install-fabric 1.20.1          # 装最新稳定版 Fabric（缺原版会先补原版）
 SlopeX.exe --cli install-fabric 1.20.1 0.20.1   # 指定加载器版本
+SlopeX.exe --cli login                          # 微软正版登录（设备码）
+SlopeX.exe --cli account                        # 查看当前账号
+SlopeX.exe --cli logout                         # 退出正版账号
 build.cmd                             # 构建单文件到仓库根目录
 ```
 
