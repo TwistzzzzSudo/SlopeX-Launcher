@@ -84,6 +84,8 @@ namespace SlopeX.Modules.ModCli
                     Out("  install-fabric <原版版本> [加载器版本]   安装 Fabric（缺原版会先补原版）");
                     Out("  forge-list <原版版本>    查询该原版的 Forge 推荐版本");
                     Out("  install-forge <原版版本> [加载器版本]   安装 Forge（调官方 installer，缺原版会先补）");
+                    Out("  pack-info <整合包路径>   识别整合包格式与版本，不安装");
+                    Out("  import-pack <整合包路径> [基础版本]   导入整合包（.mrpack / CurseForge / MultiMC / 普通 zip）");
                     Out("  login                    微软正版登录（设备码，在浏览器里确认）");
                     Out("  account                  查看当前账号");
                     Out("  logout                   退出正版账号（回到离线）");
@@ -124,6 +126,12 @@ namespace SlopeX.Modules.ModCli
 
                 case "install-forge":
                     return InstallForge(args.FirstOrDefault(), args.Skip(1).FirstOrDefault());
+
+                case "pack-info":
+                    return PackInfo(args.FirstOrDefault());
+
+                case "import-pack":
+                    return ImportPack(args.FirstOrDefault(), args.Skip(1).FirstOrDefault());
 
                 case "login":
                     return Login();
@@ -344,6 +352,85 @@ namespace SlopeX.Modules.ModCli
 
             Out($"Fabric 安装完成：{installedId}（耗时 {sw.Elapsed.TotalSeconds:0.0} 秒）");
             Out($"游戏目录：{VersionEnv.Resolve(Config.Current.GameDir, installedId)}");
+            return 0;
+        }
+
+        private static int PackInfo(string zipPath)
+        {
+            if (string.IsNullOrEmpty(zipPath)) { Out("用法：pack-info <整合包路径>"); return 2; }
+
+            try
+            {
+                var plan = ModpackInstaller.Inspect(zipPath);
+                Out($"格式      ：{plan.FormatLabel}");
+                Out($"名称      ：{plan.Name} {plan.PackVersion}".TrimEnd());
+                Out($"Minecraft ：{plan.McVersion}");
+                Out($"加载器    ：{(string.IsNullOrEmpty(plan.LoaderKind) ? "原版" : plan.LoaderKind + " " + plan.LoaderVersion)}");
+                Out($"文件清单  ：{plan.Files.Count} 个" +
+                    (plan.Format == PackFormat.CurseForge ? "（CurseForge 需在线解析文件名）" : ""));
+                Out($"覆盖目录  ：{(string.IsNullOrEmpty(plan.OverridesPrefix) ? "无" : plan.OverridesPrefix)}");
+                Out($"建议版本ID：{plan.SuggestVersionId()}");
+
+                foreach (var w in plan.Warnings) Out("提示：" + w);
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Out("解析失败：" + ex.Message);
+                return 1;
+            }
+        }
+
+        private static int ImportPack(string zipPath, string baseVersion)
+        {
+            if (string.IsNullOrEmpty(zipPath))
+            {
+                Out("用法：import-pack <整合包路径> [基础版本]");
+                return 2;
+            }
+
+            if (!File.Exists(zipPath))
+            {
+                Out("找不到文件：" + zipPath);
+                return 2;
+            }
+
+            var task = new InstallTask
+            {
+                Kind = InstallKind.Modpack,
+                PackPath = zipPath,
+                BaseVersionFallback = baseVersion,
+                VersionId = Path.GetFileNameWithoutExtension(zipPath)
+            };
+
+            var lastStage = "";
+            var lastPct = -10;
+            task.Updated += t =>
+            {
+                var pct = (int)t.Percent;
+                if (t.Stage != lastStage || pct >= lastPct + 10 || t.Completed || t.Failed)
+                {
+                    lastStage = t.Stage;
+                    lastPct = pct / 10 * 10;
+                    Out($"[{pct,3}%] {t.Stage} {t.SizeText} {t.SpeedText}".TrimEnd());
+                }
+            };
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            string packId = null;
+            try
+            {
+                packId = ModpackInstaller.InstallAsync(Config.Current.GameDir, zipPath, baseVersion,
+                    task, CancellationToken.None).GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                Out("导入失败：" + ex.Message);
+                return 1;
+            }
+
+            Out($"整合包导入完成：{packId}（耗时 {sw.Elapsed.TotalSeconds:0.0} 秒）");
+            Out($"游戏目录：{VersionEnv.Resolve(Config.Current.GameDir, packId)}");
             return 0;
         }
 
