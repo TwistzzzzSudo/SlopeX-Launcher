@@ -37,18 +37,12 @@
             </StackPanel>
         </RadioButton>
 
-        <RadioButton x:Name="OptNeoForge" Style="{StaticResource OptionRow}" GroupName="kind" IsEnabled="False">
+        <RadioButton x:Name="OptNeoForge" Style="{StaticResource OptionRow}" GroupName="kind">
             <StackPanel>
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="NeoForge" FontSize="13" FontWeight="SemiBold"
-                               Foreground="{DynamicResource Ink}" VerticalAlignment="Center"/>
-                    <Border Style="{StaticResource Tag}" Margin="8,0,0,0">
-                        <TextBlock Text="即将支持" FontSize="11"
-                                   Foreground="{DynamicResource Muted}"/>
-                    </Border>
-                </StackPanel>
+                <TextBlock Text="NeoForge" FontSize="13" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Ink}"/>
                 <TextBlock Style="{StaticResource TCaption}" Margin="0,2,0,0" TextWrapping="Wrap"
-                           Text="Forge 的社区分支，新版本模组逐渐迁到这里。安装器尚未实装。"/>
+                           Text="Forge 的社区分支，1.20.2 之后的新模组逐渐迁到这里。安装器在后台运行，需要等几分钟。"/>
             </StackPanel>
         </RadioButton>
 

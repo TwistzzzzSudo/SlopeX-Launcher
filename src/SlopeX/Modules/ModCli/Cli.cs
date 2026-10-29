@@ -78,12 +78,15 @@ namespace SlopeX.Modules.ModCli
                     Out("  manifest [数量]          列出可安装的版本（默认 20 条）");
                     Out("  install <版本>           安装原版版本");
                     Out("  verify <版本>            校验依赖/资源是否齐全");
+                    Out("  fix-libs <版本>          补齐缺失的依赖库（走镜像）");
                     Out("  plan <版本>              打印启动命令行（不启动）");
                     Out("  launch <版本>            启动游戏");
                     Out("  fabric-list <原版版本>   列出该原版可用的 Fabric 加载器");
                     Out("  install-fabric <原版版本> [加载器版本]   安装 Fabric（缺原版会先补原版）");
                     Out("  forge-list <原版版本>    查询该原版的 Forge 推荐版本");
                     Out("  install-forge <原版版本> [加载器版本]   安装 Forge（调官方 installer，缺原版会先补）");
+                    Out("  neoforge-list <原版版本>   列出该原版可用的 NeoForge 版本");
+                    Out("  install-neoforge <原版版本> [加载器版本]   安装 NeoForge（镜像优先，缺原版会先补）");
                     Out("  pack-info <整合包路径>   识别整合包格式与版本，不安装");
                     Out("  import-pack <整合包路径> [基础版本]   导入整合包（.mrpack / CurseForge / MultiMC / 普通 zip）");
                     Out("  login                    微软正版登录（设备码，在浏览器里确认）");
@@ -106,6 +109,9 @@ namespace SlopeX.Modules.ModCli
                 case "install":
                     return Install(args.FirstOrDefault());
 
+                case "fix-libs":
+                    return FixLibs(args.FirstOrDefault());
+
                 case "verify":
                     return Verify(args.FirstOrDefault());
 
@@ -126,6 +132,12 @@ namespace SlopeX.Modules.ModCli
 
                 case "install-forge":
                     return InstallForge(args.FirstOrDefault(), args.Skip(1).FirstOrDefault());
+
+                case "neoforge-list":
+                    return NeoForgeList(args.FirstOrDefault());
+
+                case "install-neoforge":
+                    return InstallNeoForge(args.FirstOrDefault(), args.Skip(1).FirstOrDefault());
 
                 case "pack-info":
                     return PackInfo(args.FirstOrDefault());
@@ -353,6 +365,103 @@ namespace SlopeX.Modules.ModCli
             Out($"Fabric 安装完成：{installedId}（耗时 {sw.Elapsed.TotalSeconds:0.0} 秒）");
             Out($"游戏目录：{VersionEnv.Resolve(Config.Current.GameDir, installedId)}");
             return 0;
+        }
+
+        private static int NeoForgeList(string mcVersion)
+        {
+            if (string.IsNullOrEmpty(mcVersion)) { Out("用法：neoforge-list <原版版本>"); return 2; }
+
+            try
+            {
+                var all = NeoForgeInstaller.GetVersionsAsync(mcVersion).GetAwaiter().GetResult();
+                if (all.Count == 0)
+                {
+                    Out($"NeoForge 没有为 {mcVersion} 提供版本" +
+                        (NeoForgeInstaller.PrefixOf(mcVersion) == "20.1"
+                            ? "（1.20.1 时代发布为 net.neoforged:forge，本启动器不支持该线）"
+                            : "（NeoForge 只支持 1.20.2 及以后）"));
+                    return 1;
+                }
+
+                Out($"原版 {mcVersion} 的 NeoForge 版本：共 {all.Count} 个，最新 {all[0]}");
+                foreach (var v in all.Take(8)) Out("  " + v);
+                Out($"安装器：{NeoForgeInstaller.InstallerUrl(all[0])}");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Out("查询失败：" + ex.Message);
+                return 1;
+            }
+        }
+
+        private static int InstallNeoForge(string mcVersion, string loaderVersion)
+        {
+            if (string.IsNullOrEmpty(mcVersion))
+            {
+                Out("用法：install-neoforge <原版版本> [加载器版本]");
+                return 2;
+            }
+
+            var task = new InstallTask
+            {
+                Kind = InstallKind.NeoForge,
+                BaseVersion = mcVersion,
+                LoaderVersion = loaderVersion,
+                VersionId = string.IsNullOrEmpty(loaderVersion)
+                    ? "neoforge-" + mcVersion
+                    : NeoForgeInstaller.BuildVersionId(loaderVersion)
+            };
+
+            var lastStage = "";
+            var lastBeat = -1;
+            task.Updated += t =>
+            {
+                var beat = (int)(DateTime.Now.Second / 15);
+                if (t.Stage != lastStage || beat != lastBeat || t.Completed || t.Failed)
+                {
+                    lastStage = t.Stage;
+                    lastBeat = beat;
+                    Out($"{t.Stage} {t.SizeText}".TrimEnd());
+                }
+            };
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            string installedId = null;
+            try
+            {
+                installedId = NeoForgeInstaller.InstallAsync(Config.Current.GameDir, mcVersion, loaderVersion,
+                    task, CancellationToken.None).GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                Out("安装失败：" + ex.Message);
+                return 1;
+            }
+
+            Out($"NeoForge 安装完成：{installedId}（耗时 {sw.Elapsed.TotalSeconds:0.0} 秒）");
+            Out($"游戏目录：{VersionEnv.Resolve(Config.Current.GameDir, installedId)}");
+            return 0;
+        }
+
+        private static int FixLibs(string versionId)
+        {
+            if (string.IsNullOrEmpty(versionId)) { Out("用法：fix-libs <版本>"); return 2; }
+
+            var task = new InstallTask { VersionId = versionId };
+
+            try
+            {
+                var n = InstallerSupport.EnsureLibrariesAsync(Config.Current.GameDir, versionId, task,
+                    CancellationToken.None, "https://bmclapi2.bangbang93.com/maven/").GetAwaiter().GetResult();
+                Out(n == 0 ? "依赖已齐全，无需补齐" : $"已补齐 {n} 个依赖");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Out("补齐失败：" + ex.Message);
+                return 1;
+            }
         }
 
         private static int PackInfo(string zipPath)

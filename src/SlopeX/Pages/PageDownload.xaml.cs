@@ -171,8 +171,7 @@ namespace SlopeX.Pages
                         break;
 
                     case InstallKindChoice.NeoForge:
-                        // 占位：选项已置灰，正常点不到；万一将来放开但安装器未实现，给出明确说明
-                        MessageBox.Show("NeoForge 安装器尚未实装。\n\n当前可选：原版、Fabric、Forge。", "SlopeX");
+                        _ = StartNeoForgeAsync(summary);
                         break;
 
                     default:
@@ -220,6 +219,70 @@ namespace SlopeX.Pages
         }
 
         /// <summary>为某个原版版本安装 Fabric 加载器（缺失原版时由安装器先补原版）。</summary>
+        /// <summary>
+        /// 安装 NeoForge。版本查询走镜像（官方 maven 域名在国内常被污染），
+        /// 真正的等待在 installer 里，进度看「任务与日志」页。
+        /// </summary>
+        private async Task StartNeoForgeAsync(VersionSummary summary)
+        {
+            var id = summary.Id;
+
+            try
+            {
+                summary.Busy = true;
+                ApplyFilter();
+                MainWindow.Current?.SetStatus($"正在查询 {id} 的 NeoForge 版本…", null);
+
+                var loader = await NeoForgeInstaller.GetLatestAsync(id);
+                if (string.IsNullOrEmpty(loader))
+                {
+                    summary.Busy = false;
+                    ApplyFilter();
+                    MessageBox.Show(
+                        NeoForgeInstaller.PrefixOf(id) == "20.1"
+                            ? "NeoForge 在 1.20.1 上发布为 net.neoforged:forge，本启动器暂不支持这条线。\n\n" +
+                              "1.20.1 请用 Forge；NeoForge 请选 1.20.2 及以后的版本。"
+                            : $"NeoForge 目前没有为 {id} 提供版本。\n\nNeoForge 只支持 1.20.2 及以后的原版版本。",
+                        "SlopeX");
+                    return;
+                }
+
+                var task = TaskCenter.StartNeoForgeInstall(id, loader);
+                MainWindow.Current?.SetStatus(
+                    $"正在安装 NeoForge {loader}（{id}）——安装器在后台运行，进度见「任务与日志」", null);
+
+                task.Updated += t =>
+                {
+                    if (t.Running) return;
+
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        summary.Busy = false;
+                        MainWindow.Current?.RefreshStatusAsync();
+                        ApplyFilter();
+
+                        if (t.Completed)
+                        {
+                            Config.Current.LastVersion = t.VersionId;
+                            Config.Current.Save();
+                            MainWindow.Current?.SetStatus($"已安装 {t.VersionId}，可在「启动」页运行", null);
+                        }
+                        else if (t.Failed)
+                        {
+                            MainWindow.Current?.SetStatus($"NeoForge 安装失败：{t.Error}", null);
+                        }
+                    }));
+                };
+            }
+            catch (Exception ex)
+            {
+                summary.Busy = false;
+                ApplyFilter();
+                MainWindow.Current?.SetStatus("NeoForge 安装失败：" + ex.Message, null);
+                Log.Error("NeoForge 安装失败", ex);
+            }
+        }
+
         /// <summary>
         /// 安装 Forge。查询推荐版本很快，真正的等待在 installer 里（几分钟、无细粒度进度），
         /// 所以这里只把状态栏切到"正在安装"，进度看「任务与日志」页。

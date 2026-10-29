@@ -113,6 +113,7 @@ namespace SlopeX.Modules.ModDownload
         Vanilla,
         Fabric,
         Forge,
+        NeoForge,
         Modpack
     }
 
@@ -157,6 +158,10 @@ namespace SlopeX.Modules.ModDownload
                                $"（{BaseVersion}）";
                     case InstallKind.Forge:
                         return "安装 Forge " +
+                               (string.IsNullOrEmpty(LoaderVersion) ? "加载器" : LoaderVersion) +
+                               $"（{BaseVersion}）";
+                    case InstallKind.NeoForge:
+                        return "安装 NeoForge " +
                                (string.IsNullOrEmpty(LoaderVersion) ? "加载器" : LoaderVersion) +
                                $"（{BaseVersion}）";
                     case InstallKind.Modpack:
@@ -209,6 +214,12 @@ namespace SlopeX.Modules.ModDownload
                 else if (Kind == InstallKind.Forge)
                 {
                     VersionId = await ForgeInstaller.InstallAsync(Config.Current.GameDir, BaseVersion,
+                        LoaderVersion, this, Cts.Token).ConfigureAwait(false);
+                    Log.Info($"{VersionId} 安装完成");
+                }
+                else if (Kind == InstallKind.NeoForge)
+                {
+                    VersionId = await NeoForgeInstaller.InstallAsync(Config.Current.GameDir, BaseVersion,
                         LoaderVersion, this, Cts.Token).ConfigureAwait(false);
                     Log.Info($"{VersionId} 安装完成");
                 }
