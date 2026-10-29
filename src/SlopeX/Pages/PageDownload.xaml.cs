@@ -167,9 +167,12 @@ namespace SlopeX.Pages
                         break;
 
                     case InstallKindChoice.Forge:
+                        _ = StartForgeAsync(summary);
+                        break;
+
                     case InstallKindChoice.NeoForge:
                         // 占位：选项已置灰，正常点不到；万一将来放开但安装器未实现，给出明确说明
-                        MessageBox.Show("Forge / NeoForge 安装器尚未实装。\n\n当前可选：原版、Fabric。", "SlopeX");
+                        MessageBox.Show("NeoForge 安装器尚未实装。\n\n当前可选：原版、Fabric、Forge。", "SlopeX");
                         break;
 
                     default:
@@ -217,6 +220,66 @@ namespace SlopeX.Pages
         }
 
         /// <summary>为某个原版版本安装 Fabric 加载器（缺失原版时由安装器先补原版）。</summary>
+        /// <summary>
+        /// 安装 Forge。查询推荐版本很快，真正的等待在 installer 里（几分钟、无细粒度进度），
+        /// 所以这里只把状态栏切到"正在安装"，进度看「任务与日志」页。
+        /// </summary>
+        private async Task StartForgeAsync(VersionSummary summary)
+        {
+            var id = summary.Id;
+
+            try
+            {
+                summary.Busy = true;
+                ApplyFilter();
+                MainWindow.Current?.SetStatus($"正在查询 {id} 的 Forge 版本…", null);
+
+                var loader = await ForgeInstaller.GetRecommendedAsync(id);
+                if (string.IsNullOrEmpty(loader))
+                {
+                    summary.Busy = false;
+                    ApplyFilter();
+                    MessageBox.Show($"Forge 目前没有为 {id} 提供安装包。\n\n" +
+                                    "可在 https://files.minecraftforge.net 确认该版本的可用性。", "SlopeX");
+                    return;
+                }
+
+                var task = TaskCenter.StartForgeInstall(id, loader);
+                MainWindow.Current?.SetStatus(
+                    $"正在安装 Forge {loader}（{id}）——安装器在后台运行，进度见「任务与日志」", null);
+
+                task.Updated += t =>
+                {
+                    if (t.Running) return;
+
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        summary.Busy = false;
+                        MainWindow.Current?.RefreshStatusAsync();
+                        ApplyFilter();
+
+                        if (t.Completed)
+                        {
+                            Config.Current.LastVersion = t.VersionId;
+                            Config.Current.Save();
+                            MainWindow.Current?.SetStatus($"已安装 {t.VersionId}，可在「启动」页运行", null);
+                        }
+                        else if (t.Failed)
+                        {
+                            MainWindow.Current?.SetStatus($"Forge 安装失败：{t.Error}", null);
+                        }
+                    }));
+                };
+            }
+            catch (Exception ex)
+            {
+                summary.Busy = false;
+                ApplyFilter();
+                MainWindow.Current?.SetStatus("Forge 安装失败：" + ex.Message, null);
+                Log.Error("Forge 安装失败", ex);
+            }
+        }
+
         private async Task StartFabricAsync(VersionSummary summary)
         {
             var id = summary.Id;

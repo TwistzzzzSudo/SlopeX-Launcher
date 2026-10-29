@@ -1,12 +1,12 @@
 # SlopeX Launcher 进度报告与实施计划
 
-> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-29 20:05
+> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-29 21:25
 > 对应产物：`SlopeX.exe` 1.0.0（自包含单文件，139 MB，win-x64）
-> 代码规模：35 个 C# / XAML 源文件，8,600 行
-> 版本控制：git 分支 `feature/ms-login`（微软登录），`main` 保持可构建
-> 当前状态：**微软登录代码完成，卡在 Mojang 白名单**——设备码/XBL/XSTS 全部通过，`login_with_xbox` 返回 403（新应用需人工审核，非代码问题）
-> 下一个执行项 = 用真实账号验证登录 → Forge（B 方案）
-> 本轮改动：新增 `ModAccount` 模块（设备码 / XBL / XSTS / 档案 / 刷新）、登录对话框、CLI `login|account|logout`、启动时使用正版令牌
+> 代码规模：36 个 C# / XAML 源文件，9,233 行
+> 版本控制：git 分支 `feature/forge`（Forge 安装），`main` 保持可构建；远端已公开 `github.com/TwistzzzzSudo/SlopeX-Launcher`
+> 当前状态：**Forge 安装完成并真机验证**——B 方案（官方 installer `--installClient`），1.20.1 实测进游戏并加载真实 Forge 模组（AppleSkin）；微软登录仍卡在 Mojang 白名单
+> 下一个执行项 = 模组管理与整合包导入（Forge/Fabric 均已具备安装能力）
+> 本轮改动：新增 `ModDownload/Forge.cs`、`InstallKind.Forge`、CLI `forge-list|install-forge`、安装对话框放开 Forge；修复 `${version_name}` 展开导致的 Forge 模块层撞包
 > **工作量口径**：全文一律以「产出物 / 改动范围」描述，不使用时间估算。
 
 ---
@@ -56,6 +56,7 @@
 | **存档隔离（强制）** | ✅ | 恒用 `versions\<id>`；无开关、不继承、不共享；真机验证 `--gameDir` 指向版本目录 |
 | **主题切换** | ✅ | 「设置 → 主题」三选一（跟随系统 / 极简白纸 / 极简墨纸），运行中即时换肤不重启；跟随系统监听 `WM_SETTINGCHANGE` |
 | **Fabric 安装** | ✅ | 拉 meta 选最新稳定加载器 → 写 `inheritsFrom` 版本 JSON → 下载加载器依赖；缺原版自动补装；已加载 Sodium 实测 |
+| **Forge 安装** | ✅ | 取官方推荐版本 → 下 installer → 用合适 Java 无头执行 `--installClient` → 校验产物；缺原版自动补装；已加载 AppleSkin 实测 |
 | **安装类型选择** | ✅ | 点「安装」弹出类型选择：原版 / Fabric 可选，Forge / NeoForge 置灰标「即将支持」；已安装版本仍可点（用于加装加载器或补齐文件） |
 | **便携（折中）** | ✅ | 配置与日志进 `SlopeXData\`，首次启用从 `%APPDATA%` 复制（原文件保留）；Java 运行时目录可配；目录不可写时整体回落 `%APPDATA%` |
 | **微软正版登录** | ✅ 待账号验证 | 设备码 → Xbox Live → XSTS → 档案；令牌存 `SlopeXData\accounts.json`，过期自动刷新；失败回落离线不阻塞启动 |
@@ -81,14 +82,14 @@ ModBase      路径 / 日志 / 配置 / MVVM 基类                        730 �
 ModNet       并发下载 / 镜像改写 / 源回落 / 单文件超时 / SHA1        403 行
 ModMinecraft 版本扫描 / inheritsFrom 合并 / 强制存档隔离             411 行
 ModJava      运行时探测 / 版本匹配 / 自动下载安装                   789 行
-ModLaunch    规则引擎 / classpath / natives / 命令行 / 进程         562 行
-ModDownload  原版安装 / Fabric 安装 / 任务中心                      747 行
+ModLaunch    规则引擎 / classpath / natives / 命令行 / 进程         592 行
+ModDownload  原版 / Fabric / Forge 安装 / 资源补齐 / 任务中心      1,203 行
 ModAccount   设备码登录 / XBL / XSTS / 档案 / 令牌刷新                494 行
-ModCli       无界面模式                                            551 行
-UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeService  3,923 行
+ModCli       无界面模式                                            620 行
+UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeService  3,980 行
 ```
 
-（模块层 4,677 行 + UI 层 3,923 行 = 8,600 行）
+（模块层 5,253 行 + UI 层 3,980 行 = 9,233 行）
 
 ### 3.3 三个关键设计取舍
 
@@ -122,7 +123,7 @@ UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeSe
 
 ### 功能缺口
 - 仅 Windows（WPF + 注册表探测）
-- 无 Forge / NeoForge 一键安装（Fabric / Quilt 同类已支持；能启动别家装好的 Forge 版本，但自己不装）
+- 无 NeoForge 一键安装（原版 / Fabric / Forge 均已支持；NeoForge 是 Forge 社区分支，安装器待实装）
 - 无模组管理（批量启停、依赖检查）
 - 无整合包导入（CurseForge / Modrinth）
 - 存档隔离为强制行为，不提供“材质包共享但存档隔离”这类混合模式；需要共用只能手动复制文件
@@ -158,11 +159,13 @@ UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeSe
 - 验收：`install-fabric 1.20.1` → `versions\fabric-loader-0.20.1-1.20.1`（8 个依赖 / 2.9 MB / 3 秒）；`verify` 96 库通过；`plan` mainClass 为 `KnotClient`；真机日志 `Loading Minecraft 1.20.1 with Fabric Loader 0.20.1`；装 Sodium 0.5.13 后 `Loading 10 mods`
 - 遗留：Quilt 未做（协议与 Fabric 高度相似，可复用本模块，估工作量约为 Fabric 的 1/3）
 
-**2. Forge / NeoForge 安装**（已定：**B 方案**）
-- 做法：下载官方 installer → 用托管 Java 无头执行 `--installClient`；UI 只显示“安装中 + 耗时”，**不解析 `install_profile.json`、不跑 processors**
-- 验收：装完 `--cli verify` 通过、能进游戏、崩溃日志无缺失类
-- 风险：中（成功率依赖 installer 自身行为，进度不可见；installer 走官方 maven，国内可能慢）
-- 备注：若后续需要细粒度进度或离线复装，再升级为 A 方案（自研 processors），B 保留为兜底
+**2. Forge 安装（B 方案）** ✅ **已完成 2026-10-29 21:25**
+- 做法：`promotions_slim.json` 取推荐版本 → 下官方 installer 到 `SlopeXData\cache\forge` → 用合适 Java 无头执行 `--installClient <gameDir>` → 校验 `versions\<id>\<id>.json` 是否生成
+- 产出：`Modules/ModDownload/Forge.cs`（435 行）、`InstallKind.Forge`、CLI `forge-list` / `install-forge`、安装对话框放开 Forge
+- 顺带修复的通用缺陷：`${version_name}` 展开成子版本 ID，而实际加载的是父版本 jar，导致 `-DignoreList=…${version_name}.jar` 名字对不上，原版 jar 被 BootstrapLauncher 当成自动模块 `_1._20._1`，与 FML 的 `minecraft` 模块撞包（`java.lang.module.ResolutionException`）。现在在拼参数后把**实际 jar 文件名**补进 ignoreList（幂等）
+- 实测：1.20.1 → 退出码 0，耗时 102.6 秒；`verify` 117 库通过；真机 `MinecraftForge v47.4.28 Initialized`；放入 AppleSkin 后生成 `config/appleskin-client.toml`（模组确实加载）
+- 已知取舍：installer 不输出百分比，UI 只显示「已用时长」；installer 走官方 maven，国内可能慢
+- NeoForge 仍为占位（对话框置灰）
 
 **3. 微软正版登录** ✅ **已实现（2026-10-29 20:05）**
 - 做法：OAuth 2.0 设备码流程（`live.com/oauth20_connect.srf`）+ XBL / XSTS 换 token + `/minecraft/profile`
@@ -317,6 +320,10 @@ UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeSe
 | Fabric 校验与命令行 | `verify` 通过（96 个库，继承链 `1.20.1 → fabric-loader-…`）；`plan` 的 mainClass 为 `KnotClient`，classpath 含 fabric-loader / intermediary / sponge-mixin |
 | Fabric 真机 | 日志 `Loading Minecraft 1.20.1 with Fabric Loader 0.20.1`、`MIXIN Subsystem 0.8.7 … Service=Knot/Fabric`、`Setting user: Steve` |
 | 模组加载验收 | 放入 Sodium 0.5.13 → `Loading 10 mods`（含 sodium 及其内置 fabric-api 模块）、`Loaded configuration file for Sodium: 42 options`、资源重载列表含 sodium |
+| Forge 安装（CLI） | `install-forge 1.20.1` → 推荐 47.4.28；installer 8.4 MB / 102.6 秒 / 退出码 0；生成 `1.20.1-forge-47.4.28.json`（inheritsFrom 1.20.1、mainClass BootstrapLauncher、29 库） |
+| Forge 校验与启动 | `verify` 117 库通过、Java 要求 17；`plan` 含 `-p` 模块路径与 `--launchTarget forgeclient`；真机 `ModLauncher 10.0.9` → `MinecraftForge v47.4.28 Initialized` → 进主菜单 |
+| Forge 模组加载验收 | 放入 AppleSkin Forge 版 → 生成 `config/appleskin-client.toml`（1361 字节），说明模组已加载并注册配置 |
+| Forge 界面链路 | 点「安装」→ Forge → 开始安装 → 状态栏「正在安装 Forge 66.1.0（26.3）」、行内变「安装中…」、installer 开始下载 |
 | 安装类型对话框 | 点任意行「安装」→ 弹出居中卡片 + 遮罩；原版默认选中；Forge / NeoForge 置灰带「即将支持」；Esc 或「取消」关闭 |
 | 对话框端到端 | 已安装行 →「安装」→ 选 Fabric →「开始安装」→ 日志 `Fabric 0.20.1（26.3）安装完成：fabric-loader-0.20.1-26.3，依赖 7 个`，版本数 5 → 6 |
 | 便携迁移 | 首次运行后 `SlopeXData\config.json` 生成（含新字段 `JavaRuntimeDir` / `DismissLegacySavesHint`），`logs\` 已复制，`%APPDATA%\SlopeX\config.json` 保留未删 |

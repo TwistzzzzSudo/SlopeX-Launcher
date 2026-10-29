@@ -44,6 +44,31 @@ namespace SlopeX.Modules.ModDownload
             return task;
         }
 
+        /// <summary>
+        /// 安装 Forge（原版缺失时会先补原版）。
+        /// loaderVersion 为空表示取 Forge 官方推荐的版本。
+        /// </summary>
+        public static InstallTask StartForgeInstall(string baseVersion, string loaderVersion = null)
+        {
+            var existing = Tasks.FirstOrDefault(t =>
+                t.Kind == InstallKind.Forge && t.BaseVersion == baseVersion && t.Running);
+            if (existing != null) return existing;
+
+            var task = new InstallTask
+            {
+                Kind = InstallKind.Forge,
+                BaseVersion = baseVersion,
+                LoaderVersion = loaderVersion,
+                VersionId = string.IsNullOrEmpty(loaderVersion)
+                    ? "forge-" + baseVersion
+                    : ForgeInstaller.BuildVersionId(baseVersion, loaderVersion)
+            };
+
+            Tasks.Insert(0, task);
+            _ = task.RunAsync();
+            return task;
+        }
+
         public static bool IsBusy(string versionId) =>
             Tasks.Any(t => t.VersionId == versionId && t.Running);
 
