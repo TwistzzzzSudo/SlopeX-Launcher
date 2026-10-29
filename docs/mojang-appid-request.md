@@ -156,6 +156,41 @@ Requested scopes are limited to XboxLive.signin and offline_access.
 
 ### 9. Any other information that we should be aware of?
 
+> **实际提交版（用户改写，2026-10-29 20:46）** —— 与下方原稿内容一致，措辞更口语。
+> 提交时采纳了「redirect URI」一句的修正（Azure 里配过 `nativeclient`，
+> 原文写 "no redirect URI" 与配置对不上，改为 "no redirect handling"）。
+
+```
+A few technical details that might help with the review:
+
+The Azure app is registered as a public client, so there's no client secret.
+The launcher binary only contains the client ID — there's nothing sensitive
+that could leak.
+
+Sign-in uses the device code flow. No redirect handling or embedded browser is
+involved; the user finishes signing in in their own browser.
+
+Access and refresh tokens stay on the user's machine, in a single JSON file
+under the launcher's data directory. We operate no backend, so tokens are never
+transmitted to us.
+
+We don't collect telemetry or analytics.
+
+Game files come from Mojang's official endpoints (piston-meta.mojang.com /
+piston-data.mojang.com). The official CDN is often unreachable from mainland
+China, so we also offer BMCLAPI as an optional mirror — it's a public mirror
+already used by several Chinese launchers. Authentication itself always goes
+straight to Microsoft and Mojang, never through a third party.
+
+Requested scopes are limited to XboxLive.signin and offline_access; no other
+Microsoft Graph or Xbox permissions are used.
+
+The launcher doesn't modify, patch, or redistribute Minecraft assets.
+```
+
+<details>
+<summary>原始草稿（留档对照）</summary>
+
 ```
 Technical details that may help the review:
 
@@ -176,6 +211,8 @@ Technical details that may help the review:
   Mojang — never through a third party.
 - The launcher does not modify, patch or redistribute Minecraft assets.
 ```
+
+</details>
 
 ---
 
