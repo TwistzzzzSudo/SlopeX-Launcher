@@ -16,7 +16,9 @@ namespace SlopeX.Pages
     public partial class PageDownload : UserControl, ILauncherPage
     {
         private List<VersionSummary> _all = new List<VersionSummary>();
-        private string _filter = "all";
+
+        // 默认只看正式版：快照和远古版本是少数场景，别让它们占满首屏
+        private string _filter = "release";
         private bool _loaded;
 
         public PageDownload()
