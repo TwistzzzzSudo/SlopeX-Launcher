@@ -471,4 +471,55 @@
         </Setter>
     </Style>
 
+    <!-- ============ 选项行（模态里的单选） ============ -->
+    <!-- 用法：RadioButton Style="OptionRow"，内容放一个两行 StackPanel（标题 + 说明） -->
+    <Style x:Key="OptionRow" TargetType="RadioButton">
+        <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Margin" Value="0,0,0,8"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="bd" Background="{DynamicResource Bg}"
+                            BorderBrush="{DynamicResource Line}" BorderThickness="1"
+                            CornerRadius="{StaticResource R8}" Padding="14,11">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border x:Name="dot" Grid.Column="0" Width="15" Height="15" CornerRadius="7.5"
+                                    BorderThickness="1" BorderBrush="{DynamicResource LineStrong}"
+                                    Background="Transparent" VerticalAlignment="Center" Margin="0,0,12,0">
+                                <Ellipse x:Name="fill" Width="7" Height="7" Fill="{DynamicResource Ink}"
+                                         Visibility="Collapsed"/>
+                            </Border>
+
+                            <ContentPresenter Grid.Column="1" VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"/>
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Paper}"/>
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource LineStrong}"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Paper2}"/>
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Ink}"/>
+                            <Setter TargetName="dot" Property="BorderBrush" Value="{DynamicResource Ink}"/>
+                            <Setter TargetName="fill" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45"/>
+                            <Setter Property="Cursor" Value="Arrow"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
 </ResourceDictionary>

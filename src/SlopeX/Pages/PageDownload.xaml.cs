@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using SlopeX.Controls;
 using SlopeX.Modules.ModBase;
 using SlopeX.Modules.ModDownload;
 using SlopeX.Modules.ModMinecraft;
@@ -114,14 +115,49 @@ namespace SlopeX.Pages
             }
         }
 
+        /// <summary>点「安装」先问类型（原版 / Fabric / Forge / NeoForge），再走对应流程。</summary>
         private void Install_Click(object sender, RoutedEventArgs e)
         {
             if (!(sender is Button button) || !(button.Tag is string id)) return;
 
             var summary = _all.FirstOrDefault(v => v.Id == id);
-            if (summary == null || summary.Installed) return;
+            if (summary == null || summary.Busy) return;
 
             if (!EnsureGameDir()) return;
+
+            var vanillaInstalled = VanillaInstaller.IsInstalled(Config.Current.GameDir, id);
+            var dialog = new InstallChoiceDialog(id, vanillaInstalled);
+
+            dialog.Closed += choice =>
+            {
+                MainWindow.Current?.HideModal();
+                if (choice == null) return;
+
+                switch (choice.Value)
+                {
+                    case InstallKindChoice.Fabric:
+                        _ = StartFabricAsync(summary);
+                        break;
+
+                    case InstallKindChoice.Forge:
+                    case InstallKindChoice.NeoForge:
+                        // 占位：选项已置灰，正常点不到；万一将来放开但安装器未实现，给出明确说明
+                        MessageBox.Show("Forge / NeoForge 安装器尚未实装。\n\n当前可选：原版、Fabric。", "SlopeX");
+                        break;
+
+                    default:
+                        StartVanilla(summary);
+                        break;
+                }
+            };
+
+            MainWindow.Current?.ShowModal(dialog);
+            dialog.FocusInitial();
+        }
+
+        private void StartVanilla(VersionSummary summary)
+        {
+            var id = summary.Id;
 
             summary.Busy = true;
             var task = TaskCenter.StartInstall(id);
@@ -154,24 +190,27 @@ namespace SlopeX.Pages
         }
 
         /// <summary>为某个原版版本安装 Fabric 加载器（缺失原版时由安装器先补原版）。</summary>
-        private async void Fabric_Click(object sender, RoutedEventArgs e)
+        private async Task StartFabricAsync(VersionSummary summary)
         {
-            if (!(sender is Button button) || !(button.Tag is string mcId)) return;
-            if (!EnsureGameDir()) return;
+            var id = summary.Id;
 
-            button.IsEnabled = false;
             try
             {
-                MainWindow.Current?.SetStatus($"正在查询 {mcId} 的 Fabric 加载器…", null);
-                var loader = await FabricInstaller.GetLatestStableAsync(mcId);
+                summary.Busy = true;
+                ApplyFilter();
+                MainWindow.Current?.SetStatus($"正在查询 {id} 的 Fabric 加载器…", null);
+
+                var loader = await FabricInstaller.GetLatestStableAsync(id);
                 if (string.IsNullOrEmpty(loader))
                 {
-                    MessageBox.Show($"Fabric 目前没有为 {mcId} 提供加载器。", "SlopeX");
+                    summary.Busy = false;
+                    ApplyFilter();
+                    MessageBox.Show($"Fabric 目前没有为 {id} 提供加载器。", "SlopeX");
                     return;
                 }
 
-                var task = TaskCenter.StartFabricInstall(mcId, loader);
-                MainWindow.Current?.SetStatus($"正在安装 Fabric {loader}（{mcId}）…", null);
+                var task = TaskCenter.StartFabricInstall(id, loader);
+                MainWindow.Current?.SetStatus($"正在安装 Fabric {loader}（{id}）…", null);
 
                 task.Updated += t =>
                 {
@@ -179,7 +218,9 @@ namespace SlopeX.Pages
 
                     Dispatcher.BeginInvoke(new Action(() =>
                     {
+                        summary.Busy = false;
                         MainWindow.Current?.RefreshStatusAsync();
+                        ApplyFilter();
 
                         if (t.Completed)
                         {
@@ -196,12 +237,10 @@ namespace SlopeX.Pages
             }
             catch (Exception ex)
             {
+                summary.Busy = false;
+                ApplyFilter();
                 MainWindow.Current?.SetStatus("Fabric 安装失败：" + ex.Message, null);
                 Log.Error("Fabric 安装失败", ex);
-            }
-            finally
-            {
-                button.IsEnabled = true;
             }
         }
 

@@ -5,6 +5,7 @@ param(
     [int]$ClickRelX = -1,
     [int]$ClickRelY = -1,
     [string]$Page = "",
+    [string]$ClickText = "",
     [int]$PostWaitMs = 1200,
     [switch]$KeepOpen
 )
@@ -100,10 +101,65 @@ if ($Page -ne "") {
     }
 }
 
+# -ClickText: click targets by label, pipe separated for a sequence (e.g. "open|confirm")
+# Matches Button and RadioButton (dialog option rows are radio buttons).
+if ($ClickText -ne "") {
+    try {
+        Add-Type -AssemblyName UIAutomationClient
+        Add-Type -AssemblyName UIAutomationTypes
+
+        foreach ($target in ($ClickText -split '\|')) {
+            if ($target -eq "") { continue }
+
+            $aeRoot2 = [System.Windows.Automation.AutomationElement]::FromHandle($hwnd)
+            $condBtn = New-Object System.Windows.Automation.PropertyCondition(
+                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::Button)
+            $condRadio = New-Object System.Windows.Automation.PropertyCondition(
+                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::RadioButton)
+            $condAny = New-Object System.Windows.Automation.OrCondition($condBtn, $condRadio)
+
+            $clicked = $false
+            foreach ($b in $aeRoot2.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condAny)) {
+                $kids = $b.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+                    [System.Windows.Automation.Condition]::TrueCondition)
+                $lab = ""
+                foreach ($k in $kids) { if ($k.Current.Name) { $lab = $lab + $k.Current.Name } }
+                if (-not $lab) { $lab = $b.Current.Name }
+                if ($lab -like "*$target*") {
+                    $r = $b.Current.BoundingRectangle
+                    $cx = [int]($r.X + $r.Width / 2)
+                    $cy = [int]($r.Y + $r.Height / 2)
+                    [WinCap]::SetCursorPos($cx, $cy) | Out-Null
+                    Start-Sleep -Milliseconds 200
+                    [WinCap]::mouse_event(0x0002, 0, 0, 0, [IntPtr]::Zero)
+                    Start-Sleep -Milliseconds 60
+                    [WinCap]::mouse_event(0x0004, 0, 0, 0, [IntPtr]::Zero)
+                    Write-Output ("CLICKED=" + $lab)
+                    $clicked = $true
+                    break
+                }
+            }
+            if (-not $clicked) { Write-Output ("CLICK_TARGET_NOT_FOUND=" + $target) }
+            Start-Sleep -Milliseconds $PostWaitMs
+        }
+    }
+    catch {
+        Write-Output ("CLICK_ERR " + $_.Exception.Message)
+    }
+}
+
 $rect = New-Object WinCap+RECT
 [WinCap]::GetWindowRect($hwnd, [ref]$rect) | Out-Null
 $w = $rect.Right - $rect.Left
 $h = $rect.Bottom - $rect.Top
+Write-Output ("SIZE=" + $w + "x" + $h)
+if ($w -le 0 -or $h -le 0) {
+    Write-Output "BAD_RECT"
+    if (-not $KeepOpen) { try { $proc.Kill() } catch { } }
+    exit 4
+}
 
 if ($ClickRelX -ge 0 -and $ClickRelY -ge 0) {
     $px = $rect.Left + $ClickRelX

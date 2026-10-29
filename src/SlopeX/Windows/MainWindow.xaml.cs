@@ -133,5 +133,22 @@ namespace SlopeX.Windows
             UpdateAccount();
             _ = RefreshStatusAsync();
         }
+
+        // ---------------- 模态 ----------------
+
+        /// <summary>在主窗口内显示模态卡片（遮罩挡住下层点击，Esc / 取消由内容自己处理）。</summary>
+        public void ShowModal(UIElement content)
+        {
+            ModalHost.Content = content;
+            ModalLayer.Visibility = Visibility.Visible;
+        }
+
+        public void HideModal()
+        {
+            ModalLayer.Visibility = Visibility.Collapsed;
+            ModalHost.Content = null;
+        }
+
+        public bool IsModalOpen => ModalLayer.Visibility == Visibility.Visible;
     }
 }

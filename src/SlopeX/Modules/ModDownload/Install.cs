@@ -62,7 +62,9 @@ namespace SlopeX.Modules.ModDownload
         }
 
         public string InstallLabel => _busy ? "安装中…" : _installed ? "已安装" : "安装";
-        public bool CanInstall => !_installed && !_busy;
+
+        // 已安装也允许再点：装 Fabric 加载器、或重新校验补齐原版，都从这个入口进
+        public bool CanInstall => !_busy;
     }
 
     /// <summary>Mojang 版本清单（对应 PCL2 的下载源处理）。</summary>
