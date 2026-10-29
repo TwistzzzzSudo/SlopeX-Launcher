@@ -276,6 +276,8 @@ namespace SlopeX.Modules.ModLaunch
             if (!jvm.Any(a => a.StartsWith("-Djava.library.path")))
                 jvm.Add("-Djava.library.path=" + vars["natives_directory"]);
 
+            EnsureIgnoreListCoversJar(jvm, jar);
+
             if (!string.IsNullOrWhiteSpace(o.JvmExtra))
                 foreach (var extra in SplitArgs(o.JvmExtra))
                     jvm.Add(extra);
@@ -343,8 +345,36 @@ namespace SlopeX.Modules.ModLaunch
             return $"{group}/{artifact}/{version}/{file}";
         }
 
-        private static Dictionary<string, string> BuildVariables(ResolvedVersion v, LaunchOptions o, string cp, string nativesDir, string root)
+        /// <summary>
+        /// Forge 的 jvm 参数里写的是 <c>-DignoreList=…${version_name}.jar</c>，本意是把"正在加载的那个
+        /// jar"排除在模块层之外。但 Forge 自己没有 jar，真正加载的是父版本（原版）的 jar，于是
+        /// <c>${version_name}</c> 展开后名字对不上，原版 jar 会被 BootstrapLauncher 当成自动模块
+        /// （如 <c>_1._20._1</c>），与 FML 提供的 <c>minecraft</c> 模块导出同一个 package，启动即报
+        /// <c>java.lang.module.ResolutionException</c>。这里把实际 jar 文件名补进 ignoreList（幂等）。
+        /// </summary>
+        private static void EnsureIgnoreListCoversJar(List<string> jvm, string jarPath)
         {
+            if (string.IsNullOrEmpty(jarPath)) return;
+
+            var fileName = System.IO.Path.GetFileName(jarPath);
+            if (string.IsNullOrEmpty(fileName)) return;
+
+            const string prefix = "-DignoreList=";
+
+            for (var i = 0; i < jvm.Count; i++)
+            {
+                if (!jvm[i].StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+
+                var items = jvm[i].Substring(prefix.Length).Split(',');
+                if (items.Any(x => string.Equals(x.Trim(), fileName, StringComparison.OrdinalIgnoreCase)))
+                    return;
+
+                jvm[i] = jvm[i] + "," + fileName;
+                return;
+            }
+        }
+
+        private static Dictionary<string, string> BuildVariables(ResolvedVersion v, LaunchOptions o, string cp, string nativesDir, string root)        {
             var assetIndex = v.EffectiveAssetIndex;
             return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
