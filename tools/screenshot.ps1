@@ -5,6 +5,7 @@ param(
     [int]$ClickRelX = -1,
     [int]$ClickRelY = -1,
     [string]$Page = "",
+    [int]$PostWaitMs = 1200,
     [switch]$KeepOpen
 )
 
@@ -87,7 +88,7 @@ if ($Page -ne "") {
         }
         if ($null -ne $aePat) {
             $aePat.Select()
-            Start-Sleep -Milliseconds 1000
+            Start-Sleep -Milliseconds $PostWaitMs
             Write-Output "PAGE_SELECTED"
         }
         else {

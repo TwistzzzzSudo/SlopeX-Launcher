@@ -105,6 +105,13 @@ namespace SlopeX.Modules.ModDownload
         }
     }
 
+    /// <summary>安装任务的种类。</summary>
+    public enum InstallKind
+    {
+        Vanilla,
+        Fabric
+    }
+
     /// <summary>安装任务：可观察的进度对象，供任务页展示。</summary>
     public sealed class InstallTask : ObservableObject
     {
@@ -117,8 +124,21 @@ namespace SlopeX.Modules.ModDownload
         private bool _failed;
         private string _error;
 
+        /// <summary>目标任务 ID：原版为版本号，Fabric 为 fabric-loader-&lt;loader&gt;-&lt;mc&gt;。</summary>
         public string VersionId { get; set; }
-        public string Title => "安装 " + VersionId;
+
+        public InstallKind Kind { get; set; } = InstallKind.Vanilla;
+
+        /// <summary>Fabric 所依赖的原版版本。</summary>
+        public string BaseVersion { get; set; }
+
+        /// <summary>Fabric 加载器版本；为空表示"取最新稳定版"。</summary>
+        public string LoaderVersion { get; set; }
+
+        public string Title => Kind == InstallKind.Fabric
+            ? "安装 Fabric " + (string.IsNullOrEmpty(LoaderVersion) ? "加载器" : LoaderVersion) + $"（{BaseVersion}）"
+            : "安装 " + VersionId;
+
         public DownloadQueue Engine { get; } = new DownloadQueue();
 
         public string Stage { get => _stage; private set => Set(ref _stage, value); }
@@ -150,11 +170,22 @@ namespace SlopeX.Modules.ModDownload
 
             try
             {
-                await VanillaInstaller.InstallAsync(Config.Current.GameDir, this, Cts.Token).ConfigureAwait(false);
+                if (Kind == InstallKind.Fabric)
+                {
+                    VersionId = await FabricInstaller.InstallAsync(Config.Current.GameDir, BaseVersion,
+                        LoaderVersion, this, Cts.Token).ConfigureAwait(false);
+                    Log.Info($"{VersionId} 安装完成");
+                }
+                else
+                {
+                    await VanillaInstaller.InstallAsync(Config.Current.GameDir, VersionId, this, Cts.Token)
+                        .ConfigureAwait(false);
+                    Log.Info($"{VersionId} 安装完成");
+                }
+
                 Completed = true;
                 Stage = "安装完成";
                 Percent = 100;
-                Log.Info($"{VersionId} 安装完成");
             }
             catch (OperationCanceledException)
             {
@@ -210,9 +241,12 @@ namespace SlopeX.Modules.ModDownload
                    File.Exists(Path.Combine(dir, versionId + ".jar"));
         }
 
-        public static async Task InstallAsync(string gameDir, InstallTask task, CancellationToken ct)
+        /// <summary>
+        /// 安装原版。versionId 独立传参（而不是从 task 里取），
+        /// 因为 Fabric 安装时会先借同一个任务去补装所依赖的原版。
+        /// </summary>
+        public static async Task InstallAsync(string gameDir, string versionId, InstallTask task, CancellationToken ct)
         {
-            var versionId = task.VersionId;
             task.SetStage("获取版本清单");
 
             var list = await Mojang.GetVersionListAsync(true, ct).ConfigureAwait(false);
