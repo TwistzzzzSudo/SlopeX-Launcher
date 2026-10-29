@@ -189,6 +189,7 @@ tools/make-icon.ps1  # 由矢量几何重新生成 ico；改标记形状时改�
 
 - **仅支持 Windows**（WPF + 注册表探测）
 - **未实现 Forge / NeoForge 安装**：Fabric / Quilt 同类加载器已支持一键安装；Forge 计划走"官方 installer `--installClient`"路线（见 `docs/PROGRESS.md` §7.1）
+- **微软登录需要 Mojang 白名单**：第三方启动器访问 Minecraft API 需要人工审核（[说明](https://help.minecraft.net/hc/en-us/articles/16254801392141)，申请表 https://aka.ms/mce-reviewappid）。当前 client_id 尚未在名单内，登录会停在 `403 Invalid app registration`；审核通过后无需改代码即可使用
 - 模组管理、整合包导入尚未实现（存档隔离已支持）
 - 存档隔离为强制行为，不提供"共享材质包 / 共用存档"的混合模式；需要共用时由用户自行复制文件
 - Java 自动下载只覆盖 x64 / arm64 桌面平台，且依赖国内镜像的可达性；镜像全部不可达时需手动指定 Java

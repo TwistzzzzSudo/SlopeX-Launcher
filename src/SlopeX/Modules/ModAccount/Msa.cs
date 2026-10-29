@@ -281,7 +281,18 @@ namespace SlopeX.Modules.ModAccount
 
             var (status, json) = await PostJsonRawAsync(McLoginUrl, payload, ct).ConfigureAwait(false);
             if (status < 200 || status >= 300)
-                throw new MsaException("Minecraft 登录失败：" + Describe(json, status));
+            {
+                var desc = Describe(json, status);
+
+                // Mojang 对第三方启动器做人工白名单：未放行的 client_id 会在这一步 403
+                if (status == 403 && desc.IndexOf("app registration", StringComparison.OrdinalIgnoreCase) >= 0)
+                    throw new MsaException(
+                        "Mojang 尚未放行这个客户端 ID。第三方启动器必须单独申请 Minecraft API 白名单，" +
+                        "审批通过前登录会卡在这一步（错误码 403 Invalid app registration）。\n" +
+                        "申请入口：https://aka.ms/mce-reviewappid —— 提交 client_id、应用名与用途，审核通过后可直接重试。");
+
+                throw new MsaException("Minecraft 登录失败：" + desc);
+            }
 
             var token = J.Str(json, "access_token");
             if (string.IsNullOrEmpty(token)) throw new MsaException("Minecraft 登录没有返回 access_token");
