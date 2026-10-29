@@ -1,0 +1,158 @@
+# SlopeX Launcher 设计规范
+
+> 适用版本：1.0.0 起（S1 美术地基）
+> 主题：「极简白纸」（浅色，默认）/「极简墨纸」（深色）
+> 本文是**写界面时的唯一依据**。与本文冲突的写法，以本文为准。
+
+---
+
+## 1. 原则
+
+1. **纸与墨**：一套纸媒隐喻贯穿两套主题。浅色是白纸黑墨，深色是墨色纸面浅墨字。不引入第二个视觉意象（不用玻璃、不用渐变、不用霓虹）。
+2. **结构靠描边，不靠阴影**：层级用 1px 描边（`Line` / `LineStrong`）和纸面明度差表达。全局不使用 `DropShadowEffect`。
+3. **颜色只有名字，没有数值**：页面里写 `{DynamicResource Ink}`，永远不写 `#1A1A18`。改色只改调色板。
+4. **克制**：同一屏最多两个强调点。主按钮一屏一个，其余用 `BtnGhost` / `BtnText`。
+
+---
+
+## 2. 调色板
+
+颜色由 `Themes/Palette.Light.xaml` 与 `Themes/Palette.Dark.xaml` 提供，**两份必须拥有完全相同的 key**。运行时整份替换实现换肤。
+
+| Token | 用途 | 极简白纸 | 极简墨纸 |
+|---|---|---|---|
+| `Bg` | 页面与卡片的底色 | `#FFFFFF` | `#1A1A16` |
+| `Paper` | 悬停底色 | `#FAFAF8` | `#232320` |
+| `Paper2` | 选中/标签底色 | `#F2F2EE` | `#2C2C27` |
+| `Paper3` | 进度条轨道等凹陷面 | `#ECECE7` | `#34342E` |
+| `Line` | 常规描边、分隔线 | `#E8E8E3` | `#35352F` |
+| `LineStrong` | 强调描边（输入框悬停、滚动条滑块） | `#D6D6CE` | `#4A4A42` |
+| `Ink` | 正文、标题、主按钮底 | `#1A1A18` | `#EDEBE2` |
+| `InkHover` | 主按钮悬停 | `#33332F` | `#FBFAF3` |
+| `InkPressed` | 主按钮按下 | `#000000` | `#FFFFFF` |
+| `Sub` | 次级文字、说明 | `#6B6B64` | `#A7A59B` |
+| `Muted` | 辅助信息、时间戳、占位符 | `#9C9C94` | `#7B7970` |
+| `Good` | 成功 | `#2E7D5B` | `#57B98C` |
+| `Warn` | 警告 | `#A9661F` | `#DDA05A` |
+| `Bad` | 错误 | `#B3392F` | `#E5766C` |
+| `CloseHover` | 关闭按钮悬停 | `#E5484D` | `#C94248` |
+| `OnInk` | **压在 `Ink` 上的前景**（主按钮文字、选中胶囊文字、勾选符号、Logo 勾） | `#FFFFFF` | `#1A1A16` |
+| `OnBad` | 压在 `Bad`/`CloseHover` 上的前景 | `#FFFFFF` | `#FFFFFF` |
+
+### 2.1 三条硬规则
+
+1. **不造多余 token**：需要透明就写 `Transparent`，不要为它新增颜色项；两套主题里取值相同的颜色（如 `OnBad`）也要保留双份定义，方便将来分开调。
+2. **成对维护**：新增颜色必须同时写进两个 Palette。深色里漏 key 不会报错，只会静默不刷新——这是最阴的 bug。
+3. **只用 `DynamicResource`**：`{StaticResource Ink}` 在加载时定值，**切换主题不会变**。当前共 106 处颜色引用全部为 DynamicResource，新增代码必须照此办理。
+
+### 2.2 文字层级用法
+
+| 场景 | 样式 | 颜色 |
+|---|---|---|
+| 页面标题 | `TTitle` | `Ink` |
+| 卡片标题 | `TSection` | `Ink` |
+| 正文、列表主行 | `TBody` | `Ink` |
+| 说明、副标题 | `TSub` | `Sub` |
+| 辅助信息、时间、占位符 | `TCaption` | `Muted` |
+| 路径、命令行、日志 | `TMono` | `Sub` |
+
+**禁止**：用 `Muted` 承载正文（对比度不足）；用颜色（`Good`/`Bad`）表达非语义信息。
+
+---
+
+## 3. 刻度
+
+### 3.1 间距（4 的倍数）
+
+`Sp4` `Sp8` `Sp12` `Sp16` `Sp20` `Sp24` `Sp32` = 4 / 8 / 12 / 16 / 20 / 24 / 32
+
+- 卡片内边距：18（`Card` 样式自带）
+- 卡片之间：14
+- 页面内边距：`34,26,34,0`
+- 标题与内容之间：4–6
+- 同组控件之间：8
+
+新增布局**从阶梯里取**，不要再随手写 13 / 17 / 25。确实需要中间值时，先问是不是布局本身该调整。
+
+### 3.2 圆角
+
+`R4` 4 · `R6` 6 · `R8` 8 · `R10` 10 · `R14` 14
+
+| 元素 | 圆角 |
+|---|---|
+| 卡片 | `R10` |
+| 按钮 / 输入框 | `R8` |
+| 小标签（`Tag`） | `R4` |
+| 筛选胶囊（`Chip`） | `R14`（全圆） |
+| 勾选框 | `R4` |
+
+### 3.3 动效
+
+`DurFast` 120ms · `DurBase` 180ms · `DurSlow` 280ms
+
+- 悬停 / 按下 → `DurFast`
+- 面板展开、页面切换 → `DurBase`
+- 当前代码**没有任何动画**。新增过渡时用这三个值，不要现编。
+
+### 3.4 字体与字号
+
+- 界面：`Segoe UI` → `Microsoft YaHei UI` → `Microsoft YaHei`
+- 等宽：`Cascadia Mono` → `Consolas`
+- 字号：23 / 13.5 / 13 / 12.5 / 11.5（对应 `TTitle` … `TMono`）
+
+---
+
+## 4. 现有组件
+
+| 样式名 | 类型 | 用途 | 备注 |
+|---|---|---|---|
+| `TTitle` `TSection` `TBody` `TSub` `TCaption` `TMono` | TextBlock | 六级文字 | 见 §2.2 |
+| `Card` | Border | 内容卡片 | 白底 + 1px 描边 + `R10` |
+| `HRule` | Border | 1px 分隔线 | 高 1，色 `Line` |
+| `Tag` | Border | 小标签（版本类型等） | `Paper2` 底，`R4` |
+| `BtnPrimary` | Button | 主操作，一屏一个 | `Ink` 底 + `OnInk` 字，高 40 |
+| `BtnGhost` | Button | 次操作（浏览、打开目录） | 描边款，高 32 |
+| `BtnText` | Button | 文字按钮（列表内操作） | 无边框，悬停 `Paper2` |
+| `BtnWin` / `BtnWinClose` | Button | 窗口控制 | 42×30，图标字体 |
+| `BtnLink` | Button | 行内链接式按钮 | 无背景 |
+| `Chip` | ToggleButton | 单选胶囊，多用于筛选 | 选中 = `Ink` 底 + `OnInk` 字 |
+| `Input` | TextBox | 单行输入 | 聚焦时描边转 `Ink` |
+| `Bar` | ProgressBar | 进度条 | 高 3，`Ink` 前景 |
+| `ScrollBar` | ScrollBar | 全局滚动条 | 宽 9，滑块 `LineStrong` |
+| `RowItem` / `PlainList` | ListBoxItem / ListBox | 列表 | 选中 `Paper2`，悬停 `Paper` |
+| `Chk` | CheckBox | 勾选 | 16×16，`R4`，勾用 `OnInk` |
+
+---
+
+## 5. 组件缺口（S2 补齐）
+
+以下控件**目前没有样式**，遇到时不要临时拼一个，先补样式再写页面：
+
+| # | 组件 | 为什么需要 | 用在哪 |
+|---|---|---|---|
+| 1 | `ComboBox` 下拉 | 选择安装版本、Java 运行时、下载源 | 下载页、设置页 |
+| 2 | 多列列表 `DataList` | 列头 + 行（名称/版本/状态/操作） | 模组管理、整合包内容 |
+| 3 | `Dialog` 遮罩 + 容器 | 替代 `MessageBox`，统一视觉 | 确认删除、安装选项 |
+| 4 | `Toast` 轻提示 | 非阻断反馈（已保存、已复制） | 全局 |
+| 5 | 空状态 `EmptyState` | 无版本 / 无模组 / 无任务 | 各列表页 |
+| 6 | 右键菜单 `ContextMenu` | 列表项操作（打开目录、删除） | 模组、版本 |
+| 7 | 步骤条 `Steps` | 多步流程（整合包导入） | 导入向导 |
+
+---
+
+## 6. 新增颜色的流程
+
+1. 想清楚它属于哪一层（纸面 / 描边 / 文字 / 语义）；
+2. 在两个 Palette 里同时加同名 key，深色值必须满足：**暖调、不用纯黑、不用冷蓝灰**；
+3. 若它是"压在某个颜色上的前景"，命名用 `On*`（如 `OnInk`），不要叫 `White`；
+4. 更新本文 §2 的表格；
+5. 截图两套主题各看一遍再提交。
+
+---
+
+## 7. 换肤实现（供改代码的人看）
+
+- `Themes/ThemeService.cs`：读配置 → 解析模式（System 时读 `AppsUseLightTheme`）→ 替换 `Application.Current.Resources.MergedDictionaries` 里的调色板 → 触发 `Changed`。
+- `App.OnStartup` 在建窗口**之前**调用 `ThemeService.Initialize()`，避免先白后黑的闪烁。
+- 系统主题变化监听 `SystemEvents.UserPreferenceChanged`；用户选了固定浅/深时忽略系统值。
+- 用户选择存 `config.json` 的 `Appearance`（`System` / `Light` / `Dark`），默认 `Light`。

@@ -29,7 +29,7 @@
             <Grid HorizontalAlignment="Left" Width="260">
                 <TextBox x:Name="SearchBox" Style="{StaticResource Input}"
                          TextChanged="SearchBox_TextChanged" ToolTip="按版本名过滤"/>
-                <TextBlock Text="搜索版本…" Foreground="{StaticResource Muted}" FontSize="12.5"
+                <TextBlock Text="搜索版本…" Foreground="{DynamicResource Muted}" FontSize="12.5"
                            Margin="11,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
@@ -63,12 +63,12 @@
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="{Binding Id}" FontSize="13.5" FontWeight="SemiBold"
-                                                   Foreground="{StaticResource Ink}"
+                                                   Foreground="{DynamicResource Ink}"
                                                    TextTrimming="CharacterEllipsis" MaxWidth="360"/>
                                         <Border Style="{StaticResource Tag}" Margin="8,0,0,0"
-                                                Background="{StaticResource Paper2}">
+                                                Background="{DynamicResource Paper2}">
                                             <TextBlock Text="{Binding Loader}" FontSize="11"
-                                                       Foreground="{StaticResource Sub}"/>
+                                                       Foreground="{DynamicResource Sub}"/>
                                         </Border>
                                     </StackPanel>
                                     <TextBlock Style="{StaticResource TCaption}" Margin="0,3,0,0">
@@ -88,11 +88,11 @@
                                     <Button Style="{StaticResource BtnText}" Content="目录" Click="OpenOne_Click"
                                             Tag="{Binding Dir}"/>
                                     <Button Style="{StaticResource BtnText}" Content="删除" Click="DeleteOne_Click"
-                                            Tag="{Binding Id}" Foreground="{StaticResource Muted}"/>
+                                            Tag="{Binding Id}" Foreground="{DynamicResource Muted}"/>
                                 </StackPanel>
 
                                 <TextBlock Grid.Column="2" Text="&#xE76C;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="11" Foreground="{StaticResource Muted}"
+                                           FontSize="11" Foreground="{DynamicResource Muted}"
                                            VerticalAlignment="Center" Margin="4,0,6,0"/>
                             </Grid>
                         </DataTemplate>

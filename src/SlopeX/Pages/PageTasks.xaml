@@ -32,7 +32,7 @@
                     <ItemsControl x:Name="TaskList">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1"
+                                <Border BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1"
                                         Padding="4,10,4,12">
                                     <StackPanel>
                                         <Grid>
@@ -58,7 +58,7 @@
                                         <Grid Margin="0,7,0,0">
                                             <TextBlock Text="{Binding Stage}" Style="{StaticResource TCaption}"/>
                                             <TextBlock Text="{Binding Error}" Style="{StaticResource TCaption}"
-                                                       Foreground="{StaticResource Bad}"
+                                                       Foreground="{DynamicResource Bad}"
                                                        HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"
                                                        MaxWidth="360"/>
                                         </Grid>
@@ -83,7 +83,7 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <Border Grid.Row="0" BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1"
+                <Border Grid.Row="0" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1"
                         Padding="14,10,14,10">
                     <Grid>
                         <TextBlock Text="运行日志" Style="{StaticResource TCaption}" FontWeight="SemiBold"/>
@@ -93,7 +93,7 @@
 
                 <TextBox x:Name="LogBox" Grid.Row="1" IsReadOnly="True" BorderThickness="0"
                          AcceptsReturn="True" TextWrapping="NoWrap"
-                         Background="{StaticResource Bg}" Foreground="{StaticResource Sub}"
+                         Background="{DynamicResource Bg}" Foreground="{DynamicResource Sub}"
                          FontFamily="{StaticResource MonoFont}" FontSize="11.5"
                          Padding="14,10,10,10"
                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"

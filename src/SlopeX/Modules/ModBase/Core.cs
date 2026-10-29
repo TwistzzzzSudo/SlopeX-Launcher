@@ -284,6 +284,8 @@ namespace SlopeX.Modules.ModBase
         private bool _customResolution = false;
         private string _lastVersion = "";
         private bool _autoInstallJava = true;
+        private string _theme = "paper";
+        private string _appearance = "Light";
 
         /// <summary>游戏目录（.minecraft 根），内存中始终是绝对路径。</summary>
         [JsonIgnore]
@@ -341,6 +343,18 @@ namespace SlopeX.Modules.ModBase
         /// <summary>当前版本缺少所需 Java 时，自动下载安装（国内镜像）。</summary>
         public bool AutoInstallJava { get => _autoInstallJava; set => Set(ref _autoInstallJava, value); }
 
+        /// <summary>
+        /// 主题族。当前只有纸媒一套 <c>paper</c>（极简白纸 / 极简墨纸共用一套版式），
+        /// 将来若增加第二套视觉语言，在这里加取值即可。
+        /// </summary>
+        public string Theme { get => _theme; set => Set(ref _theme, value); }
+
+        /// <summary>
+        /// 外观模式：<c>System</c> 跟随系统 / <c>Light</c> 极简白纸 / <c>Dark</c> 极简墨纸。
+        /// 默认 <c>Light</c>——极简白纸是默认主题，跟随系统需用户主动选择。
+        /// </summary>
+        public string Appearance { get => _appearance; set => Set(ref _appearance, value); }
+
         // 注：原 VersionIsolation / IsolationSeeded 两个配置项已移除。
         // 版本隔离（含存档）现在是强制行为，不再是可配置项，也就不该存在"关闭"的记录。
         // 旧配置文件里的这两个字段会在反序列化时被忽略，不需要迁移。
@@ -374,12 +388,18 @@ namespace SlopeX.Modules.ModBase
                             !Path.IsPathRooted(Paths.ToStorablePath(cfg.GameDir)))
                             cfg.Save();
 
-                        // 已移除的隔离开关：若旧配置里还留着，重写一次把字段清掉，
-                        // 免得日志/配置文件里还显示一个"可以关闭存档隔离"的痕迹。
-                        if (json.Contains("VersionIsolation", StringComparison.OrdinalIgnoreCase) ||
-                            json.Contains("IsolationSeeded", StringComparison.OrdinalIgnoreCase))
+                        // 旧配置缺新字段（或残留已移除的隔离开关）时重写一次：
+                        // 一是把已删除的 VersionIsolation / IsolationSeeded 清掉，
+                        // 二是让 Appearance / Theme 出现在文件里，配置自解释。
+                        var needsRewrite =
+                            json.Contains("VersionIsolation", StringComparison.OrdinalIgnoreCase) ||
+                            json.Contains("IsolationSeeded", StringComparison.OrdinalIgnoreCase) ||
+                            !json.Contains("\"Appearance\"", StringComparison.OrdinalIgnoreCase) ||
+                            !json.Contains("\"Theme\"", StringComparison.OrdinalIgnoreCase);
+
+                        if (needsRewrite)
                         {
-                            Log.Info("检测到旧版隔离开关配置，已清理（存档隔离现为强制行为）");
+                            Log.Info("配置文件结构有更新，已重写（移除旧隔离开关，补充主题字段）");
                             cfg.Save();
                         }
 

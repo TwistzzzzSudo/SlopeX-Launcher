@@ -1,0 +1,43 @@
+<!--
+    极简墨纸 —— 深色调色板
+
+    与「极简白纸」成对：白纸以墨写字，墨纸以浅墨显字。
+    刻意使用**暖调近黑**而不是纯黑 #000、也不用冷蓝灰——
+    保留纸的质感，避免长时间看着发灰发硬。
+
+    纸面层级的方向与浅色相反：浅色是"越深越强调"，
+    深色是"越亮越强调"（悬停/选中的面比底色更亮）。
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- 纸面层级 -->
+    <SolidColorBrush x:Key="Bg" Color="#1A1A16"/>
+    <SolidColorBrush x:Key="Paper" Color="#232320"/>
+    <SolidColorBrush x:Key="Paper2" Color="#2C2C27"/>
+    <SolidColorBrush x:Key="Paper3" Color="#34342E"/>
+
+    <!-- 描边 -->
+    <SolidColorBrush x:Key="Line" Color="#35352F"/>
+    <SolidColorBrush x:Key="LineStrong" Color="#4A4A42"/>
+
+    <!-- 墨色文字（浅墨） -->
+    <SolidColorBrush x:Key="Ink" Color="#EDEBE2"/>
+    <SolidColorBrush x:Key="InkHover" Color="#FBFAF3"/>
+    <SolidColorBrush x:Key="InkPressed" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="Sub" Color="#A7A59B"/>
+    <SolidColorBrush x:Key="Muted" Color="#7B7970"/>
+
+    <!-- 语义色：深底上需要更高明度才够醒目 -->
+    <SolidColorBrush x:Key="Good" Color="#57B98C"/>
+    <SolidColorBrush x:Key="Warn" Color="#DDA05A"/>
+    <SolidColorBrush x:Key="Bad" Color="#E5766C"/>
+    <SolidColorBrush x:Key="CloseHover" Color="#C94248"/>
+
+    <!-- 落在 Ink 上的前景色：深色主题里 Ink 是浅色，所以前景反而要深 -->
+    <SolidColorBrush x:Key="OnInk" Color="#1A1A16"/>
+
+    <!-- 落在 Bad / CloseHover 上的前景色：红底用白字，两套主题一致 -->
+    <SolidColorBrush x:Key="OnBad" Color="#FFFFFF"/>
+
+</ResourceDictionary>

@@ -6,7 +6,7 @@
         Height="820" Width="1280" MinHeight="620" MinWidth="980"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None" ResizeMode="CanResize"
-        Background="{StaticResource Bg}"
+        Background="{DynamicResource Bg}"
         FontFamily="{StaticResource UiFont}" FontSize="13"
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Ideal"
@@ -42,7 +42,7 @@
         </Style>
 
         <Style x:Key="NavItem" TargetType="ListBoxItem">
-            <Setter Property="Foreground" Value="{StaticResource Sub}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Sub}"/>
             <Setter Property="Height" Value="36"/>
             <Setter Property="Margin" Value="0,1"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -55,12 +55,12 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="{StaticResource Paper}"/>
-                                <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource Paper}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="{StaticResource Paper2}"/>
-                                <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource Paper2}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
                                 <Setter Property="FontWeight" Value="SemiBold"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -70,7 +70,7 @@
         </Style>
     </Window.Resources>
 
-    <Border x:Name="RootBorder" BorderBrush="{StaticResource Line}" BorderThickness="1">
+    <Border x:Name="RootBorder" BorderBrush="{DynamicResource Line}" BorderThickness="1">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="46"/>
@@ -79,18 +79,18 @@
             </Grid.RowDefinitions>
 
             <!-- ========== 标题栏 ========== -->
-            <Border Grid.Row="0" Background="{StaticResource Bg}"
-                    BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1">
+            <Border Grid.Row="0" Background="{DynamicResource Bg}"
+                    BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1">
                 <Grid Margin="16,0,9,0">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Border Width="20" Height="20" CornerRadius="5" Background="{StaticResource Ink}" Margin="0,0,9,0">
+                        <Border Width="20" Height="20" CornerRadius="5" Background="{DynamicResource Ink}" Margin="0,0,9,0">
                             <Path Data="M4,13.5 L8,9 L10.5,11 L15.5,5"
-                                  Stroke="#FFFFFF" StrokeThickness="1.6"
+                                  Stroke="{DynamicResource OnInk}" StrokeThickness="1.6"
                                   StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
                         </Border>
                         <TextBlock Text="SlopeX" FontSize="13.5" FontWeight="SemiBold"
-                                   Foreground="{StaticResource Ink}" VerticalAlignment="Center"/>
-                        <TextBlock Text="LAUNCHER" FontSize="9" Foreground="{StaticResource Muted}"
+                                   Foreground="{DynamicResource Ink}" VerticalAlignment="Center"/>
+                        <TextBlock Text="LAUNCHER" FontSize="9" Foreground="{DynamicResource Muted}"
                                    Margin="8,1,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
 
@@ -114,8 +114,8 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- 侧边栏 -->
-                <Border Grid.Column="0" Background="{StaticResource Bg}"
-                        BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
+                <Border Grid.Column="0" Background="{DynamicResource Bg}"
+                        BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0">
                     <Grid Margin="11,12,11,10">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="*"/>
@@ -166,9 +166,9 @@
                                 Margin="0,6,0,0" Click="Account_Click" HorizontalContentAlignment="Stretch">
                             <Grid>
                                 <Border Width="30" Height="30" CornerRadius="15"
-                                        Background="{StaticResource Paper2}" HorizontalAlignment="Left">
+                                        Background="{DynamicResource Paper2}" HorizontalAlignment="Left">
                                     <TextBlock x:Name="SideAvatar" Text="S" FontSize="12.5" FontWeight="SemiBold"
-                                               Foreground="{StaticResource Sub}"
+                                               Foreground="{DynamicResource Sub}"
                                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                                 <StackPanel Margin="39,0,0,0" VerticalAlignment="Center">
@@ -186,8 +186,8 @@
             </Grid>
 
             <!-- ========== 状态栏 ========== -->
-            <Border Grid.Row="2" Background="{StaticResource Paper}"
-                    BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0">
+            <Border Grid.Row="2" Background="{DynamicResource Paper}"
+                    BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0">
                 <Grid Margin="14,0">
                     <TextBlock x:Name="StatusLeft" Style="{StaticResource TCaption}" VerticalAlignment="Center"/>
                     <TextBlock x:Name="StatusRight" Style="{StaticResource TCaption}"

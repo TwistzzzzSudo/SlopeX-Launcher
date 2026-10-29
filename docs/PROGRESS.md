@@ -1,12 +1,12 @@
 # SlopeX Launcher 进度报告与实施计划
 
-> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-29 03:20
+> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-29 17:31
 > 对应产物：`SlopeX.exe` 1.0.0（自包含单文件，139 MB，win-x64）
-> 代码规模：26 个 C# / XAML 源文件，6,477 行
+> 代码规模：29 个 C# / XAML 源文件，6,816 行
 > 版本控制：git 已初始化，`main` 基线提交 `8cc0cd1`
-> 当前状态：**存档隔离已改为强制（无关闭入口），真机验证通过**；四项决策 + 美术排期 + 主题命名均已定
-> 下一个执行项 = 美术地基 S1（双主题 token 层 + 设计规范）→ Fabric 安装
-> 本轮改动：**存档隔离改为强制行为**（删除开关、删除自动继承、删除导入按钮），源码已改并重新打包
+> 当前状态：**S1 美术地基完成**——双主题（极简白纸 / 极简墨纸）+ 设置页主题入口 + 跟随系统 + 设计规范文档
+> 下一个执行项 = Fabric 安装（P0-1）
+> 本轮改动：主题体系落地（新增 2 个调色板、ThemeService、设置页主题卡、design-language.md）
 > **工作量口径**：全文一律以「产出物 / 改动范围」描述，不使用时间估算。
 
 ---
@@ -27,7 +27,8 @@
 | `SlopeX.exe` | 免安装单文件，双击即用，无需装 .NET | ✅ |
 | `src/SlopeX/` | 完整源码（.NET 8 + WPF） | ✅ |
 | `.minecraft/` | 便携游戏目录，1.3 GB，已装 26.3 与 1.20.1 | ✅ |
-| `docs/screenshots/` | 7 张界面截图（首页 / 版本 / 下载 / 任务 / 设置 / Java 缺失 / 自动安装） | ✅ |
+| `docs/screenshots/` | 9 张界面截图（首页 / 版本 / 下载 / 任务 / 设置 / Java 缺失 / 自动安装 / **深色首页** / **深色设置**） | ✅ |
+| `docs/design-language.md` | **设计规范**：双主题色板、间距/圆角/动效刻度、组件清单、7 项组件缺口 | ✅ |
 | `README.md` | 功能、架构、构建、限制说明 | ✅ |
 | `build.cmd` | 一键构建（纯 ASCII，规避 cmd 编码问题） | ✅ |
 | `tools/screenshot.ps1` | 内部工具：启动并截窗口图；`-Page "设置"` 可用 UI 自动化直接切页（不依赖点击坐标，规避 DPI 偏移） | ✅ |
@@ -51,6 +52,7 @@
 | Java 版本匹配 | ✅ | 以 JSON `javaVersion` 为权威：1.17→16、1.18+→17、1.20.5+→21、26.x→25、≤1.12→8 |
 | **Java 缺失自动安装** | ✅ | 清华 TUNA 55.8 MB / 3.9 秒；四镜像顺序回退 |
 | **存档隔离（强制）** | ✅ | 恒用 `versions\<id>`；无开关、不继承、不共享；真机验证 `--gameDir` 指向版本目录 |
+| **主题切换** | ✅ | 「设置 → 主题」三选一（跟随系统 / 极简白纸 / 极简墨纸），运行中即时换肤不重启；跟随系统监听 `WM_SETTINGCHANGE` |
 | 登录 | ⚠️ | 仅离线登录（自定义玩家名），无正版验证 |
 | 任务与日志 | ✅ | 安装进度卡 + 游戏实时日志（增量缓冲刷新） |
 | 设置持久化 | ✅ | `%APPDATA%\SlopeX\config.json`，路径存相对形式 |
@@ -69,17 +71,17 @@ PCL2 是 VB.NET + WPF（`Meloong-Git/PCL`，`Modules/Mod*` 分层 + `Controls`/`
 ### 3.2 模块分层
 
 ```
-ModBase      路径 / 日志 / 配置 / JSON 工具 / MVVM 基类        529 行
-ModNet       并发下载 / 镜像改写 / 源回落 / 单文件超时 / SHA1    387 行
-ModMinecraft 版本扫描 / inheritsFrom 合并 / 强制存档隔离         411 行
-ModJava      运行时探测 / 版本匹配 / 自动下载安装               789 行
-ModLaunch    规则引擎 / classpath / natives / 命令行 / 进程     562 行
-ModDownload  版本安装 / 资源补齐 / 任务中心                     477 行
-ModCli       无界面模式                                      380 行
-Pages+Windows+Themes+App  UI 层（5 页 + 主窗口 + 样式字典）  2,942 行
+ModBase      路径 / 日志 / 配置 / MVVM 基类                        549 行
+ModNet       并发下载 / 镜像改写 / 源回落 / 单文件超时 / SHA1        387 行
+ModMinecraft 版本扫描 / inheritsFrom 合并 / 强制存档隔离             411 行
+ModJava      运行时探测 / 版本匹配 / 自动下载安装                   789 行
+ModLaunch    规则引擎 / classpath / natives / 命令行 / 进程         562 行
+ModDownload  版本安装 / 资源补齐 / 任务中心                         477 行
+ModCli       无界面模式                                            380 行
+UI 层        5 页 + 主窗口 + 样式 + 双主题调色板 + ThemeService     3,261 行
 ```
 
-（模块层 3,535 行 + UI 层 2,942 行 = 6,477 行）
+（模块层 3,555 行 + UI 层 3,261 行 = 6,816 行）
 
 ### 3.3 三个关键设计取舍
 
@@ -199,7 +201,7 @@ Pages+Windows+Themes+App  UI 层（5 页 + 主窗口 + 样式字典）  2,942 �
 
 | 阶段 | 时机 | 产出范围 | 需你参与 |
 |---|---|---|---|
-| **S1 地基** | **现在**，Fabric 之前 | 补 spacing / radius / motion 三套刻度；颜色字典拆为浅/深两份（各 13 个语义色）；改造 `Style.xaml` 全部 15 个组件样式改用 token 引用；新增 `ThemeService`（读配置 / 读注册表 / 监听切换）；设置页新增「主题」区块（2 张主题卡 + 3 个模式选项）；`Config` 加 2 个字段；编写 `docs/design-language.md`；输出 7 项组件缺口清单 | 否 |
+| **S1 地基** ✅ | **已完成 2026-10-29 17:31** | 实际产出：`Palette.Light.xaml` / `Palette.Dark.xaml`（各 17 个语义色）、`Style.xaml` 改为纯刻度层 + 全量 DynamicResource（106 处）、间距（Sp4–Sp32）/ 圆角（R4–R14）/ 动效（DurFast–DurSlow）三套刻度、`ThemeService`（配置 + 注册表 + 系统事件）、设置页主题卡三选一、`docs/design-language.md`、7 项组件缺口清单 | 否 |
 | **S2 边做边补** | Fabric / 便携 / 登录期间 | 新页面一律用 token；ComboBox、多列列表、Dialog、Toast、空状态随功能同步设计 | 否（看截图即可） |
 | **S3 视觉定案** | Forge 完成后、整合包导入之前 | 页面形态稳定（5 → 8~9 页）后统一打磨，一次到位 | **是**（唯一需要深度参与的一轮） |
 
@@ -294,6 +296,9 @@ Pages+Windows+Themes+App  UI 层（5 页 + 主窗口 + 样式字典）  2,942 �
 | 存档隔离（强制） | `--cli plan` 输出：1.20.1 → `versions\1.20.1\saves`，26.3 → `versions\26.3\saves`，互不可见 |
 | 存档隔离真机验证 | 26.3 运行时 java 命令行含 `--gameDir I:\SlopeX Launcher\.minecraft\versions\26.3`；`versions\26.3\saves` 保持空（未继承任何存档），根目录 `saves` 的 `mtime` 未变（未被读取/写入） |
 | 旧配置清理 | 启动一次后 `config.json` 中 `VersionIsolation` / `IsolationSeeded` 两字段自动消失 |
+| 主题切换（运行中） | 设置页点「极简墨纸」→ 背景/文字即时变化，**不重启**；日志记录 `主题切换为 Dark（深色）` |
+| 主题持久化 | 重启后按 `config.json` 的 `Appearance` 生效；旧配置缺字段时自动补写 `Theme` / `Appearance` |
+| 深色对比度抽检 | 首页 / 设置 / 任务三页截图：主按钮为浅底深字（`OnInk` 生效）、Logo 勾可见、日志文字可读、卡片描边可辨 |
 | 便携实测 | exe 复制到 `I:\sxtest`，正确解析到 `I:\sxtest\.minecraft` |
 | 构建 | 0 警告 0 错误 |
 | git 基线 | 40 个文件 / 0.64 MB，`.git` 565 KB，忽略规则 5/5 命中，工作区 0 改动 |

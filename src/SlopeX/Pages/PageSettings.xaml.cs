@@ -11,6 +11,7 @@ using Microsoft.Win32;
 using SlopeX.Modules.ModBase;
 using SlopeX.Modules.ModJava;
 using SlopeX.Modules.ModMinecraft;
+using SlopeX.Themes;
 using SlopeX.Windows;
 
 namespace SlopeX.Pages
@@ -52,6 +53,8 @@ namespace SlopeX.Pages
 
                 ChipMirror.IsChecked = c.UseMirror;
                 ChipOfficial.IsChecked = !c.UseMirror;
+
+                UpdateThemeChips();
 
                 ConfigPath.Text = Paths.ConfigFile;
                 UpdateMemoryHint();
@@ -108,6 +111,44 @@ namespace SlopeX.Pages
             }
         }
 
+        // ---------------- 主题 ----------------
+
+        private void ThemeChip_Click(object sender, RoutedEventArgs e)
+        {
+            var mode = ReferenceEquals(sender, ChipThemeDark) ? AppearanceMode.Dark
+                     : ReferenceEquals(sender, ChipThemeSystem) ? AppearanceMode.System
+                     : AppearanceMode.Light;
+
+            Config.Current.Appearance = ThemeService.ToConfigString(mode);
+            Config.Current.Save();
+            ThemeService.Apply(mode, force: true);
+            UpdateThemeChips();
+
+            MainWindow.Current?.SetStatus("主题已切换：" + ThemeName(ThemeService.IsDark), null);
+            Log.Info($"主题切换为 {Config.Current.Appearance}（{(ThemeService.IsDark ? "深色" : "浅色")}）");
+        }
+
+        private static string ThemeName(bool dark) => dark ? "极简墨纸" : "极简白纸";
+
+        /// <summary>三选一互斥 + 说明文字。</summary>
+        private void UpdateThemeChips()
+        {
+            var mode = ThemeService.ParseMode(Config.Current.Appearance);
+
+            ChipThemeSystem.IsChecked = mode == AppearanceMode.System;
+            ChipThemeLight.IsChecked = mode == AppearanceMode.Light;
+            ChipThemeDark.IsChecked = mode == AppearanceMode.Dark;
+
+            ThemeHint.Text = mode switch
+            {
+                AppearanceMode.System =>
+                    "跟随系统：Windows 当前为" + (ThemeService.IsSystemDark() ? "深色" : "浅色") +
+                    " → 使用「" + ThemeName(ThemeService.IsDark) + "」",
+                AppearanceMode.Dark => "固定深色：使用「极简墨纸」",
+                _ => "固定浅色：使用「极简白纸」（默认）"
+            };
+        }
+
         private void Save_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -158,6 +199,7 @@ namespace SlopeX.Pages
 
             Config.Current = new Config();
             Config.Current.Save();
+            ThemeService.Apply(AppearanceMode.Light, force: true);   // 默认回到「极简白纸」
             LoadFromConfig();
             MainWindow.Current?.ApplyConfigChanged();
         }

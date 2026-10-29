@@ -1,0 +1,42 @@
+<!--
+    极简白纸 —— 浅色调色板（默认主题）
+
+    只放颜色，不放任何尺寸/样式。切换主题时整体替换这份字典，
+    因此所有引用必须走 DynamicResource，否则不会跟随刷新。
+
+    新增颜色时：这里和 Palette.Dark.xaml 必须同时加同名 key，
+    否则深色下会找不到资源（动态资源缺失不会报错，只会静默不刷新）。
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- 纸面层级：Bg 为基础面，Paper → Paper3 逐级加深（描边、悬停、选中、轨道） -->
+    <SolidColorBrush x:Key="Bg" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="Paper" Color="#FAFAF8"/>
+    <SolidColorBrush x:Key="Paper2" Color="#F2F2EE"/>
+    <SolidColorBrush x:Key="Paper3" Color="#ECECE7"/>
+
+    <!-- 描边 -->
+    <SolidColorBrush x:Key="Line" Color="#E8E8E3"/>
+    <SolidColorBrush x:Key="LineStrong" Color="#D6D6CE"/>
+
+    <!-- 墨色文字 -->
+    <SolidColorBrush x:Key="Ink" Color="#1A1A18"/>
+    <SolidColorBrush x:Key="InkHover" Color="#33332F"/>
+    <SolidColorBrush x:Key="InkPressed" Color="#000000"/>
+    <SolidColorBrush x:Key="Sub" Color="#6B6B64"/>
+    <SolidColorBrush x:Key="Muted" Color="#9C9C94"/>
+
+    <!-- 语义色 -->
+    <SolidColorBrush x:Key="Good" Color="#2E7D5B"/>
+    <SolidColorBrush x:Key="Warn" Color="#A9661F"/>
+    <SolidColorBrush x:Key="Bad" Color="#B3392F"/>
+    <SolidColorBrush x:Key="CloseHover" Color="#E5484D"/>
+
+    <!-- 落在 Ink 上的前景色（主按钮文字、选中胶囊文字、勾选符号） -->
+    <SolidColorBrush x:Key="OnInk" Color="#FFFFFF"/>
+
+    <!-- 落在 Bad / CloseHover 上的前景色 -->
+    <SolidColorBrush x:Key="OnBad" Color="#FFFFFF"/>
+
+</ResourceDictionary>

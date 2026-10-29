@@ -26,6 +26,25 @@
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Margin="0,0,16,26">
 
+                <!-- 主题 -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,14">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource TSection}" Text="主题"/>
+                        <TextBlock Style="{StaticResource TCaption}" Margin="0,4,0,12" TextWrapping="Wrap"
+                                   Text="「极简白纸」为默认主题。「跟随系统」会随 Windows 深浅色实时切换，不用重启启动器。切换立即生效，不需要点保存。"/>
+                        <StackPanel Orientation="Horizontal">
+                            <ToggleButton x:Name="ChipThemeSystem" Style="{StaticResource Chip}" Content="跟随系统"
+                                          Click="ThemeChip_Click"/>
+                            <ToggleButton x:Name="ChipThemeLight" Style="{StaticResource Chip}" Content="极简白纸"
+                                          Click="ThemeChip_Click"/>
+                            <ToggleButton x:Name="ChipThemeDark" Style="{StaticResource Chip}" Content="极简墨纸"
+                                          Click="ThemeChip_Click"/>
+                        </StackPanel>
+                        <TextBlock x:Name="ThemeHint" Style="{StaticResource TCaption}" Margin="0,8,0,0"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
                 <!-- 账号 -->
                 <Border Style="{StaticResource Card}" Margin="0,0,0,14">
                     <StackPanel>
@@ -77,7 +96,7 @@
                         <TextBlock x:Name="SavesPathText" Style="{StaticResource TMono}" Margin="0,8,0,0"
                                    TextWrapping="Wrap"/>
                         <TextBlock x:Name="LegacySavesHint" Style="{StaticResource TCaption}" Margin="0,6,0,0"
-                                   TextWrapping="Wrap" Foreground="{StaticResource Warn}" Visibility="Collapsed"/>
+                                   TextWrapping="Wrap" Foreground="{DynamicResource Warn}" Visibility="Collapsed"/>
                         <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                             <Button Style="{StaticResource BtnGhost}" Height="30" Padding="12,0"
                                     Content="打开该版本存档目录" Click="OpenSaves_Click"/>

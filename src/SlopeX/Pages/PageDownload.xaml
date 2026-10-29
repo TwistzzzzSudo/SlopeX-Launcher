@@ -39,7 +39,7 @@
             <Grid HorizontalAlignment="Right" Width="240">
                 <TextBox x:Name="SearchBox" Style="{StaticResource Input}"
                          TextChanged="SearchBox_TextChanged" ToolTip="输入版本号搜索"/>
-                <TextBlock Text="搜索版本号…" Foreground="{StaticResource Muted}" FontSize="12.5"
+                <TextBlock Text="搜索版本号…" Foreground="{DynamicResource Muted}" FontSize="12.5"
                            Margin="11,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
@@ -71,14 +71,14 @@
 
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding Id}" FontSize="13.5" FontWeight="SemiBold"
-                                               Foreground="{StaticResource Ink}"/>
+                                               Foreground="{DynamicResource Ink}"/>
                                     <TextBlock Text="{Binding DateLabel}" Style="{StaticResource TCaption}"
                                                Margin="0,2,0,0"/>
                                 </StackPanel>
 
                                 <Border Grid.Column="1" Style="{StaticResource Tag}" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding TypeLabel}" FontSize="11"
-                                               Foreground="{StaticResource Sub}"/>
+                                               Foreground="{DynamicResource Sub}"/>
                                 </Border>
 
                                 <Button Grid.Column="3" Style="{StaticResource BtnGhost}" Height="30"

@@ -30,6 +30,10 @@ namespace SlopeX
             Log.Info("SlopeX Launcher 启动");
             Log.Info($"游戏目录：{Config.Current.GameDir}");
 
+            // 主题要在建窗口之前定下来，避免先白后黑的闪烁
+            SlopeX.Themes.ThemeService.Initialize();
+            Log.Info($"外观：{Config.Current.Appearance}（当前{(SlopeX.Themes.ThemeService.IsDark ? "深色 极简墨纸" : "浅色 极简白纸")}）");
+
             var window = new MainWindow();
             MainWindow = window;
             window.Show();

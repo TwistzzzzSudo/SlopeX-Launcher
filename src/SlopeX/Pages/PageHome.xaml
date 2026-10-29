@@ -31,15 +31,15 @@
                             <Grid>
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                     <TextBlock x:Name="CurVersionName" FontSize="25" FontWeight="SemiBold"
-                                               Foreground="{StaticResource Ink}" Text="—"/>
+                                               Foreground="{DynamicResource Ink}" Text="—"/>
                                     <Border x:Name="CurLoaderTag" Style="{StaticResource Tag}"
-                                            Background="{StaticResource Ink}" Margin="10,0,0,0">
+                                            Background="{DynamicResource Ink}" Margin="10,0,0,0">
                                         <TextBlock x:Name="CurLoaderText" Text="原版" FontSize="11"
-                                                   Foreground="#FFFFFF"/>
+                                                   Foreground="{DynamicResource OnInk}"/>
                                     </Border>
                                     <Border x:Name="CurTypeTag" Style="{StaticResource Tag}">
                                         <TextBlock x:Name="CurTypeText" Style="{StaticResource TCaption}"
-                                                   Foreground="{StaticResource Sub}" Text="正式版"/>
+                                                   Foreground="{DynamicResource Sub}" Text="正式版"/>
                                     </Border>
                                 </StackPanel>
                                 <Button x:Name="BtnSwitch" Style="{StaticResource BtnText}" Content="切换版本"
@@ -122,7 +122,7 @@
                                                TextTrimming="CharacterEllipsis"/>
                                     <TextBlock x:Name="JavaProgressPct" Style="{StaticResource TCaption}"
                                                HorizontalAlignment="Right" Margin="10,0,0,0"
-                                               Foreground="{StaticResource Ink}"/>
+                                               Foreground="{DynamicResource Ink}"/>
                                 </Grid>
                                 <ProgressBar x:Name="JavaProgressBar" Style="{StaticResource Bar}"
                                              Margin="0,7,0,0" Minimum="0" Maximum="100" Value="0"/>
@@ -186,34 +186,34 @@
 
                             <StackPanel Grid.Column="0" Margin="0,15">
                                 <TextBlock x:Name="StatVersions" Text="0" FontSize="19" FontWeight="SemiBold"
-                                           Foreground="{StaticResource Ink}" HorizontalAlignment="Center"/>
+                                           Foreground="{DynamicResource Ink}" HorizontalAlignment="Center"/>
                                 <TextBlock Text="已安装版本" Style="{StaticResource TCaption}"
                                            HorizontalAlignment="Center" Margin="0,3,0,0"/>
                             </StackPanel>
 
-                            <Border Grid.Column="1" Background="{StaticResource Line}" Margin="0,14"/>
+                            <Border Grid.Column="1" Background="{DynamicResource Line}" Margin="0,14"/>
 
                             <StackPanel Grid.Column="2" Margin="0,15">
                                 <TextBlock x:Name="StatJava" Text="—" FontSize="19" FontWeight="SemiBold"
-                                           Foreground="{StaticResource Ink}" HorizontalAlignment="Center"/>
+                                           Foreground="{DynamicResource Ink}" HorizontalAlignment="Center"/>
                                 <TextBlock Text="Java 版本" Style="{StaticResource TCaption}"
                                            HorizontalAlignment="Center" Margin="0,3,0,0"/>
                             </StackPanel>
 
-                            <Border Grid.Column="3" Background="{StaticResource Line}" Margin="0,14"/>
+                            <Border Grid.Column="3" Background="{DynamicResource Line}" Margin="0,14"/>
 
                             <StackPanel Grid.Column="4" Margin="0,15">
                                 <TextBlock x:Name="StatMemory" Text="—" FontSize="19" FontWeight="SemiBold"
-                                           Foreground="{StaticResource Ink}" HorizontalAlignment="Center"/>
+                                           Foreground="{DynamicResource Ink}" HorizontalAlignment="Center"/>
                                 <TextBlock Text="内存上限" Style="{StaticResource TCaption}"
                                            HorizontalAlignment="Center" Margin="0,3,0,0"/>
                             </StackPanel>
 
-                            <Border Grid.Column="5" Background="{StaticResource Line}" Margin="0,14"/>
+                            <Border Grid.Column="5" Background="{DynamicResource Line}" Margin="0,14"/>
 
                             <StackPanel Grid.Column="6" Margin="0,15">
                                 <TextBlock x:Name="StatSource" Text="—" FontSize="19" FontWeight="SemiBold"
-                                           Foreground="{StaticResource Ink}" HorizontalAlignment="Center"/>
+                                           Foreground="{DynamicResource Ink}" HorizontalAlignment="Center"/>
                                 <TextBlock Text="下载源" Style="{StaticResource TCaption}"
                                            HorizontalAlignment="Center" Margin="0,3,0,0"/>
                             </StackPanel>
@@ -228,9 +228,9 @@
                             <Grid>
                                 <StackPanel Orientation="Horizontal">
                                     <Border Width="38" Height="38" CornerRadius="19"
-                                            Background="{StaticResource Paper2}">
+                                            Background="{DynamicResource Paper2}">
                                         <TextBlock x:Name="AvatarText" Text="S" FontSize="15"
-                                                   FontWeight="SemiBold" Foreground="{StaticResource Sub}"
+                                                   FontWeight="SemiBold" Foreground="{DynamicResource Sub}"
                                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Border>
                                     <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
