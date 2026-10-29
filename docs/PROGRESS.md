@@ -1,12 +1,12 @@
 # SlopeX Launcher 进度报告与实施计划
 
-> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-29 18:32
+> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-29 18:56
 > 对应产物：`SlopeX.exe` 1.0.0（自包含单文件，139 MB，win-x64）
-> 代码规模：32 个 C# / XAML 源文件，7,484 行
-> 版本控制：git 分支 `feature/install-dialog`（安装类型选择），`main` 保持可构建
-> 当前状态：**Fabric 安装完成并真机验证**；安装入口改为「点击 → 选类型 → 安装」，Forge / NeoForge 占位待实装
-> 下一个执行项 = 便携改造（S2 首个必须动设置页的任务）
-> 本轮改动：安装类型选择对话框（新增 `Dialog` 组件基础版 + `OptionRow` 选项行）
+> 代码规模：32 个 C# / XAML 源文件，7,804 行
+> 版本控制：git 分支 `feature/portable`（便携改造），`main` 保持可构建
+> 当前状态：**便携改造完成**——配置与日志进 `SlopeXData\`，运行时目录可配；设置页按文案规范完成首轮瘦身
+> 下一个执行项 = 微软登录（阻塞在 Azure client_id）或 Forge（B 方案）
+> 本轮改动：`Paths` 增加便携数据目录与一次性迁移、运行时目录可配、设置页新增「数据与运行时」并精简存量文案
 > **工作量口径**：全文一律以「产出物 / 改动范围」描述，不使用时间估算。
 
 ---
@@ -57,9 +57,10 @@
 | **主题切换** | ✅ | 「设置 → 主题」三选一（跟随系统 / 极简白纸 / 极简墨纸），运行中即时换肤不重启；跟随系统监听 `WM_SETTINGCHANGE` |
 | **Fabric 安装** | ✅ | 拉 meta 选最新稳定加载器 → 写 `inheritsFrom` 版本 JSON → 下载加载器依赖；缺原版自动补装；已加载 Sodium 实测 |
 | **安装类型选择** | ✅ | 点「安装」弹出类型选择：原版 / Fabric 可选，Forge / NeoForge 置灰标「即将支持」；已安装版本仍可点（用于加装加载器或补齐文件） |
+| **便携（折中）** | ✅ | 配置与日志进 `SlopeXData\`，首次启用从 `%APPDATA%` 复制（原文件保留）；Java 运行时目录可配；目录不可写时整体回落 `%APPDATA%` |
 | 登录 | ⚠️ | 仅离线登录（自定义玩家名），无正版验证 |
 | 任务与日志 | ✅ | 安装进度卡 + 游戏实时日志（增量缓冲刷新） |
-| 设置持久化 | ✅ | `%APPDATA%\SlopeX\config.json`，路径存相对形式 |
+| 设置持久化 | ✅ | `<启动器目录>\SlopeXData\config.json`（不可写时回落 `%APPDATA%`），路径存相对形式 |
 | 便携模式 | ✅ | exe + `.minecraft` 整个目录搬走仍可用（实测过 `I:\sxtest`） |
 | 无界面 CLI 排障 | ✅ | `list / java / java-ensure / manifest / install / verify / plan / launch` |
 
@@ -75,17 +76,17 @@ PCL2 是 VB.NET + WPF（`Meloong-Git/PCL`，`Modules/Mod*` 分层 + `Controls`/`
 ### 3.2 模块分层
 
 ```
-ModBase      路径 / 日志 / 配置 / MVVM 基类                        549 行
+ModBase      路径 / 日志 / 配置 / MVVM 基类                        730 行
 ModNet       并发下载 / 镜像改写 / 源回落 / 单文件超时 / SHA1        403 行
 ModMinecraft 版本扫描 / inheritsFrom 合并 / 强制存档隔离             411 行
 ModJava      运行时探测 / 版本匹配 / 自动下载安装                   789 行
 ModLaunch    规则引擎 / classpath / natives / 命令行 / 进程         562 行
 ModDownload  原版安装 / Fabric 安装 / 任务中心                      747 行
 ModCli       无界面模式                                            460 行
-UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeService  3,561 行
+UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeService  3,700 行
 ```
 
-（模块层 3,923 行 + UI 层 3,561 行 = 7,484 行）
+（模块层 4,104 行 + UI 层 3,700 行 = 7,804 行）
 
 ### 3.3 三个关键设计取舍
 
@@ -138,7 +139,7 @@ UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeSe
 - **约定**：Forge / 登录等大改动必须在干净工作区开 `feature/*` 分支，`main` 始终保持可构建
 
 ### 环境
-- `%APPDATA%\SlopeX\`（config、logs、Java 运行时 180 MB）仍不在便携目录内
+- Java 运行时（180 MB）默认仍在 `%APPDATA%\SlopeX\runtime`；要做成"一个文件夹全带走"需在设置里改运行时目录
 - 根目录 `saves` / `resourcepacks`（16 MB）是旧版共用模式遗留，现已不被任何版本使用；设置页只提示数量与路径，不自动搬移
 
 ---
@@ -177,7 +178,8 @@ UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeSe
 
 ### P2 — 打磨
 
-**8. 便携改造（折中方案，已定）**：`config.json` + `logs\` 迁到 `SlopeXData\`；`runtime\java-*` 留在 `%APPDATA%` 但设置页可改位置；启动器目录不可写时自动回落 `%APPDATA%`
+**8. 便携改造（折中方案）** ✅ **已完成 2026-10-29 18:56**
+- 实际产出：`Paths.DataDir`（优先 `SlopeXData\`，不可写回落 `%APPDATA%`）+ `MigrateFromAppData` 一次性复制、`Paths.RuntimeDirOverride`、`Config.JavaRuntimeDir`、设置页「数据与运行时」卡片、`ProbeWrite` 静默探测（避免日志递归）
 **9. 启动器自更新**：检查 GitHub Release / 自建清单，下载新 exe 并替换
 **10. 崩溃诊断**：解析 `crash-reports`，把 `UnsupportedClassVersionError`、缺模组、OOM 翻成人话
 **11. 界面细节**：高 DPI 适配、键盘导航、日志搜索与导出
@@ -314,6 +316,10 @@ UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeSe
 | 模组加载验收 | 放入 Sodium 0.5.13 → `Loading 10 mods`（含 sodium 及其内置 fabric-api 模块）、`Loaded configuration file for Sodium: 42 options`、资源重载列表含 sodium |
 | 安装类型对话框 | 点任意行「安装」→ 弹出居中卡片 + 遮罩；原版默认选中；Forge / NeoForge 置灰带「即将支持」；Esc 或「取消」关闭 |
 | 对话框端到端 | 已安装行 →「安装」→ 选 Fabric →「开始安装」→ 日志 `Fabric 0.20.1（26.3）安装完成：fabric-loader-0.20.1-26.3，依赖 7 个`，版本数 5 → 6 |
+| 便携迁移 | 首次运行后 `SlopeXData\config.json` 生成（含新字段 `JavaRuntimeDir` / `DismissLegacySavesHint`），`logs\` 已复制，`%APPDATA%\SlopeX\config.json` 保留未删 |
+| 便携实测 | exe 单独拷到 `I://sxportable-test` 运行 → 自动生成该目录的 `SlopeXData\`，`--cli list` 输出 `gameDir = I://sxportable-test//.minecraft`（相对路径正确解析） |
+| 运行时位置 | Java 检测仍指向 `%APPDATA%\SlopeX\runtime`（180 MB 未搬），设置页可改到启动器目录内 |
+| 设置页瘦身 | 页头改为「主题即时生效；其余项点保存设置后生效」；存档隔离由 4 层文案压到 2 层（机制进 tooltip）；旧存档提示可「不再提示」 |
 | 便携实测 | exe 复制到 `I:\sxtest`，正确解析到 `I:\sxtest\.minecraft` |
 | 构建 | 0 警告 0 错误 |
 | git 基线 | 40 个文件 / 0.64 MB，`.git` 565 KB，忽略规则 5/5 命中，工作区 0 改动 |
@@ -341,8 +347,8 @@ build.cmd                             # 构建单文件到仓库根目录
 |---|---|
 | 游戏根目录 | `<启动器目录>\.minecraft` |
 | 版本隔离目录 | `.minecraft\versions\<版本 ID>` |
-| 配置与日志 | `%APPDATA%\SlopeX\` |
-| 托管 Java 运行时 | `%APPDATA%\SlopeX\runtime\java-<主版本>` |
+| 配置与日志 | `<启动器目录>\SlopeXData\`（不可写时回落 `%APPDATA%\SlopeX\`） |
+| 托管 Java 运行时 | 默认 `%APPDATA%\SlopeX\runtime\java-<主版本>`，可在设置中改到启动器目录内 |
 
 ### 8.4 git 速查
 

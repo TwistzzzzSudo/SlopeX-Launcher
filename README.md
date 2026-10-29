@@ -134,12 +134,18 @@ src/SlopeX/
 
 ```
 SlopeX.exe
+SlopeXData/                    ← 配置与日志（首次启动自动创建）
+└─ config.json  logs/
 .minecraft/                    ← 游戏根目录（首次启动自动创建）
 ├─ assets/  libraries/         ← 所有版本共用
 └─ versions/<版本 ID>/         ← 版本隔离后的游戏目录（材质包、存档、模组都在这里）
 ```
 
-**便携模式**：游戏目录默认是 `SlopeX.exe` 所在目录下的 `.minecraft`，配置、存档、模组都在同一个文件夹里，整个文件夹拷到 U 盘或另一台机器即可继续用。配置中存的是相对路径 `.\\.minecraft`，搬到别的盘符也不会失效。若启动器所在目录不可写（例如放进 `Program Files`），会自动回落到 `%APPDATA%\SlopeX\.minecraft`。
+**便携模式（折中方案）**：`SlopeX.exe` + `SlopeXData` + `.minecraft` 就是全部——拷到 U 盘或另一台机器即可继续用。配置里存的是相对路径（`.\\.minecraft`），换盘符不会失效。首次启用时会把 `%APPDATA%\SlopeX` 里的配置与日志**复制**一份过来，原文件保留，想回退随时可用。
+
+**Java 运行时不在便携目录里**：默认仍在 `%APPDATA%\SlopeX\runtime`（一个运行时约 180 MB，跟着拷来拷去不划算）。需要彻底便携时可在「设置 → 数据与运行时」里把运行时目录改到启动器目录内。
+
+若启动器所在目录不可写（例如放进 `Program Files`），数据目录与游戏目录会一起回落到 `%APPDATA%\SlopeX`。
 
 > 旧版默认使用 `%APPDATA%\.minecraft`。如果启动器目录下已经存在带 `versions` 的 `.minecraft`，启动时会自动把配置切过来，无需手动改。
 

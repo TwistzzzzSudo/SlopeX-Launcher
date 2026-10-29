@@ -6,6 +6,7 @@ param(
     [int]$ClickRelY = -1,
     [string]$Page = "",
     [string]$ClickText = "",
+    [int]$Scroll = 0,
     [int]$PostWaitMs = 1200,
     [switch]$KeepOpen
 )
@@ -36,7 +37,7 @@ public class WinCap {
     public static extern bool SetCursorPos(int x, int y);
 
     [DllImport("user32.dll")]
-    public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, IntPtr extra);
+    public static extern void mouse_event(int flags, int dx, int dy, int data, IntPtr extra);
 }
 "@
 }
@@ -159,6 +160,21 @@ if ($w -le 0 -or $h -le 0) {
     Write-Output "BAD_RECT"
     if (-not $KeepOpen) { try { $proc.Kill() } catch { } }
     exit 4
+}
+
+# -Scroll: wheel scrolling over the page (positive = down)
+# Keep the cursor over the page's left gutter: if it sits over an inner list,
+# the wheel scrolls that list instead of the page.
+if ($Scroll -ne 0) {
+    [WinCap]::SetCursorPos(($rect.Left + [int]($w * 0.185)), ($rect.Top + [int]($h * 0.45))) | Out-Null
+    Start-Sleep -Milliseconds 200
+    $delta = if ($Scroll -gt 0) { -120 } else { 120 }
+    for ($i = 0; $i -lt [Math]::Abs($Scroll); $i++) {
+        [WinCap]::mouse_event(0x0800, 0, 0, $delta, [IntPtr]::Zero)
+        Start-Sleep -Milliseconds 90
+    }
+    Write-Output ("SCROLLED=" + $Scroll)
+    Start-Sleep -Milliseconds 500
 }
 
 if ($ClickRelX -ge 0 -and $ClickRelY -ge 0) {
