@@ -111,7 +111,8 @@ namespace SlopeX.Modules.ModDownload
     public enum InstallKind
     {
         Vanilla,
-        Fabric
+        Fabric,
+        Forge
     }
 
     /// <summary>安装任务：可观察的进度对象，供任务页展示。</summary>
@@ -126,20 +127,36 @@ namespace SlopeX.Modules.ModDownload
         private bool _failed;
         private string _error;
 
-        /// <summary>目标任务 ID：原版为版本号，Fabric 为 fabric-loader-&lt;loader&gt;-&lt;mc&gt;。</summary>
+        /// <summary>目标任务 ID：原版为版本号，Fabric 为 fabric-loader-&lt;loader&gt;-&lt;mc&gt;，Forge 为 &lt;mc&gt;-forge-&lt;loader&gt;。</summary>
         public string VersionId { get; set; }
 
         public InstallKind Kind { get; set; } = InstallKind.Vanilla;
 
-        /// <summary>Fabric 所依赖的原版版本。</summary>
+        /// <summary>加载器所依赖的原版版本。</summary>
         public string BaseVersion { get; set; }
 
-        /// <summary>Fabric 加载器版本；为空表示"取最新稳定版"。</summary>
+        /// <summary>加载器版本；为空表示"取推荐/最新版"。</summary>
         public string LoaderVersion { get; set; }
 
-        public string Title => Kind == InstallKind.Fabric
-            ? "安装 Fabric " + (string.IsNullOrEmpty(LoaderVersion) ? "加载器" : LoaderVersion) + $"（{BaseVersion}）"
-            : "安装 " + VersionId;
+        public string Title
+        {
+            get
+            {
+                switch (Kind)
+                {
+                    case InstallKind.Fabric:
+                        return "安装 Fabric " +
+                               (string.IsNullOrEmpty(LoaderVersion) ? "加载器" : LoaderVersion) +
+                               $"（{BaseVersion}）";
+                    case InstallKind.Forge:
+                        return "安装 Forge " +
+                               (string.IsNullOrEmpty(LoaderVersion) ? "加载器" : LoaderVersion) +
+                               $"（{BaseVersion}）";
+                    default:
+                        return "安装 " + VersionId;
+                }
+            }
+        }
 
         public DownloadQueue Engine { get; } = new DownloadQueue();
 
@@ -175,6 +192,12 @@ namespace SlopeX.Modules.ModDownload
                 if (Kind == InstallKind.Fabric)
                 {
                     VersionId = await FabricInstaller.InstallAsync(Config.Current.GameDir, BaseVersion,
+                        LoaderVersion, this, Cts.Token).ConfigureAwait(false);
+                    Log.Info($"{VersionId} 安装完成");
+                }
+                else if (Kind == InstallKind.Forge)
+                {
+                    VersionId = await ForgeInstaller.InstallAsync(Config.Current.GameDir, BaseVersion,
                         LoaderVersion, this, Cts.Token).ConfigureAwait(false);
                     Log.Info($"{VersionId} 安装完成");
                 }
