@@ -112,7 +112,8 @@ namespace SlopeX.Modules.ModDownload
     {
         Vanilla,
         Fabric,
-        Forge
+        Forge,
+        Modpack
     }
 
     /// <summary>安装任务：可观察的进度对象，供任务页展示。</summary>
@@ -138,6 +139,12 @@ namespace SlopeX.Modules.ModDownload
         /// <summary>加载器版本；为空表示"取推荐/最新版"。</summary>
         public string LoaderVersion { get; set; }
 
+        /// <summary>整合包文件路径（Kind = Modpack 时使用）。</summary>
+        public string PackPath { get; set; }
+
+        /// <summary>普通压缩包的基础版本（仅 Kind = Modpack 且包内无清单时需要）。</summary>
+        public string BaseVersionFallback { get; set; }
+
         public string Title
         {
             get
@@ -152,6 +159,10 @@ namespace SlopeX.Modules.ModDownload
                         return "安装 Forge " +
                                (string.IsNullOrEmpty(LoaderVersion) ? "加载器" : LoaderVersion) +
                                $"（{BaseVersion}）";
+                    case InstallKind.Modpack:
+                        return "导入整合包 " + (string.IsNullOrEmpty(PackPath)
+                            ? VersionId
+                            : System.IO.Path.GetFileNameWithoutExtension(PackPath));
                     default:
                         return "安装 " + VersionId;
                 }
@@ -201,6 +212,12 @@ namespace SlopeX.Modules.ModDownload
                         LoaderVersion, this, Cts.Token).ConfigureAwait(false);
                     Log.Info($"{VersionId} 安装完成");
                 }
+                else if (Kind == InstallKind.Modpack)
+                {
+                    VersionId = await ModpackInstaller.InstallAsync(Config.Current.GameDir, PackPath,
+                        BaseVersionFallback, this, Cts.Token).ConfigureAwait(false);
+                    Log.Info($"整合包 {VersionId} 安装完成");
+                }
                 else
                 {
                     await VanillaInstaller.InstallAsync(Config.Current.GameDir, VersionId, this, Cts.Token)
@@ -249,7 +266,12 @@ namespace SlopeX.Modules.ModDownload
             {
                 var p = Math.Min(99.9, done * 100.0 / total);
                 Percent = p;
-                SizeText = $"{Modules.ModNet.Format.Bytes(done)} / {Modules.ModNet.Format.Bytes(total)}";
+
+                // total <= 1 是"收尾用的占位调用"（task.SetProgress(1,1,0)），
+                // 显示成 "1 B / 1 B" 会让用户以为还在跑，直接留空
+                SizeText = total <= 1
+                    ? ""
+                    : $"{Modules.ModNet.Format.Bytes(done)} / {Modules.ModNet.Format.Bytes(total)}";
             }
             SpeedText = speed > 0 ? Modules.ModNet.Format.Speed(speed) : SpeedText;
             Raise();

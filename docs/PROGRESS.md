@@ -1,12 +1,12 @@
 # SlopeX Launcher 进度报告与实施计划
 
-> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-29 21:25
+> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-29 21:52
 > 对应产物：`SlopeX.exe` 1.0.0（自包含单文件，139 MB，win-x64）
-> 代码规模：36 个 C# / XAML 源文件，9,233 行
-> 版本控制：git 分支 `feature/forge`（Forge 安装），`main` 保持可构建；远端已公开 `github.com/TwistzzzzSudo/SlopeX-Launcher`
-> 当前状态：**Forge 安装完成并真机验证**——B 方案（官方 installer `--installClient`），1.20.1 实测进游戏并加载真实 Forge 模组（AppleSkin）；微软登录仍卡在 Mojang 白名单
-> 下一个执行项 = 模组管理与整合包导入（Forge/Fabric 均已具备安装能力）
-> 本轮改动：新增 `ModDownload/Forge.cs`、`InstallKind.Forge`、CLI `forge-list|install-forge`、安装对话框放开 Forge；修复 `${version_name}` 展开导致的 Forge 模块层撞包
+> 代码规模：38 个 C# / XAML 源文件，10,218 行
+> 版本控制：git 分支 `feature/modpack`（整合包导入），`main` 保持可构建；远端已公开 `github.com/TwistzzzzSudo/SlopeX-Launcher`
+> 当前状态：**整合包导入完成并真机验证**——.mrpack 实测导入 Fabulously Optimized（149 模组）并进游戏；CurseForge 路径用合成包验证通过；微软登录仍卡在 Mojang 白名单
+> 下一个执行项 = NeoForge 安装，或模组管理（增删 / 冲突检测）
+> 本轮改动：新增 `ModDownload/Modpack.cs`（4 种格式）+ 版本页「导入整合包」、CLI `pack-info|import-pack`、`DownloadJob.TimeoutMs`；修正整合包版本被误标为「原版」
 > **工作量口径**：全文一律以「产出物 / 改动范围」描述，不使用时间估算。
 
 ---
@@ -14,7 +14,8 @@
 ## 0. 一句话结论
 
 **已经是一个能真正装、真正启动的启动器**：原版版本安装、Java 自动补齐、版本隔离、离线启动全链路跑通，两条不同世代的版本（1.20.1 / 26.3）都在本机实机进过游戏。
-缺的是**账号体系**（微软正版登录）与**模组生态**（Forge/Fabric 安装、模组管理、整合包导入）。
+模组生态已补齐大半：**原版 / Fabric / Forge 安装 + 整合包导入（Modrinth / CurseForge / MultiMC）** 全部跑通。
+缺的是**账号体系**（微软正版登录，卡在 Mojang 白名单）与**模组管理**（增删、冲突检测）。
 四项决策已全部拍板（详见 §7）：Forge 走 B 方案、微软登录必做、便携走折中。
 美术与主题（详见 §6 末）：主题由用户在「设置 → 主题」切换，默认**极简白纸**，深色主题名为**极简墨纸**，支持跟随系统；**现在先打地基（双主题 token 层 + 设计规范），之后才做 Fabric 安装**，统一视觉定案放到 Forge 之后。
 
@@ -57,6 +58,7 @@
 | **主题切换** | ✅ | 「设置 → 主题」三选一（跟随系统 / 极简白纸 / 极简墨纸），运行中即时换肤不重启；跟随系统监听 `WM_SETTINGCHANGE` |
 | **Fabric 安装** | ✅ | 拉 meta 选最新稳定加载器 → 写 `inheritsFrom` 版本 JSON → 下载加载器依赖；缺原版自动补装；已加载 Sodium 实测 |
 | **Forge 安装** | ✅ | 取官方推荐版本 → 下 installer → 用合适 Java 无头执行 `--installClient` → 校验产物；缺原版自动补装；已加载 AppleSkin 实测 |
+| **整合包导入** | ✅ | `.mrpack` / CurseForge zip / MultiMC 实例 / 普通 zip；自动补原版与加载器、下载模组、解压 overrides；已导入 Fabulously Optimized（149 模组）实测 |
 | **安装类型选择** | ✅ | 点「安装」弹出类型选择：原版 / Fabric 可选，Forge / NeoForge 置灰标「即将支持」；已安装版本仍可点（用于加装加载器或补齐文件） |
 | **便携（折中）** | ✅ | 配置与日志进 `SlopeXData\`，首次启用从 `%APPDATA%` 复制（原文件保留）；Java 运行时目录可配；目录不可写时整体回落 `%APPDATA%` |
 | **微软正版登录** | ✅ 待账号验证 | 设备码 → Xbox Live → XSTS → 档案；令牌存 `SlopeXData\accounts.json`，过期自动刷新；失败回落离线不阻塞启动 |
@@ -83,13 +85,13 @@ ModNet       并发下载 / 镜像改写 / 源回落 / 单文件超时 / SHA1   
 ModMinecraft 版本扫描 / inheritsFrom 合并 / 强制存档隔离             411 行
 ModJava      运行时探测 / 版本匹配 / 自动下载安装                   789 行
 ModLaunch    规则引擎 / classpath / natives / 命令行 / 进程         592 行
-ModDownload  原版 / Fabric / Forge 安装 / 资源补齐 / 任务中心      1,203 行
+ModDownload  原版 / Fabric / Forge 安装 / 整合包 / 任务中心        1,964 行
 ModAccount   设备码登录 / XBL / XSTS / 档案 / 令牌刷新                494 行
-ModCli       无界面模式                                            620 行
-UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeService  3,980 行
+ModCli       无界面模式                                            707 行
+UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeService  4,101 行
 ```
 
-（模块层 5,253 行 + UI 层 3,980 行 = 9,233 行）
+（模块层 6,117 行 + UI 层 4,101 行 = 10,218 行）
 
 ### 3.3 三个关键设计取舍
 
@@ -123,9 +125,8 @@ UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeSe
 
 ### 功能缺口
 - 仅 Windows（WPF + 注册表探测）
-- 无 NeoForge 一键安装（原版 / Fabric / Forge 均已支持；NeoForge 是 Forge 社区分支，安装器待实装）
-- 无模组管理（批量启停、依赖检查）
-- 无整合包导入（CurseForge / Modrinth）
+- 无 NeoForge 一键安装（原版 / Fabric / Forge / 整合包均已支持；NeoForge 是 Forge 社区分支，安装器待实装）
+- 模组管理只有"导入时铺开"，没有界面化的增删与依赖检查
 - 存档隔离为强制行为，不提供“材质包共享但存档隔离”这类混合模式；需要共用只能手动复制文件
 
 ### 工程风险
@@ -324,6 +325,10 @@ UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeSe
 | Forge 校验与启动 | `verify` 117 库通过、Java 要求 17；`plan` 含 `-p` 模块路径与 `--launchTarget forgeclient`；真机 `ModLauncher 10.0.9` → `MinecraftForge v47.4.28 Initialized` → 进主菜单 |
 | Forge 模组加载验收 | 放入 AppleSkin Forge 版 → 生成 `config/appleskin-client.toml`（1361 字节），说明模组已加载并注册配置 |
 | Forge 界面链路 | 点「安装」→ Forge → 开始安装 → 状态栏「正在安装 Forge 66.1.0（26.3）」、行内变「安装中…」、installer 开始下载 |
+| 整合包识别 | `pack-info fo.mrpack` → Modrinth / Fabulously Optimized 5.4.1 / MC 1.20.1 / fabric 0.14.23 / 51 个文件 |
+| 整合包导入（Modrinth） | 51/51 下载成功、解压 27 个覆盖文件；`versions\Fabulously-Optimized-5.4.1` 下 48 个 jar；启动后 `Loading 149 mods` 并进主菜单 |
+| 整合包导入（CurseForge） | 合成包（Sodium 394468/6260639）→ cfwidget 反查文件名成功；jar 971,552 字节 / 750 条目 / 含 `fabric.mod.json`，overrides 已解压 |
+| 整合包标签 | 版本页对整合包版本显示「Fabric」+「整合包」两个标签（此前误标为「原版」，因标签只看版本自身 ID 与 libraries） |
 | 安装类型对话框 | 点任意行「安装」→ 弹出居中卡片 + 遮罩；原版默认选中；Forge / NeoForge 置灰带「即将支持」；Esc 或「取消」关闭 |
 | 对话框端到端 | 已安装行 →「安装」→ 选 Fabric →「开始安装」→ 日志 `Fabric 0.20.1（26.3）安装完成：fabric-loader-0.20.1-26.3，依赖 7 个`，版本数 5 → 6 |
 | 便携迁移 | 首次运行后 `SlopeXData\config.json` 生成（含新字段 `JavaRuntimeDir` / `DismissLegacySavesHint`），`logs\` 已复制，`%APPDATA%\SlopeX\config.json` 保留未删 |
