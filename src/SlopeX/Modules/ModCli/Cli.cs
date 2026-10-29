@@ -82,6 +82,8 @@ namespace SlopeX.Modules.ModCli
                     Out("  launch <版本>            启动游戏");
                     Out("  fabric-list <原版版本>   列出该原版可用的 Fabric 加载器");
                     Out("  install-fabric <原版版本> [加载器版本]   安装 Fabric（缺原版会先补原版）");
+                    Out("  forge-list <原版版本>    查询该原版的 Forge 推荐版本");
+                    Out("  install-forge <原版版本> [加载器版本]   安装 Forge（调官方 installer，缺原版会先补）");
                     Out("  login                    微软正版登录（设备码，在浏览器里确认）");
                     Out("  account                  查看当前账号");
                     Out("  logout                   退出正版账号（回到离线）");
@@ -116,6 +118,12 @@ namespace SlopeX.Modules.ModCli
 
                 case "install-fabric":
                     return InstallFabric(args.FirstOrDefault(), args.Skip(1).FirstOrDefault());
+
+                case "forge-list":
+                    return ForgeList(args.FirstOrDefault());
+
+                case "install-forge":
+                    return InstallForge(args.FirstOrDefault(), args.Skip(1).FirstOrDefault());
 
                 case "login":
                     return Login();
@@ -339,8 +347,81 @@ namespace SlopeX.Modules.ModCli
             return 0;
         }
 
-        private static int Verify(string versionId)
+        private static int ForgeList(string mcVersion)
         {
+            if (string.IsNullOrEmpty(mcVersion)) { Out("用法：forge-list <原版版本>"); return 2; }
+
+            try
+            {
+                var v = ForgeInstaller.GetRecommendedAsync(mcVersion).GetAwaiter().GetResult();
+                if (string.IsNullOrEmpty(v))
+                {
+                    Out($"Forge 没有为 {mcVersion} 提供安装包");
+                    return 1;
+                }
+
+                Out($"原版 {mcVersion} 的 Forge 推荐版本：{v}");
+                Out($"安装器：{ForgeInstaller.InstallerUrl(mcVersion, v)}");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Out("查询失败：" + ex.Message);
+                return 1;
+            }
+        }
+
+        private static int InstallForge(string mcVersion, string loaderVersion)
+        {
+            if (string.IsNullOrEmpty(mcVersion))
+            {
+                Out("用法：install-forge <原版版本> [加载器版本]");
+                return 2;
+            }
+
+            var task = new InstallTask
+            {
+                Kind = InstallKind.Forge,
+                BaseVersion = mcVersion,
+                LoaderVersion = loaderVersion,
+                VersionId = string.IsNullOrEmpty(loaderVersion)
+                    ? "forge-" + mcVersion
+                    : ForgeInstaller.BuildVersionId(mcVersion, loaderVersion)
+            };
+
+            // Forge 安装器只在结束时输出，中间没有百分比，所以按阶段原文输出 + 每 15 秒报一次时长
+            var lastStage = "";
+            var lastBeat = -1;
+            task.Updated += t =>
+            {
+                var beat = (int)(DateTime.Now.Second / 15);
+                if (t.Stage != lastStage || beat != lastBeat || t.Completed || t.Failed)
+                {
+                    lastStage = t.Stage;
+                    lastBeat = beat;
+                    Out($"{t.Stage} {t.SizeText}".TrimEnd());
+                }
+            };
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            string installedId = null;
+            try
+            {
+                installedId = ForgeInstaller.InstallAsync(Config.Current.GameDir, mcVersion, loaderVersion,
+                    task, CancellationToken.None).GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                Out("安装失败：" + ex.Message);
+                return 1;
+            }
+
+            Out($"Forge 安装完成：{installedId}（耗时 {sw.Elapsed.TotalSeconds:0.0} 秒）");
+            Out($"游戏目录：{VersionEnv.Resolve(Config.Current.GameDir, installedId)}");
+            return 0;
+        }
+
+        private static int Verify(string versionId)        {
             if (string.IsNullOrEmpty(versionId)) { Out("请指定版本 ID"); return 2; }
 
             var gameDir = Config.Current.GameDir;
