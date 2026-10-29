@@ -85,6 +85,28 @@ namespace SlopeX.Modules.ModDownload
             return task;
         }
 
+        /// <summary>安装 NeoForge（原版缺失时会先补原版）。loaderVersion 为空表示取最新版。</summary>
+        public static InstallTask StartNeoForgeInstall(string baseVersion, string loaderVersion = null)
+        {
+            var existing = Tasks.FirstOrDefault(t =>
+                t.Kind == InstallKind.NeoForge && t.BaseVersion == baseVersion && t.Running);
+            if (existing != null) return existing;
+
+            var task = new InstallTask
+            {
+                Kind = InstallKind.NeoForge,
+                BaseVersion = baseVersion,
+                LoaderVersion = loaderVersion,
+                VersionId = string.IsNullOrEmpty(loaderVersion)
+                    ? "neoforge-" + baseVersion
+                    : NeoForgeInstaller.BuildVersionId(loaderVersion)
+            };
+
+            Tasks.Insert(0, task);
+            _ = task.RunAsync();
+            return task;
+        }
+
         public static bool IsBusy(string versionId) =>
             Tasks.Any(t => t.VersionId == versionId && t.Running);
 

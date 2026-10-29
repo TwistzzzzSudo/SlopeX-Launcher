@@ -15,7 +15,7 @@ namespace SlopeX.Controls
 
     /// <summary>
     /// 「安装」前的类型选择：原版 / Fabric / Forge / NeoForge。
-    /// 原版、Fabric、Forge 已实装；NeoForge 仍是占位项（置灰 + 即将支持），等安装器实装后放开即可。
+    /// 四种类型均已实装。
     /// </summary>
     public partial class InstallChoiceDialog : UserControl
     {
