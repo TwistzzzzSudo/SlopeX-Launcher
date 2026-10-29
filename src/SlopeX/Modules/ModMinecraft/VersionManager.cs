@@ -20,6 +20,10 @@ namespace SlopeX.Modules.ModMinecraft
         public string ReleaseTime { get; set; } = "";
         public string Loader { get; set; } = "原版";
         public string BaseVersion { get; set; }
+
+        /// <summary>是不是本启动器导入的整合包版本（JSON 里带 slopexPack 标记）。</summary>
+        public bool IsPack { get; set; }
+
         public bool HasJar => !string.IsNullOrEmpty(JarPath) && File.Exists(JarPath);
 
         public string TypeLabel => Type switch
@@ -114,6 +118,7 @@ namespace SlopeX.Modules.ModMinecraft
                         Loader = DetectLoader(root, id)
                     };
                     v.BaseVersion = ResolveBaseVersion(root, id);
+                    v.IsPack = root.ContainsKey("slopexPack");   // 由整合包导入写入的标记
                     result.Add(v);
                 }
                 catch (Exception ex)
@@ -127,7 +132,10 @@ namespace SlopeX.Modules.ModMinecraft
 
         private static string DetectLoader(JsonObject root, string id)
         {
-            var name = id.ToLowerInvariant();
+            // 线索来源：版本 ID、inheritsFrom、自身 libraries。
+            // 整合包版本自身没有 libraries，只有 inheritsFrom 指向加载器版本，
+            // 只看 ID 与 libraries 会把它误判成"原版"。
+            var name = (id + " " + (J.Str(root, "inheritsFrom") ?? "")).ToLowerInvariant();
             var libs = J.Arr(root, "libraries");
             var libText = libs?.ToJsonString().ToLowerInvariant() ?? "";
 

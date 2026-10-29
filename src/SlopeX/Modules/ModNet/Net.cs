@@ -116,6 +116,12 @@ namespace SlopeX.Modules.ModNet
         public long Size { get; set; }
         public string Sha1 { get; set; }
 
+        /// <summary>
+        /// 单文件超时（毫秒）。0 表示按体积自动估算（100 KB/s 下限 60 秒）。
+        /// 整合包这类"大文件 + 高并发 + 走代理"的场景要显式给宽一点，否则会连续超时。
+        /// </summary>
+        public int TimeoutMs { get; set; }
+
         public long Downloaded
         {
             get => _downloaded;
@@ -313,9 +319,11 @@ namespace SlopeX.Modules.ModNet
                     job.Downloaded = 0;
 
                     // 单文件超时：按体积估算，避免连接假死时一直挂到全局超时
-                    var timeoutMs = job.Size > 0
-                        ? (int)Math.Min(600000, Math.Max(60000, job.Size / 1024 / 100 * 1000))
-                        : 60000;
+                    var timeoutMs = job.TimeoutMs > 0
+                        ? job.TimeoutMs
+                        : job.Size > 0
+                            ? (int)Math.Min(600000, Math.Max(60000, job.Size / 1024 / 100 * 1000))
+                            : 60000;
                     using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                     timeoutCts.CancelAfter(timeoutMs);
                     var token = timeoutCts.Token;
