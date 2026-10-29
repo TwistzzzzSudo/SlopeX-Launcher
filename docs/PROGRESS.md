@@ -176,6 +176,7 @@ UI 层        5 页 + 主窗口 + 样式 + 双主题调色板 + ThemeService    
 **9. 启动器自更新**：检查 GitHub Release / 自建清单，下载新 exe 并替换
 **10. 崩溃诊断**：解析 `crash-reports`，把 `UnsupportedClassVersionError`、缺模组、OOM 翻成人话
 **11. 界面细节**：高 DPI 适配、键盘导航、日志搜索与导出
+**12. 设置页文案瘦身**：按 `docs/design-language.md` §6 的四类文字分层，削掉教学式长句、把机制解释收进 tooltip/「?」、一次性警告补「不再提示」；**首批修掉「点保存生效」与「切换立即生效」的矛盾**（详见 §6.3 问题清单）
 
 ### 建议里程碑
 
@@ -202,7 +203,7 @@ UI 层        5 页 + 主窗口 + 样式 + 双主题调色板 + ThemeService    
 | 阶段 | 时机 | 产出范围 | 需你参与 |
 |---|---|---|---|
 | **S1 地基** ✅ | **已完成 2026-10-29 17:31** | 实际产出：`Palette.Light.xaml` / `Palette.Dark.xaml`（各 17 个语义色）、`Style.xaml` 改为纯刻度层 + 全量 DynamicResource（106 处）、间距（Sp4–Sp32）/ 圆角（R4–R14）/ 动效（DurFast–DurSlow）三套刻度、`ThemeService`（配置 + 注册表 + 系统事件）、设置页主题卡三选一、`docs/design-language.md`、7 项组件缺口清单 | 否 |
-| **S2 边做边补** | Fabric / 便携 / 登录期间 | 新页面一律用 token；ComboBox、多列列表、Dialog、Toast、空状态随功能同步设计 | 否（看截图即可） |
+| **S2 边做边补** | Fabric / 便携 / 登录期间 | 新页面一律用 token；ComboBox、多列列表、Dialog、Toast、空状态随功能同步设计；**顺手修设置页「保存 vs 立即生效」矛盾文案，并按 §6 文案规范削存量说明** | 否（看截图即可） |
 | **S3 视觉定案** | Forge 完成后、整合包导入之前 | 页面形态稳定（5 → 8~9 页）后统一打磨，一次到位 | **是**（唯一需要深度参与的一轮） |
 
 **为什么不在现在全面铺开**
