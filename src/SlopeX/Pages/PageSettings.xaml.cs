@@ -48,8 +48,11 @@ namespace SlopeX.Pages
                 ChkResolution.IsChecked = c.CustomResolution;
                 ChkMinimize.IsChecked = c.CloseOnLaunch;
                 ChkAutoJava.IsChecked = c.AutoInstallJava;
-                JavaRuntimeHint.Text = "托管运行时目录：" + Paths.RuntimeDir;
                 UpdateIsolationInfo(c);
+
+                DataDirText.Text = Paths.DataDir;
+                InputRuntimeDir.Text = c.JavaRuntimeDir ?? "";
+                RuntimeDirHint.Text = "当前生效：" + c.JavaRuntimeDirHint;
 
                 ChipMirror.IsChecked = c.UseMirror;
                 ChipOfficial.IsChecked = !c.UseMirror;
@@ -98,17 +101,69 @@ namespace SlopeX.Pages
                 }
             }
 
-            if (VersionEnv.HasLegacySharedSaves(root, out var legacy))
+            if (VersionEnv.HasLegacySharedSaves(root, out var legacy) && !c.DismissLegacySavesHint)
             {
                 LegacySavesHint.Text =
-                    $"注意：根目录 {Path.Combine(root, "saves")} 仍有 {legacy} 个旧存档（旧版共用模式遗留）。" +
-                    "它们不会自动共享给任何版本；需要的话请手动复制到目标版本的 saves 目录。";
-                LegacySavesHint.Visibility = Visibility.Visible;
+                    $"根目录 {Path.Combine(root, "saves")} 仍有 {legacy} 个旧存档（旧版共用模式遗留），不会被自动共享。" +
+                    "需要时请手动复制到目标版本的 saves 目录。";
+                LegacySavesRow.Visibility = Visibility.Visible;
             }
             else
             {
-                LegacySavesHint.Visibility = Visibility.Collapsed;
+                LegacySavesRow.Visibility = Visibility.Collapsed;
             }
+        }
+
+        /// <summary>旧存档提示是"一次性通知"，允许用户关掉，避免长期钉在页面上。</summary>
+        private void DismissLegacySaves_Click(object sender, RoutedEventArgs e)
+        {
+            Config.Current.DismissLegacySavesHint = true;
+            Config.Current.Save();
+            LegacySavesRow.Visibility = Visibility.Collapsed;
+        }
+
+        // ---------------- 数据目录与运行时 ----------------
+
+        private void OpenDataDir_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var dir = Paths.DataDir;
+                if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                Process.Start(new ProcessStartInfo("explorer.exe", "\"" + dir + "\"") { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("打开数据目录失败：" + ex.Message);
+            }
+        }
+
+        private void BrowseRuntimeDir_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var dialog = new OpenFolderDialog
+                {
+                    Title = "选择 Java 运行时存放目录",
+                    Multiselect = false
+                };
+
+                var current = (InputRuntimeDir.Text ?? "").Trim();
+                if (string.IsNullOrEmpty(current)) current = Paths.RuntimeDir;
+                if (Directory.Exists(current)) dialog.InitialDirectory = current;
+
+                if (dialog.ShowDialog() == true) InputRuntimeDir.Text = dialog.FolderName;
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("选择运行时目录失败：" + ex.Message);
+            }
+        }
+
+        private void ResetRuntimeDir_Click(object sender, RoutedEventArgs e)
+        {
+            InputRuntimeDir.Text = "";
+            RuntimeDirHint.Text = "当前生效：默认位置（%APPDATA%\\SlopeX\\runtime），点「保存设置」后生效";
         }
 
         // ---------------- 主题 ----------------
@@ -179,7 +234,10 @@ namespace SlopeX.Pages
                 c.AutoInstallJava = ChkAutoJava.IsChecked == true;
                 c.UseMirror = ChipMirror.IsChecked == true;
 
+                c.JavaRuntimeDir = (InputRuntimeDir.Text ?? "").Trim();
+
                 c.Save();
+                RuntimeDirHint.Text = "当前生效：" + c.JavaRuntimeDirHint;
                 MainWindow.Current?.ApplyConfigChanged();
                 MainWindow.Current?.SetStatus("设置已保存", null);
                 Log.Info("设置已保存");

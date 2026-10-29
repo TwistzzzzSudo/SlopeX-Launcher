@@ -14,7 +14,7 @@
             <StackPanel>
                 <TextBlock Style="{StaticResource TTitle}" Text="设置"/>
                 <TextBlock Style="{StaticResource TSub}" Margin="0,5,0,0"
-                           Text="修改后点「保存设置」生效。"/>
+                           Text="主题即时生效；其余项点「保存设置」后生效。"/>
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
                 <Button Style="{StaticResource BtnGhost}" Content="恢复默认" Click="Reset_Click"/>
@@ -31,7 +31,7 @@
                     <StackPanel>
                         <TextBlock Style="{StaticResource TSection}" Text="主题"/>
                         <TextBlock Style="{StaticResource TCaption}" Margin="0,4,0,12" TextWrapping="Wrap"
-                                   Text="「极简白纸」为默认主题。「跟随系统」会随 Windows 深浅色实时切换，不用重启启动器。切换立即生效，不需要点保存。"/>
+                                   Text="默认「极简白纸」，可跟随 Windows 深浅色。"/>
                         <StackPanel Orientation="Horizontal">
                             <ToggleButton x:Name="ChipThemeSystem" Style="{StaticResource Chip}" Content="跟随系统"
                                           Click="ThemeChip_Click"/>
@@ -72,7 +72,7 @@
                     <StackPanel>
                         <TextBlock Style="{StaticResource TSection}" Text="游戏目录"/>
                         <TextBlock Style="{StaticResource TCaption}" Margin="0,4,0,14" TextWrapping="Wrap"
-                                   Text="默认是启动器所在目录下的 .minecraft（便携，整个文件夹可随意搬迁），可随时改到别处。"/>
+                                   Text="默认在启动器目录下的 .minecraft，可改。"/>
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="112"/>
@@ -88,19 +88,29 @@
                         </Grid>
 
                         <Border Style="{StaticResource HRule}" Margin="0,16,0,12"/>
-                        <TextBlock Style="{StaticResource TBody}" Text="存档隔离（强制开启，无关闭入口）"/>
-                        <TextBlock Style="{StaticResource TCaption}" Margin="0,6,0,0" TextWrapping="Wrap"
-                                   Text="每个版本固定使用 .minecraft\versions\&lt;版本 ID&gt; 作为游戏目录：存档、材质包、模组、设置互不影响，libraries 与 assets 仍然共用。"/>
-                        <TextBlock Style="{StaticResource TCaption}" Margin="0,4,0,0" TextWrapping="Wrap"
-                                   Text="需要跨版本共用存档时，请自行把存档文件夹复制到目标版本的 saves 目录——启动器不会自动共享，也不会自动搬移。"/>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource TBody}" Text="存档隔离" VerticalAlignment="Center"
+                                       ToolTip="每个版本固定使用 .minecraft\versions\&lt;版本 ID&gt; 作为游戏目录：存档、材质包、模组、设置互不影响；libraries 与 assets 仍然共用。&#10;需要跨版本共用存档时，请自行把存档文件夹复制到目标版本的 saves 目录——启动器不会自动共享，也不会自动搬移。"/>
+                            <Border Style="{StaticResource Tag}" Margin="8,0,0,0">
+                                <TextBlock Text="强制" FontSize="11" Foreground="{DynamicResource Sub}"/>
+                            </Border>
+                        </StackPanel>
                         <TextBlock x:Name="SavesPathText" Style="{StaticResource TMono}" Margin="0,8,0,0"
                                    TextWrapping="Wrap"/>
-                        <TextBlock x:Name="LegacySavesHint" Style="{StaticResource TCaption}" Margin="0,6,0,0"
-                                   TextWrapping="Wrap" Foreground="{DynamicResource Warn}" Visibility="Collapsed"/>
-                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                            <Button Style="{StaticResource BtnGhost}" Height="30" Padding="12,0"
-                                    Content="打开该版本存档目录" Click="OpenSaves_Click"/>
-                        </StackPanel>
+                        <Grid x:Name="LegacySavesRow" Margin="0,6,0,0" Visibility="Collapsed">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="LegacySavesHint" Grid.Column="0" Style="{StaticResource TCaption}"
+                                       TextWrapping="Wrap" Foreground="{DynamicResource Warn}"
+                                       VerticalAlignment="Center"/>
+                            <Button Grid.Column="1" Style="{StaticResource BtnText}" Content="不再提示"
+                                    FontSize="11.5" Padding="8,0" Margin="8,0,0,0"
+                                    VerticalAlignment="Center" Click="DismissLegacySaves_Click"/>
+                        </Grid>
+                        <Button Style="{StaticResource BtnGhost}" Height="30" Padding="12,0" Margin="0,10,0,0"
+                                HorizontalAlignment="Left" Content="打开该版本存档目录" Click="OpenSaves_Click"/>
                     </StackPanel>
                 </Border>
 
@@ -163,9 +173,51 @@
                         <CheckBox x:Name="ChkAutoJava" Style="{StaticResource Chk}"
                                   Content="缺少所需 Java 时自动下载安装（使用国内镜像）"/>
                         <TextBlock Style="{StaticResource TCaption}" Margin="24,8,0,0" TextWrapping="Wrap"
-                                   Text="镜像顺序：清华 TUNA → 中科大 → 华为云。安装到 %APPDATA%\SlopeX\runtime，每个主版本约 50 MB。"/>
-                        <TextBlock x:Name="JavaRuntimeHint" Style="{StaticResource TMono}" Margin="24,6,0,0"
-                                   TextTrimming="CharacterEllipsis"/>
+                                   Text="镜像顺序：清华 TUNA → 中科大 → 华为云。每个主版本约 50 MB，装到下方「运行时目录」。"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 数据与运行时 -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,14">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource TSection}" Text="数据与运行时"/>
+                        <TextBlock Style="{StaticResource TCaption}" Margin="0,4,0,14" TextWrapping="Wrap"
+                                   Text="配置与日志的位置；在启动器目录内即可随文件夹一起搬走。"/>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="112"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Style="{StaticResource TSub}" Text="数据目录"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock x:Name="DataDirText" Grid.Column="1" Style="{StaticResource TMono}"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                       ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                            <Button Grid.Column="2" Style="{StaticResource BtnGhost}" Content="打开"
+                                    Margin="8,0,0,0" Click="OpenDataDir_Click"/>
+                        </Grid>
+
+                        <Grid Margin="0,10,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="112"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Style="{StaticResource TSub}" Text="运行时目录"
+                                       VerticalAlignment="Center"/>
+                            <TextBox x:Name="InputRuntimeDir" Grid.Column="1" Style="{StaticResource Input}"
+                                     Height="34"/>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                <Button Style="{StaticResource BtnGhost}" Content="浏览" Margin="8,0,0,0"
+                                        Click="BrowseRuntimeDir_Click"/>
+                                <Button Style="{StaticResource BtnGhost}" Content="恢复默认" Margin="8,0,0,0"
+                                        Click="ResetRuntimeDir_Click"/>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock x:Name="RuntimeDirHint" Style="{StaticResource TCaption}" Margin="112,6,0,0"
+                                   TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
 

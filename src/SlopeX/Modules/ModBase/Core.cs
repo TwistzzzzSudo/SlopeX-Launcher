@@ -12,15 +12,118 @@ namespace SlopeX.Modules.ModBase
     /// <summary>全局路径（对应 PCL2 的 ModBase 路径管理）。</summary>
     public static class Paths
     {
-        public static string AppDir
+        /// <summary>%APPDATA%\SlopeX：旧位置、便携不可写时的回落点，也是 Java 运行时的默认位置。</summary>
+        public static string AppDataDir
         {
             get
             {
                 var dir = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SlopeX");
-                Directory.CreateDirectory(dir);
+                try { Directory.CreateDirectory(dir); } catch { /* 忽略 */ }
                 return dir;
             }
+        }
+
+        private static string _dataDir;
+        private static bool _migrationChecked;
+
+        /// <summary>
+        /// 数据目录（配置 / 日志 / 缓存）：优先 <c>&lt;启动器目录&gt;\SlopeXData</c>，
+        /// 整个文件夹拷走即可连设置一起搬走；启动器目录不可写（如装在 Program Files）时回落
+        /// <c>%APPDATA%\SlopeX</c>。
+        ///
+        /// 注意：Java 运行时**不**放这里（占 180 MB，跟着拷贝不划算），见 <see cref="RuntimeDir"/>。
+        /// </summary>
+        public static string DataDir
+        {
+            get
+            {
+                if (_dataDir != null) return _dataDir;
+
+                var root = LauncherRoot;
+                string dir;
+                string reason = null;
+
+                if (ProbeWrite(root))
+                {
+                    dir = Path.Combine(root, "SlopeXData");
+                }
+                else
+                {
+                    dir = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SlopeX");
+                    reason = "启动器目录不可写";
+                }
+
+                // 先落字段：迁移过程中写日志会再次读 DataDir，必须已经是最终值
+                _dataDir = dir;
+                try { Directory.CreateDirectory(dir); } catch { /* 交给后续读写报错 */ }
+
+                MigrateFromAppData(dir, reason);
+                return dir;
+            }
+        }
+
+        /// <summary>兼容旧代码：数据目录即原来的 AppDir。</summary>
+        public static string AppDir => DataDir;
+
+        /// <summary>
+        /// 首次启用便携目录时，把 <c>%APPDATA%\SlopeX</c> 的配置与日志**复制**过来。
+        /// 原文件保留不删——用户想回退到旧位置时不会丢东西。
+        /// </summary>
+        private static void MigrateFromAppData(string dataDir, string fallbackReason)
+        {
+            if (_migrationChecked) return;
+            _migrationChecked = true;
+
+            var legacy = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SlopeX");
+
+            // 本来就用 %APPDATA%，没什么可迁移的
+            if (SamePath(dataDir, legacy)) return;
+
+            try
+            {
+                var moved = new List<string>();
+
+                var legacyConfig = Path.Combine(legacy, "config.json");
+                var newConfig = Path.Combine(dataDir, "config.json");
+                if (File.Exists(legacyConfig) && !File.Exists(newConfig))
+                {
+                    File.Copy(legacyConfig, newConfig);
+                    moved.Add("配置");
+                }
+
+                var legacyLogs = Path.Combine(legacy, "logs");
+                var newLogs = Path.Combine(dataDir, "logs");
+                if (Directory.Exists(legacyLogs) && !Directory.Exists(newLogs))
+                {
+                    CopyDirectory(legacyLogs, newLogs);
+                    moved.Add("日志");
+                }
+
+                var suffix = fallbackReason != null ? $"（回落原因：{fallbackReason}）" : "";
+                if (moved.Count > 0)
+                    Log.Info($"便携目录已启用：{dataDir}{suffix}；已复制 {string.Join("、", moved)}，原文件保留");
+                else
+                    Log.Info($"便携目录已启用：{dataDir}{suffix}");
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("迁移到便携目录失败（不影响使用）：" + ex.Message);
+            }
+        }
+
+        private static void CopyDirectory(string source, string target)
+        {
+            Directory.CreateDirectory(target);
+            foreach (var file in Directory.GetFiles(source))
+            {
+                var dst = Path.Combine(target, Path.GetFileName(file));
+                if (!File.Exists(dst)) File.Copy(file, dst);
+            }
+            foreach (var dir in Directory.GetDirectories(source))
+                CopyDirectory(dir, Path.Combine(target, Path.GetFileName(dir)));
         }
 
         /// <summary>启动器根目录（即 SlopeX.exe 所在目录）。</summary>
@@ -66,8 +169,11 @@ namespace SlopeX.Modules.ModBase
         public static string LegacyGameDir =>
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft");
 
-        /// <summary>启动器目录是否可写（不可写就不能做成便携目录）。</summary>
-        private static bool CanWrite(string dir)
+        /// <summary>
+        /// 静默探测目录可写性。**不能在这里写日志**——日志本身要落盘到 DataDir，
+        /// 而 DataDir 解析又依赖本方法，会形成递归。
+        /// </summary>
+        private static bool ProbeWrite(string dir)
         {
             try
             {
@@ -77,11 +183,18 @@ namespace SlopeX.Modules.ModBase
                 File.Delete(probe);
                 return true;
             }
-            catch (Exception ex)
+            catch
             {
-                Log.Warn($"启动器目录不可写（{dir}），游戏目录回落到 %APPDATA%：{ex.Message}");
                 return false;
             }
+        }
+
+        /// <summary>启动器目录是否可写（不可写就不能做成便携目录）。</summary>
+        private static bool CanWrite(string dir)
+        {
+            if (ProbeWrite(dir)) return true;
+            Log.Warn($"启动器目录不可写（{dir}），游戏目录回落到 %APPDATA%");
+            return false;
         }
 
         /// <summary>把绝对路径转成"可存进配置"的形式：位于启动器目录内则存相对路径。</summary>
@@ -172,14 +285,38 @@ namespace SlopeX.Modules.ModBase
             }
         }
 
-        /// <summary>启动器自己下载安装的 Java 运行时根目录。</summary>
+        /// <summary>
+        /// 启动器自己下载安装的 Java 运行时根目录。
+        /// 默认仍在 <c>%APPDATA%\SlopeX\runtime</c>——一个 Java 运行时约 180 MB，
+        /// 跟着启动器目录拷来拷去不划算；需要彻底便携时可在设置里改到启动器目录内。
+        /// </summary>
         public static string RuntimeDir
         {
             get
             {
-                var dir = Path.Combine(AppDir, "runtime");
-                Directory.CreateDirectory(dir);
+                var custom = RuntimeDirOverride;
+                var dir = string.IsNullOrWhiteSpace(custom) ? Path.Combine(AppDataDir, "runtime") : custom;
+                try { Directory.CreateDirectory(dir); } catch { /* 忽略 */ }
                 return dir;
+            }
+        }
+
+        /// <summary>由配置驱动的运行时目录覆盖值（空表示用默认位置）。</summary>
+        public static string RuntimeDirOverride { get; set; } = "";
+
+        /// <summary>若配置里的路径为空或非法则返回 null（供可选路径字段使用）。</summary>
+        public static string FromStoredPathOrNull(string stored)
+        {
+            if (string.IsNullOrWhiteSpace(stored)) return null;
+            try
+            {
+                return Path.IsPathRooted(stored)
+                    ? stored
+                    : Path.GetFullPath(Path.Combine(LauncherRoot, stored));
+            }
+            catch
+            {
+                return null;
             }
         }
 
@@ -267,7 +404,11 @@ namespace SlopeX.Modules.ModBase
                 if (_current == null) _current = Load();
                 return _current;
             }
-            set => _current = value;
+            set
+            {
+                _current = value;
+                Paths.RuntimeDirOverride = value?.JavaRuntimeDir ?? "";
+            }
         }
 
         private string _gameDir = Paths.DefaultGameDir;
@@ -286,6 +427,8 @@ namespace SlopeX.Modules.ModBase
         private bool _autoInstallJava = true;
         private string _theme = "paper";
         private string _appearance = "Light";
+        private string _javaRuntimeDir = "";
+        private bool _dismissLegacySavesHint;
 
         /// <summary>游戏目录（.minecraft 根），内存中始终是绝对路径。</summary>
         [JsonIgnore]
@@ -319,6 +462,36 @@ namespace SlopeX.Modules.ModBase
 
         /// <summary>自定义 Java 路径，空表示自动选择。</summary>
         public string JavaPath { get => _javaPath; set => Set(ref _javaPath, value); }
+
+        /// <summary>
+        /// 托管 Java 运行时的根目录（空 = 默认 <c>%APPDATA%\SlopeX\runtime</c>）。
+        /// 设在启动器目录内即可让运行时也跟着移植。
+        /// </summary>
+        [JsonIgnore]
+        public string JavaRuntimeDir
+        {
+            get => _javaRuntimeDir;
+            set
+            {
+                if (!Set(ref _javaRuntimeDir, value ?? "")) return;
+                Paths.RuntimeDirOverride = _javaRuntimeDir;
+                OnPropertyChanged(nameof(JavaRuntimeDirStored));
+                OnPropertyChanged(nameof(JavaRuntimeDirHint));
+            }
+        }
+
+        /// <summary>落盘形式：位于启动器目录内则存相对路径。</summary>
+        [JsonPropertyName("JavaRuntimeDir")]
+        public string JavaRuntimeDirStored
+        {
+            get => Paths.ToStorablePath(_javaRuntimeDir);
+            set => JavaRuntimeDir = Paths.FromStoredPathOrNull(value) ?? "";
+        }
+
+        /// <summary>界面上显示的实际生效路径。</summary>
+        [JsonIgnore]
+        public string JavaRuntimeDirHint =>
+            string.IsNullOrWhiteSpace(_javaRuntimeDir) ? "默认位置（%APPDATA%\\SlopeX\\runtime）" : Paths.RuntimeDir;
 
         public string PlayerName { get => _playerName; set => Set(ref _playerName, value); }
         public string Uuid { get => _uuid; set => Set(ref _uuid, value); }
@@ -354,6 +527,13 @@ namespace SlopeX.Modules.ModBase
         /// 默认 <c>Light</c>——极简白纸是默认主题，跟随系统需用户主动选择。
         /// </summary>
         public string Appearance { get => _appearance; set => Set(ref _appearance, value); }
+
+        /// <summary>用户是否已对"根目录残留旧存档"提示点过「不再提示」。</summary>
+        public bool DismissLegacySavesHint
+        {
+            get => _dismissLegacySavesHint;
+            set => Set(ref _dismissLegacySavesHint, value);
+        }
 
         // 注：原 VersionIsolation / IsolationSeeded 两个配置项已移除。
         // 版本隔离（含存档）现在是强制行为，不再是可配置项，也就不该存在"关闭"的记录。
@@ -395,7 +575,8 @@ namespace SlopeX.Modules.ModBase
                             json.Contains("VersionIsolation", StringComparison.OrdinalIgnoreCase) ||
                             json.Contains("IsolationSeeded", StringComparison.OrdinalIgnoreCase) ||
                             !json.Contains("\"Appearance\"", StringComparison.OrdinalIgnoreCase) ||
-                            !json.Contains("\"Theme\"", StringComparison.OrdinalIgnoreCase);
+                            !json.Contains("\"Theme\"", StringComparison.OrdinalIgnoreCase) ||
+                            !json.Contains("\"JavaRuntimeDir\"", StringComparison.OrdinalIgnoreCase);
 
                         if (needsRewrite)
                         {

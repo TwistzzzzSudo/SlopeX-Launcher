@@ -28,6 +28,8 @@ namespace SlopeX
                 Log.Error("未捕获异常", args.ExceptionObject as Exception);
 
             Log.Info("SlopeX Launcher 启动");
+            Log.Info($"数据目录：{Paths.DataDir}");
+            Log.Info($"Java 运行时目录：{Paths.RuntimeDir}");
             Log.Info($"游戏目录：{Config.Current.GameDir}");
 
             // 主题要在建窗口之前定下来，避免先白后黑的闪烁
