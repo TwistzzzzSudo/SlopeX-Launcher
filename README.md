@@ -88,7 +88,7 @@ src/SlopeX/
 - 游戏目录默认 `<启动器目录>\.minecraft`；配置里以相对路径 `.\\.minecraft` 保存，整个文件夹搬走不用改设置
 - **存档隔离（强制）**：每个版本固定使用 `versions\<版本 ID>` 作为游戏目录，存档 / 材质包 / 模组 / 设置互不影响；**没有关闭入口**（`libraries`、`assets` 仍共用）
 - 内存、JVM 参数、自定义分辨率、下载源、游戏目录均可配置（**存档隔离不在可配置之列**）
-- 配置持久化到 `%APPDATA%\SlopeX\config.json`
+- 配置持久化到 `<启动器目录>\SlopeXData\config.json`（目录不可写时回落 `%APPDATA%\SlopeX\config.json`）
 
 ## 存档隔离（强制开启）
 
@@ -201,12 +201,13 @@ tools/make-icon.ps1  # 由矢量几何重新生成 ico；改标记形状时改�
 
 - **仅支持 Windows**（WPF + 注册表探测）
 - **未实现 Forge / NeoForge 安装**：Fabric / Quilt 同类加载器已支持一键安装；Forge 计划走"官方 installer `--installClient`"路线（见 `docs/PROGRESS.md` §7.1）
-- **微软登录需要 Mojang 白名单**：第三方启动器访问 Minecraft API 需要人工审核（[说明](https://help.minecraft.net/hc/en-us/articles/16254801392141)，申请表 https://aka.ms/mce-reviewappid）。当前 client_id 尚未在名单内，登录会停在 `403 Invalid app registration`；审核通过后无需改代码即可使用
+- **微软登录需要 Mojang 白名单**：第三方启动器访问 Minecraft API 需要人工审核（[说明](https://help.minecraft.net/hc/en-us/articles/16254801392141)，[申请表](https://aka.ms/mce-reviewappid)）。当前 client_id 尚未在名单内，登录会停在 `403 Invalid app registration`；审核通过后无需改代码即可使用
 - 模组管理、整合包导入尚未实现（存档隔离已支持）
 - 存档隔离为强制行为，不提供"共享材质包 / 共用存档"的混合模式；需要共用时由用户自行复制文件
 - Java 自动下载只覆盖 x64 / arm64 桌面平台，且依赖国内镜像的可达性；镜像全部不可达时需手动指定 Java
 
 ## 许可
 
-本项目代码可自由使用。PCL2 采用 LGPL-3.0（仓库标注为 Other），本项目未使用其代码，
-如需二次分发请自行确认对 PCL2 名称与素材的使用边界。
+本项目以 [MIT](LICENSE) 许可发布。
+
+PCL2 采用 LGPL-3.0（仓库标注为 Other），本项目**未使用其任何代码**，只借鉴了模块划分与启动器行为逻辑，因此不继承其许可；如需二次分发，请自行确认对 PCL2 名称与素材的使用边界。
