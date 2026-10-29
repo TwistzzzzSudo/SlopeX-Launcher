@@ -1,12 +1,12 @@
 # SlopeX Launcher 进度报告与实施计划
 
-> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-29 18:16
+> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-29 18:32
 > 对应产物：`SlopeX.exe` 1.0.0（自包含单文件，139 MB，win-x64）
-> 代码规模：30 个 C# / XAML 源文件，7,240 行
-> 版本控制：git 分支 `feature/fabric`（Fabric 安装），`main` 保持可构建
-> 当前状态：**Fabric 安装完成并真机验证**——CLI 与下载页双入口，缺原版自动补装，已加载 Sodium 实测
+> 代码规模：32 个 C# / XAML 源文件，7,484 行
+> 版本控制：git 分支 `feature/install-dialog`（安装类型选择），`main` 保持可构建
+> 当前状态：**Fabric 安装完成并真机验证**；安装入口改为「点击 → 选类型 → 安装」，Forge / NeoForge 占位待实装
 > 下一个执行项 = 便携改造（S2 首个必须动设置页的任务）
-> 本轮改动：Fabric 安装链路（`Fabric.cs` 新增、`InstallTask` 支持双种类、镜像映射、CLI 两条命令、下载页入口）
+> 本轮改动：安装类型选择对话框（新增 `Dialog` 组件基础版 + `OptionRow` 选项行）
 > **工作量口径**：全文一律以「产出物 / 改动范围」描述，不使用时间估算。
 
 ---
@@ -27,7 +27,7 @@
 | `SlopeX.exe` | 免安装单文件，双击即用，无需装 .NET | ✅ |
 | `src/SlopeX/` | 完整源码（.NET 8 + WPF） | ✅ |
 | `.minecraft/` | 便携游戏目录，1.3 GB，已装 26.3 与 1.20.1 | ✅ |
-| `docs/screenshots/` | 9 张界面截图（首页 / 版本 / 下载 / 任务 / 设置 / Java 缺失 / 自动安装 / **深色首页** / **深色设置**） | ✅ |
+| `docs/screenshots/` | 10 张界面截图（首页 / 版本 / 下载 / 任务 / 设置 / Java 缺失 / 自动安装 / 深色首页 / 深色设置 / **安装类型选择**） | ✅ |
 | `docs/design-language.md` | **设计规范**：双主题色板、间距/圆角/动效刻度、组件清单、7 项组件缺口 | ✅ |
 | `README.md` | 功能、架构、构建、限制说明 | ✅ |
 | `build.cmd` | 一键构建（纯 ASCII，规避 cmd 编码问题） | ✅ |
@@ -56,6 +56,7 @@
 | **存档隔离（强制）** | ✅ | 恒用 `versions\<id>`；无开关、不继承、不共享；真机验证 `--gameDir` 指向版本目录 |
 | **主题切换** | ✅ | 「设置 → 主题」三选一（跟随系统 / 极简白纸 / 极简墨纸），运行中即时换肤不重启；跟随系统监听 `WM_SETTINGCHANGE` |
 | **Fabric 安装** | ✅ | 拉 meta 选最新稳定加载器 → 写 `inheritsFrom` 版本 JSON → 下载加载器依赖；缺原版自动补装；已加载 Sodium 实测 |
+| **安装类型选择** | ✅ | 点「安装」弹出类型选择：原版 / Fabric 可选，Forge / NeoForge 置灰标「即将支持」；已安装版本仍可点（用于加装加载器或补齐文件） |
 | 登录 | ⚠️ | 仅离线登录（自定义玩家名），无正版验证 |
 | 任务与日志 | ✅ | 安装进度卡 + 游戏实时日志（增量缓冲刷新） |
 | 设置持久化 | ✅ | `%APPDATA%\SlopeX\config.json`，路径存相对形式 |
@@ -81,10 +82,10 @@ ModJava      运行时探测 / 版本匹配 / 自动下载安装                
 ModLaunch    规则引擎 / classpath / natives / 命令行 / 进程         562 行
 ModDownload  原版安装 / Fabric 安装 / 任务中心                      747 行
 ModCli       无界面模式                                            460 行
-UI 层        5 页 + 主窗口 + 样式 + 双主题调色板 + ThemeService     3,319 行
+UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeService  3,561 行
 ```
 
-（模块层 3,921 行 + UI 层 3,319 行 = 7,240 行）
+（模块层 3,923 行 + UI 层 3,561 行 = 7,484 行）
 
 ### 3.3 三个关键设计取舍
 
@@ -311,6 +312,8 @@ UI 层        5 页 + 主窗口 + 样式 + 双主题调色板 + ThemeService    
 | Fabric 校验与命令行 | `verify` 通过（96 个库，继承链 `1.20.1 → fabric-loader-…`）；`plan` 的 mainClass 为 `KnotClient`，classpath 含 fabric-loader / intermediary / sponge-mixin |
 | Fabric 真机 | 日志 `Loading Minecraft 1.20.1 with Fabric Loader 0.20.1`、`MIXIN Subsystem 0.8.7 … Service=Knot/Fabric`、`Setting user: Steve` |
 | 模组加载验收 | 放入 Sodium 0.5.13 → `Loading 10 mods`（含 sodium 及其内置 fabric-api 模块）、`Loaded configuration file for Sodium: 42 options`、资源重载列表含 sodium |
+| 安装类型对话框 | 点任意行「安装」→ 弹出居中卡片 + 遮罩；原版默认选中；Forge / NeoForge 置灰带「即将支持」；Esc 或「取消」关闭 |
+| 对话框端到端 | 已安装行 →「安装」→ 选 Fabric →「开始安装」→ 日志 `Fabric 0.20.1（26.3）安装完成：fabric-loader-0.20.1-26.3，依赖 7 个`，版本数 5 → 6 |
 | 便携实测 | exe 复制到 `I:\sxtest`，正确解析到 `I:\sxtest\.minecraft` |
 | 构建 | 0 警告 0 错误 |
 | git 基线 | 40 个文件 / 0.64 MB，`.git` 565 KB，忽略规则 5/5 命中，工作区 0 改动 |

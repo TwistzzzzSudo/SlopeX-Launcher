@@ -195,6 +195,14 @@
                                HorizontalAlignment="Right" VerticalAlignment="Center"/>
                 </Grid>
             </Border>
+            <!-- ========== 模态层（遮罩 + 居中卡片） ========== -->
+            <Grid x:Name="ModalLayer" Grid.RowSpan="3" Visibility="Collapsed">
+                <Border Background="{DynamicResource Scrim}"/>
+                <Border Style="{StaticResource Card}" Width="520" Padding="22"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <ContentControl x:Name="ModalHost"/>
+                </Border>
+            </Grid>
         </Grid>
     </Border>
 </Window>

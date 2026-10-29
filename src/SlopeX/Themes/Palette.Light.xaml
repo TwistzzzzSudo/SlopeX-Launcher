@@ -39,4 +39,7 @@
     <!-- 落在 Bad / CloseHover 上的前景色 -->
     <SolidColorBrush x:Key="OnBad" Color="#FFFFFF"/>
 
+    <!-- 模态遮罩：浅色下用 35% 黑，足够压暗又不至于像"断电阻断" -->
+    <SolidColorBrush x:Key="Scrim" Color="#59000000"/>
+
 </ResourceDictionary>

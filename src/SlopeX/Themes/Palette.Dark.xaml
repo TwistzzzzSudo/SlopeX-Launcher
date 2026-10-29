@@ -40,4 +40,7 @@
     <!-- 落在 Bad / CloseHover 上的前景色：红底用白字，两套主题一致 -->
     <SolidColorBrush x:Key="OnBad" Color="#FFFFFF"/>
 
+    <!-- 模态遮罩：深色底本来就暗，需要更重的遮罩才能区分层次 -->
+    <SolidColorBrush x:Key="Scrim" Color="#99000000"/>
+
 </ResourceDictionary>

@@ -38,6 +38,7 @@
 | `CloseHover` | 关闭按钮悬停 | `#E5484D` | `#C94248` |
 | `OnInk` | **压在 `Ink` 上的前景**（主按钮文字、选中胶囊文字、勾选符号、Logo 勾） | `#FFFFFF` | `#1A1A16` |
 | `OnBad` | 压在 `Bad`/`CloseHover` 上的前景 | `#FFFFFF` | `#FFFFFF` |
+| `Scrim` | 模态遮罩 | `#59000000`（35% 黑） | `#99000000`（60% 黑） |
 
 ### 2.1 三条硬规则
 
@@ -121,6 +122,7 @@
 | `ScrollBar` | ScrollBar | 全局滚动条 | 宽 9，滑块 `LineStrong` |
 | `RowItem` / `PlainList` | ListBoxItem / ListBox | 列表 | 选中 `Paper2`，悬停 `Paper` |
 | `Chk` | CheckBox | 勾选 | 16×16，`R4`，勾用 `OnInk` |
+| `OptionRow` | RadioButton | 模态里的单选行（标题 + 说明两行） | 选中：`Paper2` 底 + `Ink` 描边 + 实心圆点；置灰项降到 45% 不透明度 |
 
 ---
 
@@ -132,7 +134,7 @@
 |---|---|---|---|
 | 1 | `ComboBox` 下拉 | 选择安装版本、Java 运行时、下载源 | 下载页、设置页 |
 | 2 | 多列列表 `DataList` | 列头 + 行（名称/版本/状态/操作） | 模组管理、整合包内容 |
-| 3 | `Dialog` 遮罩 + 容器 | 替代 `MessageBox`，统一视觉 | 确认删除、安装选项 |
+| 3 | `Dialog` 遮罩 + 容器 | **基础版已实现**：`MainWindow.ModalLayer`（`Scrim` 遮罩 + 居中 `Card`）+ `ShowModal/HideModal`，`Controls/InstallChoiceDialog` 是首个使用方。仍缺：通用调用封装、焦点陷阱（Tab 会跑到遮罩后的控件）、出入场动效 | 已用于「安装类型选择」 |
 | 4 | `Toast` 轻提示 | 非阻断反馈（已保存、已复制） | 全局 |
 | 5 | 空状态 `EmptyState` | 无版本 / 无模组 / 无任务 | 各列表页 |
 | 6 | 右键菜单 `ContextMenu` | 列表项操作（打开目录、删除） | 模组、版本 |
