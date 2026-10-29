@@ -54,6 +54,11 @@ namespace SlopeX.Modules.ModNet
                         return mirror + "/maven" + u.PathAndQuery;
                     case "resources.download.minecraft.net":
                         return mirror + "/assets" + u.PathAndQuery;
+                    // Fabric：元数据与 Maven 都走 BMCLAPI 代理
+                    case "meta.fabricmc.net":
+                        return mirror + "/fabric-meta" + u.PathAndQuery;
+                    case "maven.fabricmc.net":
+                        return mirror + "/maven" + u.PathAndQuery;
                     default:
                         return url;
                 }
@@ -66,10 +71,21 @@ namespace SlopeX.Modules.ModNet
 
         public static async Task<string> GetStringAsync(string url, CancellationToken ct = default)
         {
-            var target = Mirror(url);
-            using var resp = await Client.GetAsync(target, HttpCompletionOption.ResponseContentRead, ct);
+            return await GetStringRawAsync(Mirror(url), ct).ConfigureAwait(false);
+        }
+
+        /// <summary>不经过镜像重写的请求：调用方自己决定用哪个源（用于"镜像失败回落官方"的场景）。</summary>
+        public static async Task<string> GetStringRawAsync(string url, CancellationToken ct = default)
+        {
+            using var resp = await Client.GetAsync(url, HttpCompletionOption.ResponseContentRead, ct);
             resp.EnsureSuccessStatusCode();
             return await resp.Content.ReadAsStringAsync(ct);
+        }
+
+        public static async Task<JsonNode> GetJsonRawAsync(string url, CancellationToken ct = default)
+        {
+            var text = await GetStringRawAsync(url, ct).ConfigureAwait(false);
+            return JsonNode.Parse(text);
         }
 
         public static async Task<JsonNode> GetJsonAsync(string url, CancellationToken ct = default)

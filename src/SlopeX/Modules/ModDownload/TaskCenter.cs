@@ -19,6 +19,31 @@ namespace SlopeX.Modules.ModDownload
             return task;
         }
 
+        /// <summary>
+        /// 安装 Fabric 加载器（原版缺失时会先补原版）。
+        /// loaderVersion 为空表示交给安装器挑最新稳定版。
+        /// </summary>
+        public static InstallTask StartFabricInstall(string baseVersion, string loaderVersion = null)
+        {
+            var existing = Tasks.FirstOrDefault(t =>
+                t.Kind == InstallKind.Fabric && t.BaseVersion == baseVersion && t.Running);
+            if (existing != null) return existing;
+
+            var task = new InstallTask
+            {
+                Kind = InstallKind.Fabric,
+                BaseVersion = baseVersion,
+                LoaderVersion = loaderVersion,
+                VersionId = string.IsNullOrEmpty(loaderVersion)
+                    ? "fabric-" + baseVersion
+                    : FabricInstaller.BuildVersionId(loaderVersion, baseVersion)
+            };
+
+            Tasks.Insert(0, task);
+            _ = task.RunAsync();
+            return task;
+        }
+
         public static bool IsBusy(string versionId) =>
             Tasks.Any(t => t.VersionId == versionId && t.Running);
 

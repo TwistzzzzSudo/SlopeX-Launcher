@@ -38,7 +38,7 @@ src/SlopeX/
 │  ├─ ModMinecraft/  版本扫描、version.json 解析、inheritsFrom 继承链合并、版本隔离目录
 │  ├─ ModJava/       Java 探测（注册表 + 目录 + PATH）、版本匹配、缺失时自动下载安装
 │  ├─ ModLaunch/     规则引擎、classpath 拼装、natives 解压、参数构造、进程管理
-│  ├─ ModDownload/   版本清单、原版安装、资源文件、legacy 资源映射、任务中心
+│  ├─ ModDownload/   版本清单、原版安装、Fabric 安装、资源文件、legacy 映射、任务中心
 │  └─ ModCli/        无界面命令行模式（自动化测试 / 排障用）
 ├─ Windows/          主窗口（无边框自绘标题栏）
 ├─ Pages/            启动 / 版本管理 / 下载 / 任务与日志 / 设置
@@ -61,6 +61,7 @@ src/SlopeX/
 
 **下载安装**
 - 版本清单（921 个版本）、原版客户端 jar、依赖库、资源文件全量下载
+- **Fabric 安装**：选最新稳定加载器自动拼 `inheritsFrom` 版本、下加载器依赖；原版缺失时先补原版；下载页每行「Fabric」按钮或 `--cli install-fabric`
 - BMCLAPI 镜像 / Mojang 官方源可选（国内网络建议开镜像）
 - 并发下载（依赖库 16 线程、资源 24 线程）、失败重试、大小与 SHA1 校验
 - 断点续传语义：已存在且大小匹配的文件自动跳过
@@ -180,7 +181,7 @@ tools/make-icon.ps1  # 由矢量几何重新生成 ico；改标记形状时改�
 
 - **仅支持 Windows**（WPF + 注册表探测）
 - **未实现微软正版登录**：需要自行申请 Azure 应用并接入 OAuth 设备码流程，当前为离线登录
-- **未实现 Forge / Fabric / NeoForge 的一键安装**：可以启动已由其它启动器装好的整合/模组版本，但安装器本身未实现
+- **未实现 Forge / NeoForge 安装**：Fabric / Quilt 同类加载器已支持一键安装；Forge 计划走"官方 installer `--installClient`"路线（见 `docs/PROGRESS.md` §7.1）
 - 模组管理、整合包导入尚未实现（存档隔离已支持）
 - 存档隔离为强制行为，不提供"共享材质包 / 共用存档"的混合模式；需要共用时由用户自行复制文件
 - Java 自动下载只覆盖 x64 / arm64 桌面平台，且依赖国内镜像的可达性；镜像全部不可达时需手动指定 Java

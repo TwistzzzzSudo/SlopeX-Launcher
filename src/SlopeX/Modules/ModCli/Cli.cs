@@ -79,6 +79,8 @@ namespace SlopeX.Modules.ModCli
                     Out("  verify <版本>            校验依赖/资源是否齐全");
                     Out("  plan <版本>              打印启动命令行（不启动）");
                     Out("  launch <版本>            启动游戏");
+                    Out("  fabric-list <原版版本>   列出该原版可用的 Fabric 加载器");
+                    Out("  install-fabric <原版版本> [加载器版本]   安装 Fabric（缺原版会先补原版）");
                     return 0;
 
                 case "list":
@@ -104,6 +106,12 @@ namespace SlopeX.Modules.ModCli
 
                 case "launch":
                     return Launch(args.FirstOrDefault());
+
+                case "fabric-list":
+                    return FabricList(args.FirstOrDefault());
+
+                case "install-fabric":
+                    return InstallFabric(args.FirstOrDefault(), args.Skip(1).FirstOrDefault());
 
                 default:
                     Out("未知命令：" + cmd);
@@ -185,6 +193,78 @@ namespace SlopeX.Modules.ModCli
                 return 1;
             }
             Out($"安装完成，耗时 {sw.Elapsed.TotalSeconds:0.0} 秒");
+            return 0;
+        }
+
+        private static int FabricList(string mcVersion)
+        {
+            if (string.IsNullOrEmpty(mcVersion)) { Out("用法：fabric-list <原版版本>"); return 2; }
+
+            try
+            {
+                var list = FabricInstaller.GetLoadersAsync(mcVersion).GetAwaiter().GetResult();
+                if (list.Count == 0) { Out($"{mcVersion} 没有可用的 Fabric 加载器"); return 1; }
+
+                Out($"{mcVersion} 可用加载器 {list.Count} 个（最新 15 个）：");
+                foreach (var l in list.Take(15))
+                    Out($"  {l.Version,-16} {(l.Stable ? "稳定" : "测试")}");
+
+                var latest = list.FirstOrDefault(l => l.Stable)?.Version ?? list[0].Version;
+                Out($"最新稳定版：{latest}");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Out("查询失败：" + ex.Message);
+                return 1;
+            }
+        }
+
+        private static int InstallFabric(string mcVersion, string loaderVersion)
+        {
+            if (string.IsNullOrEmpty(mcVersion))
+            {
+                Out("用法：install-fabric <原版版本> [加载器版本]");
+                return 2;
+            }
+
+            var task = new InstallTask
+            {
+                Kind = InstallKind.Fabric,
+                BaseVersion = mcVersion,
+                LoaderVersion = loaderVersion,
+                VersionId = string.IsNullOrEmpty(loaderVersion)
+                    ? "fabric-" + mcVersion
+                    : FabricInstaller.BuildVersionId(loaderVersion, mcVersion)
+            };
+
+            var lastMilestone = -10;
+            task.Updated += t =>
+            {
+                var p = (int)t.Percent;
+                if (p >= lastMilestone + 10 || t.Completed || t.Failed)
+                {
+                    lastMilestone = p / 10 * 10;
+                    Out($"[{p,3}%] {t.Stage} {t.SizeText} {t.SpeedText}".TrimEnd());
+                }
+            };
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            string installedId = null;
+            try
+            {
+                installedId = FabricInstaller.InstallAsync(Config.Current.GameDir, mcVersion, loaderVersion,
+                    task, CancellationToken.None).GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                Out("安装失败：" + ex.Message);
+                return 1;
+            }
+            sw.Stop();
+
+            Out($"Fabric 安装完成：{installedId}（耗时 {sw.Elapsed.TotalSeconds:0.0} 秒）");
+            Out($"游戏目录：{VersionEnv.Resolve(Config.Current.GameDir, installedId)}");
             return 0;
         }
 

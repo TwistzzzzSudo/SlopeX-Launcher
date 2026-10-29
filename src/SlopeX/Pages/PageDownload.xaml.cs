@@ -153,6 +153,58 @@ namespace SlopeX.Pages
             ApplyFilter();
         }
 
+        /// <summary>为某个原版版本安装 Fabric 加载器（缺失原版时由安装器先补原版）。</summary>
+        private async void Fabric_Click(object sender, RoutedEventArgs e)
+        {
+            if (!(sender is Button button) || !(button.Tag is string mcId)) return;
+            if (!EnsureGameDir()) return;
+
+            button.IsEnabled = false;
+            try
+            {
+                MainWindow.Current?.SetStatus($"正在查询 {mcId} 的 Fabric 加载器…", null);
+                var loader = await FabricInstaller.GetLatestStableAsync(mcId);
+                if (string.IsNullOrEmpty(loader))
+                {
+                    MessageBox.Show($"Fabric 目前没有为 {mcId} 提供加载器。", "SlopeX");
+                    return;
+                }
+
+                var task = TaskCenter.StartFabricInstall(mcId, loader);
+                MainWindow.Current?.SetStatus($"正在安装 Fabric {loader}（{mcId}）…", null);
+
+                task.Updated += t =>
+                {
+                    if (t.Running) return;
+
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        MainWindow.Current?.RefreshStatusAsync();
+
+                        if (t.Completed)
+                        {
+                            Config.Current.LastVersion = t.VersionId;
+                            Config.Current.Save();
+                            MainWindow.Current?.SetStatus($"已安装 {t.VersionId}，可在「启动」页运行", null);
+                        }
+                        else if (t.Failed)
+                        {
+                            MainWindow.Current?.SetStatus($"Fabric 安装失败：{t.Error}", null);
+                        }
+                    }));
+                };
+            }
+            catch (Exception ex)
+            {
+                MainWindow.Current?.SetStatus("Fabric 安装失败：" + ex.Message, null);
+                Log.Error("Fabric 安装失败", ex);
+            }
+            finally
+            {
+                button.IsEnabled = true;
+            }
+        }
+
         private bool EnsureGameDir()
         {
             var dir = Config.Current.GameDir;

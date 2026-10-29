@@ -15,7 +15,7 @@
             <StackPanel>
                 <TextBlock Style="{StaticResource TTitle}" Text="下载"/>
                 <TextBlock x:Name="SubTitle" Style="{StaticResource TSub}" Margin="0,5,0,0"
-                           Text="从版本清单安装原版游戏。"/>
+                           Text="从版本清单安装原版；点某一行的「Fabric」可直接安装加载器（缺原版会自动补装）。"/>
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
                 <TextBlock x:Name="SourceHint" Style="{StaticResource TCaption}" VerticalAlignment="Center"
@@ -80,6 +80,11 @@
                                     <TextBlock Text="{Binding TypeLabel}" FontSize="11"
                                                Foreground="{DynamicResource Sub}"/>
                                 </Border>
+
+                                <Button Grid.Column="2" Style="{StaticResource BtnText}" Content="Fabric"
+                                        Margin="0,0,8,0" VerticalAlignment="Center"
+                                        ToolTip="为该版本安装 Fabric 加载器（缺原版会先补原版）"
+                                        Tag="{Binding Id}" Click="Fabric_Click"/>
 
                                 <Button Grid.Column="3" Style="{StaticResource BtnGhost}" Height="30"
                                         Padding="14,0" Content="{Binding InstallLabel}"
