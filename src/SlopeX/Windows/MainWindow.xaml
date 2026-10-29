@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="SlopeX Launcher"
+        Icon="pack://application:,,,/Assets/SlopeX.ico"
         Height="820" Width="1280" MinHeight="620" MinWidth="980"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None" ResizeMode="CanResize"

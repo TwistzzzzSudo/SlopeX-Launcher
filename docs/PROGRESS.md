@@ -33,6 +33,8 @@
 | `build.cmd` | 一键构建（纯 ASCII，规避 cmd 编码问题） | ✅ |
 | `tools/screenshot.ps1` | 内部工具：启动并截窗口图；`-Page "设置"` 可用 UI 自动化直接切页（不依赖点击坐标，规避 DPI 偏移） | ✅ |
 | `.git/` + `.gitignore` | 版本历史基线 `8cc0cd1`，只跟踪 40 个源文件（产物全排除） | ✅ |
+| `ico/SlopeX.ico` | 应用图标，9 个尺寸（16–256），由 `tools/make-icon.ps1` 从矢量几何生成 | ✅ |
+| `tools/make-icon.ps1` | 图标生成脚本：改标记形状后重新出 ico，避免手改位图 | ✅ |
 | `.workbuddy/memory/` | 项目决策与踩坑记录 | ✅ |
 
 ---
@@ -300,6 +302,9 @@ UI 层        5 页 + 主窗口 + 样式 + 双主题调色板 + ThemeService    
 | 主题切换（运行中） | 设置页点「极简墨纸」→ 背景/文字即时变化，**不重启**；日志记录 `主题切换为 Dark（深色）` |
 | 主题持久化 | 重启后按 `config.json` 的 `Appearance` 生效；旧配置缺字段时自动补写 `Theme` / `Appearance` |
 | 深色对比度抽检 | 首页 / 设置 / 任务三页截图：主按钮为浅底深字（`OnInk` 生效）、Logo 勾可见、日志文字可读、卡片描边可辨 |
+| 图标生成 | `ico/SlopeX.ico` 16.6 KB，帧尺寸 16/20/24/32/40/48/64/128/256；256 帧目视与原标记一致 |
+| 图标嵌入 | 从 `SlopeX.exe` 反提取图标成功（32×32），说明 `ApplicationIcon` 已编进单文件 |
+| 窗口图标 | `Icon="pack://…/Assets/SlopeX.ico"` 启动无异常，窗口正常渲染（资源缺失会在 `InitializeComponent` 抛错） |
 | 便携实测 | exe 复制到 `I:\sxtest`，正确解析到 `I:\sxtest\.minecraft` |
 | 构建 | 0 警告 0 错误 |
 | git 基线 | 40 个文件 / 0.64 MB，`.git` 565 KB，忽略规则 5/5 命中，工作区 0 改动 |
