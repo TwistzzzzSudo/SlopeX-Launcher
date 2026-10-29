@@ -48,9 +48,7 @@ namespace SlopeX.Pages
                 _all = list;
                 _loaded = true;
                 MarkInstalled();
-                ApplyFilter();
-
-                SubTitle.Text = $"共 {_all.Count} 个可安装版本 · {Config.Current.GameDir}";
+                ApplyFilter();   // 副标题由 ApplyFilter 统一更新
             }
             catch (Exception ex)
             {
@@ -105,6 +103,7 @@ namespace SlopeX.Pages
 
             var list = query.ToList();
             VersionList.ItemsSource = list;
+            UpdateSubTitle(list.Count);
 
             if (list.Count == 0)
             {
@@ -116,6 +115,32 @@ namespace SlopeX.Pages
                 StatusText.Visibility = Visibility.Collapsed;
             }
         }
+
+        /// <summary>
+        /// 副标题跟随筛选变化：显示"当前筛出多少 / 清单总共多少"，
+        /// 避免只写总数时与实际列表对不上。
+        /// </summary>
+        private void UpdateSubTitle(int shown)
+        {
+            if (!_loaded) return;
+
+            var total = _all.Count;
+            var search = (SearchBox.Text ?? "").Trim();
+
+            var head = search.Length > 0
+                ? $"搜索「{search}」{shown} 个"
+                : $"{FilterLabel(_filter)} {shown} 个";
+
+            SubTitle.Text = $"{head}（清单共 {total} 个）· {Config.Current.GameDir}";
+        }
+
+        private static string FilterLabel(string filter) => filter switch
+        {
+            "release" => "正式版",
+            "snapshot" => "快照",
+            "old" => "远古版本",
+            _ => "全部版本"
+        };
 
         /// <summary>点「安装」先问类型（原版 / Fabric / Forge / NeoForge），再走对应流程。</summary>
         private void Install_Click(object sender, RoutedEventArgs e)
