@@ -1,5 +1,17 @@
 # SlopeX Launcher
 
+> **English summary** — SlopeX Launcher is an open-source, non-commercial third-party launcher for
+> Minecraft: Java Edition on Windows, written in C#/.NET 8 + WPF. Users sign in with their own
+> Microsoft account through the standard OAuth 2.0 **device code flow**: sign-in happens on
+> Microsoft's own page, the launcher never sees the password, and no backend service is operated.
+> Authentication is used for two purposes only — launching a game copy the user already owns, and
+> proving ownership when joining online servers. Tokens are stored locally on the user's machine.
+> No Minecraft assets are redistributed and no authentication bypass is provided.
+>
+> **API usage** — device code → Xbox Live → XSTS →
+> `api.minecraftservices.com/authentication/login_with_xbox` → `/minecraft/profile`.
+> Scopes: `XboxLive.signin`, `offline_access`. Implementation: [`src/SlopeX/Modules/ModAccount/Msa.cs`](src/SlopeX/Modules/ModAccount/Msa.cs).
+
 一个仿照 [PCL2](https://github.com/Meloong-Git/PCL)（Plain Craft Launcher 2）思路实现的 Minecraft 启动器。
 界面风格为**极简白纸**：纯白底、1px 细描边、大留白、单一墨色强调，不使用阴影与彩色渐变。
 
