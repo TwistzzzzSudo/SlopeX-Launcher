@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Win32.SafeHandles;
+using SlopeX.Modules.ModAccount;
 using SlopeX.Modules.ModBase;
 using SlopeX.Modules.ModDownload;
 using SlopeX.Modules.ModJava;
@@ -81,6 +82,9 @@ namespace SlopeX.Modules.ModCli
                     Out("  launch <版本>            启动游戏");
                     Out("  fabric-list <原版版本>   列出该原版可用的 Fabric 加载器");
                     Out("  install-fabric <原版版本> [加载器版本]   安装 Fabric（缺原版会先补原版）");
+                    Out("  login                    微软正版登录（设备码，在浏览器里确认）");
+                    Out("  account                  查看当前账号");
+                    Out("  logout                   退出正版账号（回到离线）");
                     return 0;
 
                 case "list":
@@ -112,6 +116,17 @@ namespace SlopeX.Modules.ModCli
 
                 case "install-fabric":
                     return InstallFabric(args.FirstOrDefault(), args.Skip(1).FirstOrDefault());
+
+                case "login":
+                    return Login();
+
+                case "account":
+                    return ShowAccount();
+
+                case "logout":
+                    Msa.Logout();
+                    Out("已退出正版账号，后续启动使用离线登录");
+                    return 0;
 
                 default:
                     Out("未知命令：" + cmd);
@@ -193,6 +208,62 @@ namespace SlopeX.Modules.ModCli
                 return 1;
             }
             Out($"安装完成，耗时 {sw.Elapsed.TotalSeconds:0.0} 秒");
+            return 0;
+        }
+
+        private static int Login()
+        {
+            var existing = Msa.Current;
+            if (existing != null)
+                Out($"当前已登录：{existing.Name}（{existing.Uuid}），重新登录会覆盖");
+
+            DeviceCodeInfo code;
+            try
+            {
+                code = Msa.RequestDeviceCodeAsync().GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                Out("申请设备码失败：" + ex.Message);
+                return 1;
+            }
+
+            Out("");
+            Out("==== 请在浏览器完成登录 ====");
+            Out("  网址：" + code.VerificationUri);
+            Out("  代码：" + code.UserCode);
+            Out($"  （{code.ExpiresIn / 60} 分钟内有效）");
+            Out("");
+
+            var progress = new Progress<string>(s => Out("  " + s));
+            try
+            {
+                var session = Msa.WaitForLoginAsync(code, progress, CancellationToken.None).GetAwaiter().GetResult();
+                Out($"登录成功：{session.Name}  {session.Uuid}");
+                Out($"令牌文件：{Msa.StoreFile}");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Out("登录失败：" + ex.Message);
+                return 1;
+            }
+        }
+
+        private static int ShowAccount()
+        {
+            var session = Msa.Current;
+            if (session == null)
+            {
+                Out("当前为离线登录：" + Config.Current.PlayerName);
+                Out("（可用 --cli login 登录微软账号）");
+                return 0;
+            }
+
+            var state = session.Expired ? "已过期，启动时自动刷新" : "有效";
+            Out($"正版账号：{session.Name}");
+            Out($"  UUID：{session.Uuid}");
+            Out($"  令牌：{state}（到期 {session.ExpiresAt.ToLocalTime():yyyy-MM-dd HH:mm}）");
             return 0;
         }
 
@@ -343,12 +414,16 @@ namespace SlopeX.Modules.ModCli
                 return 1;
             }
 
+            var session = Msa.EnsureFreshAsync().GetAwaiter().GetResult();
+            if (session != null) Out($"账号：{session.Name}（正版）");
             var options = new LaunchOptions
             {
                 GameDir = gameDir,
                 RootGameDir = root,
                 VersionName = versionId,
-                PlayerName = Config.Current.PlayerName,
+                PlayerName = session?.Name ?? Config.Current.PlayerName,
+                Uuid = session?.Uuid,
+                AccessToken = session?.AccessToken,
                 JavaPath = java.Path,
                 MemoryMb = Config.Current.MemoryMb,
                 MinMemoryMb = Config.Current.MinMemoryMb,
@@ -392,12 +467,16 @@ namespace SlopeX.Modules.ModCli
                 }
             }
 
+            var session = Msa.EnsureFreshAsync().GetAwaiter().GetResult();
+            if (session != null) Out($"账号：{session.Name}（正版）");
             var options = new LaunchOptions
             {
                 GameDir = gameDir,
                 RootGameDir = root,
                 VersionName = versionId,
-                PlayerName = Config.Current.PlayerName,
+                PlayerName = session?.Name ?? Config.Current.PlayerName,
+                Uuid = session?.Uuid,
+                AccessToken = session?.AccessToken,
                 JavaPath = java.Path,
                 MemoryMb = Config.Current.MemoryMb,
                 MinMemoryMb = Config.Current.MinMemoryMb

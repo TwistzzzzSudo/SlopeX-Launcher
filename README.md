@@ -52,7 +52,8 @@ src/SlopeX/
 ## 已实现的功能
 
 **启动**
-- 离线登录（玩家名 → 离线 UUID，算法与原版一致）
+- **微软正版登录**：OAuth 2.0 设备码流程（浏览器输入 8 位码，密码不经过启动器）→ Xbox Live → XSTS → Minecraft 档案；令牌本地保存、过期自动刷新
+- 离线登录（玩家名 → 离线 UUID，算法与原版一致），与正版登录并存可随时切换
 - 版本选择、最近版本、启动 / 结束进程、启动后最小化
 - 启动参数完整构造：`arguments.jvm` / `arguments.game` / 旧版 `minecraftArguments` 双格式
 - 规则引擎：按 `os.name` / `os.arch` / `features` 过滤依赖与参数
@@ -187,7 +188,6 @@ tools/make-icon.ps1  # 由矢量几何重新生成 ico；改标记形状时改�
 ## 已知限制
 
 - **仅支持 Windows**（WPF + 注册表探测）
-- **未实现微软正版登录**：需要自行申请 Azure 应用并接入 OAuth 设备码流程，当前为离线登录
 - **未实现 Forge / NeoForge 安装**：Fabric / Quilt 同类加载器已支持一键安装；Forge 计划走"官方 installer `--installClient`"路线（见 `docs/PROGRESS.md` §7.1）
 - 模组管理、整合包导入尚未实现（存档隔离已支持）
 - 存档隔离为强制行为，不提供"共享材质包 / 共用存档"的混合模式；需要共用时由用户自行复制文件

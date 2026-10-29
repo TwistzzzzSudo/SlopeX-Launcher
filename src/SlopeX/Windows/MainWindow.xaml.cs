@@ -101,9 +101,15 @@ namespace SlopeX.Windows
 
         public void UpdateAccount()
         {
-            var name = string.IsNullOrWhiteSpace(Config.Current.PlayerName) ? "Steve" : Config.Current.PlayerName;
+            var session = SlopeX.Modules.ModAccount.Msa.Current;
+
+            var name = session?.Name;
+            if (string.IsNullOrWhiteSpace(name))
+                name = string.IsNullOrWhiteSpace(Config.Current.PlayerName) ? "Steve" : Config.Current.PlayerName;
+
             SideAccount.Text = name;
             SideAvatar.Text = name.Substring(0, 1).ToUpperInvariant();
+            SideAccountType.Text = session != null ? "正版登录" : "离线登录";
         }
 
         public void SetStatus(string left, string right = null)
