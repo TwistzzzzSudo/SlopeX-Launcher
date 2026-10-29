@@ -20,6 +20,9 @@
                 <Button Style="{StaticResource BtnGhost}" Content="打开目录" Click="OpenFolder_Click"/>
                 <Button Style="{StaticResource BtnGhost}" Content="重新扫描" Margin="8,0,0,0"
                         Click="Refresh_Click"/>
+                <Button Style="{StaticResource BtnGhost}" Content="导入整合包" Margin="8,0,0,0"
+                        ToolTip="支持 .mrpack、CurseForge 整合包 zip、MultiMC / Prism 实例、普通 mods 压缩包"
+                        Click="ImportPack_Click"/>
                 <Button Style="{StaticResource BtnPrimary}" Content="安装新版本" Height="32" Padding="18,0"
                         Margin="8,0,0,0" Click="GoDownload_Click"/>
             </StackPanel>
@@ -68,6 +71,12 @@
                                         <Border Style="{StaticResource Tag}" Margin="8,0,0,0"
                                                 Background="{DynamicResource Paper2}">
                                             <TextBlock Text="{Binding Loader}" FontSize="11"
+                                                       Foreground="{DynamicResource Sub}"/>
+                                        </Border>
+                                        <Border Style="{StaticResource Tag}" Margin="6,0,0,0"
+                                                Background="{DynamicResource Paper2}"
+                                                Visibility="{Binding IsPack, Converter={StaticResource BoolToVis}}">
+                                            <TextBlock Text="整合包" FontSize="11"
                                                        Foreground="{DynamicResource Sub}"/>
                                         </Border>
                                     </StackPanel>

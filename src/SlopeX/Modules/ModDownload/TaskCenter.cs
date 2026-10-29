@@ -69,6 +69,22 @@ namespace SlopeX.Modules.ModDownload
             return task;
         }
 
+        /// <summary>导入整合包。baseVersion 仅用于没有清单的普通压缩包。</summary>
+        public static InstallTask StartModpackInstall(string zipPath, string baseVersion = null)
+        {
+            var task = new InstallTask
+            {
+                Kind = InstallKind.Modpack,
+                PackPath = zipPath,
+                BaseVersionFallback = baseVersion,
+                VersionId = System.IO.Path.GetFileNameWithoutExtension(zipPath)
+            };
+
+            Tasks.Insert(0, task);
+            _ = task.RunAsync();
+            return task;
+        }
+
         public static bool IsBusy(string versionId) =>
             Tasks.Any(t => t.VersionId == versionId && t.Running);
 

@@ -1,6 +1,7 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib"
+                    xmlns:ctl="clr-namespace:SlopeX.Controls">
 
     <!--
         ============ 设计令牌 ============
@@ -521,5 +522,9 @@
             </Setter.Value>
         </Setter>
     </Style>
+
+    <!-- ============ 转换器 ============ -->
+    <ctl:BoolToVisibilityConverter x:Key="BoolToVis"/>
+    <ctl:BoolToVisibilityConverter x:Key="BoolToVisInvert"/>
 
 </ResourceDictionary>

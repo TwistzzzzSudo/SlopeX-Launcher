@@ -50,7 +50,7 @@ src/SlopeX/
 │  ├─ ModMinecraft/  版本扫描、version.json 解析、inheritsFrom 继承链合并、版本隔离目录
 │  ├─ ModJava/       Java 探测（注册表 + 目录 + PATH）、版本匹配、缺失时自动下载安装
 │  ├─ ModLaunch/     规则引擎、classpath 拼装、natives 解压、参数构造、进程管理
-│  ├─ ModDownload/   版本清单、原版安装、Fabric / Forge 安装、资源文件、legacy 映射、任务中心
+│  ├─ ModDownload/   版本清单、原版 / Fabric / Forge 安装、整合包导入、资源文件、任务中心
 │  └─ ModCli/        无界面命令行模式（自动化测试 / 排障用）
 ├─ Windows/          主窗口（无边框自绘标题栏）
 ├─ Pages/            启动 / 版本管理 / 下载 / 任务与日志 / 设置
@@ -76,6 +76,7 @@ src/SlopeX/
 - 版本清单（921 个版本）、原版客户端 jar、依赖库、资源文件全量下载
 - **安装类型选择**：点「安装」先选原版或 Fabric 加载器（原版 / Fabric / Forge 可选，NeoForge 标注"即将支持"）；已安装的版本同样可点，用于加装加载器或补齐文件
 - **Fabric 安装**：选最新稳定加载器自动拼 `inheritsFrom` 版本、下加载器依赖；原版缺失时先补原版
+- **整合包导入**：支持 `.mrpack`（Modrinth）、CurseForge 整合包 zip、MultiMC / Prism 实例包、只有 mods 的普通压缩包；自动装对应原版与加载器、下载模组、解压 overrides
 - **Forge 安装**：取官方推荐的加载器版本，下载官方 installer 并用合适的 Java 无头执行（`--installClient`）；原版缺失时先补原版。进度以「已用时长」呈现——installer 本身不输出百分比，这是该路线的已知取舍
 - BMCLAPI 镜像 / Mojang 官方源可选（国内网络建议开镜像）
 - 并发下载（依赖库 16 线程、资源 24 线程）、失败重试、大小与 SHA1 校验
@@ -182,6 +183,8 @@ SlopeX.exe --cli plan 1.20.1             # 打印完整启动命令行（不启�
 SlopeX.exe --cli launch 1.20.1           # 直接启动
 SlopeX.exe --cli forge-list 1.20.1       # 查 Forge 推荐版本
 SlopeX.exe --cli install-forge 1.20.1    # 装 Forge（缺原版会先补）
+SlopeX.exe --cli pack-info 包.mrpack     # 识别整合包格式与版本（不安装）
+SlopeX.exe --cli import-pack 包.mrpack   # 导入整合包
 ```
 
 ## 构建
@@ -205,7 +208,8 @@ tools/make-icon.ps1  # 由矢量几何重新生成 ico；改标记形状时改�
 - **仅支持 Windows**（WPF + 注册表探测）
 - **未实现 NeoForge 安装**：原版 / Fabric / Forge 均已支持；NeoForge 是 Forge 的社区分支，安装器待实装（见 `docs/PROGRESS.md` §7.1）
 - **微软登录需要 Mojang 白名单**：第三方启动器访问 Minecraft API 需要人工审核（[说明](https://help.minecraft.net/hc/en-us/articles/16254801392141)，[申请表](https://aka.ms/mce-reviewappid)）。当前 client_id 尚未在名单内，登录会停在 `403 Invalid app registration`；审核通过后无需改代码即可使用
-- 模组管理、整合包导入尚未实现（存档隔离已支持）
+- 模组管理尚未实现（增删模组、冲突检测）
+- CurseForge 整合包依赖 cfwidget 公开镜像反查文件名，首次导入要拉取每个模组的文件列表（大包可达数十 MB 元数据），结果缓存 30 天
 - 存档隔离为强制行为，不提供"共享材质包 / 共用存档"的混合模式；需要共用时由用户自行复制文件
 - Java 自动下载只覆盖 x64 / arm64 桌面平台，且依赖国内镜像的可达性；镜像全部不可达时需手动指定 Java
 
