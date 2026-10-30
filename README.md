@@ -76,6 +76,7 @@ src/SlopeX/
 - 版本清单（921 个版本）、原版客户端 jar、依赖库、资源文件全量下载
 - **安装类型选择**：点「安装」先选类型（原版 / Fabric / Forge / NeoForge）；已安装的版本同样可点，用于加装加载器或补齐文件
 - **Fabric 安装**：选最新稳定加载器自动拼 `inheritsFrom` 版本、下加载器依赖；原版缺失时先补原版
+- **模组管理**：按版本管理 `mods\`（列表、启用/禁用、删除、打开目录）；从 **Modrinth** 搜索并安装，自动补齐必需依赖；**CurseForge** 在设置里填入自己的 API Key 后同样可搜索安装
 - **整合包导入**：支持 `.mrpack`（Modrinth）、CurseForge 整合包 zip、MultiMC / Prism 实例包、只有 mods 的普通压缩包；自动装对应原版与加载器、下载模组、解压 overrides
 - **Forge 安装**：取官方推荐的加载器版本，下载官方 installer 并用合适的 Java 无头执行（`--installClient`）；原版缺失时先补原版。进度以「已用时长」呈现——installer 本身不输出百分比，这是该路线的已知取舍
 - **NeoForge 安装**：按 MC 版本推导 NeoForge 版本号（1.21.1 → 21.1.x、26.3 → 26.3.0.x），installer 与其依赖全部走 BMCLAPI 镜像（官方 maven 域名在国内常被 DNS 污染）；原版缺失时先补原版
@@ -187,6 +188,9 @@ SlopeX.exe --cli install-forge 1.20.1    # 装 Forge（缺原版会先补）
 SlopeX.exe --cli neoforge-list 1.21.1    # 查该原版可用的 NeoForge 版本
 SlopeX.exe --cli install-neoforge 1.21.1 # 装 NeoForge（镜像优先）
 SlopeX.exe --cli fix-libs 1.21.1-neoforge-21.1.265  # 补齐缺失依赖
+SlopeX.exe --cli mods-list 1.20.1-forge-47.4.28     # 列出该版本模组
+SlopeX.exe --cli mods-search 1.20.1-forge-47.4.28 jei   # 搜索（默认 Modrinth）
+SlopeX.exe --cli mods-install 1.20.1-forge-47.4.28 jei  # 搜索并安装首个结果（含依赖）
 SlopeX.exe --cli pack-info 包.mrpack     # 识别整合包格式与版本（不安装）
 SlopeX.exe --cli import-pack 包.mrpack   # 导入整合包
 ```
@@ -212,6 +216,7 @@ tools/make-icon.ps1  # 由矢量几何重新生成 ico；改标记形状时改�
 - **仅支持 Windows**（WPF + 注册表探测）
 - **微软登录需要 Mojang 白名单**：第三方启动器访问 Minecraft API 需要人工审核（[说明](https://help.minecraft.net/hc/en-us/articles/16254801392141)，[申请表](https://aka.ms/mce-reviewappid)）。当前 client_id 尚未在名单内，登录会停在 `403 Invalid app registration`；审核通过后无需改代码即可使用
 - 模组管理尚未实现（增删模组、冲突检测）
+- **CurseForge 搜索必须自备 API Key**：官方接口强制 `x-api-key`，无 Key 一律 403；网站内部接口被 Cloudflare 拦、第三方镜像 cfwidget 只有按 ID 查询没有搜索。
 - CurseForge 整合包依赖 cfwidget 公开镜像反查文件名，首次导入要拉取每个模组的文件列表（大包可达数十 MB 元数据），结果缓存 30 天
 - 存档隔离为强制行为，不提供"共享材质包 / 共用存档"的混合模式；需要共用时由用户自行复制文件
 - Java 自动下载只覆盖 x64 / arm64 桌面平台，且依赖国内镜像的可达性；镜像全部不可达时需手动指定 Java

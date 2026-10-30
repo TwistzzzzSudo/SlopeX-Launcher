@@ -72,6 +72,17 @@ namespace SlopeX.Controls
             }
         }
 
+        private void AddMod_Click(object sender, RoutedEventArgs e)
+        {
+            var (mc, loader) = ModInstaller.ResolveTarget(Config.Current.GameDir, _versionId);
+
+            var dialog = new ModSearchDialog(_versionId, mc, loader);
+            dialog.Installed += (s2, e2) => Reload();   // 装完直接刷新列表
+
+            MainWindow.Current?.ShowModal(dialog);
+            dialog.FocusQuery();
+        }
+
         private void Refresh_Click(object sender, RoutedEventArgs e) => Reload();
 
         private void Toggle_Click(object sender, RoutedEventArgs e)
