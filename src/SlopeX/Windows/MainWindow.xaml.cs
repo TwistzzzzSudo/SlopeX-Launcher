@@ -3,6 +3,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media.Animation;
+using System.Windows.Threading;
 using SlopeX.Modules.ModBase;
 using SlopeX.Modules.ModJava;
 using SlopeX.Modules.ModMinecraft;
@@ -156,5 +158,47 @@ namespace SlopeX.Windows
         }
 
         public bool IsModalOpen => ModalLayer.Visibility == Visibility.Visible;
+
+        // ---------------- Toast ----------------
+
+        private DispatcherTimer _toastTimer;
+
+        /// <summary>
+        /// 非阻断提示：底部居中出现，1.6 秒后淡出。
+        /// 用于"已保存 / 已复制 / 已导入"这类不需要用户操作、也不该弹框的反馈。
+        /// </summary>
+        public void ShowToast(string text, int milliseconds = 1600)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return;
+
+            ToastLabel.Text = text;
+            ToastLayer.Visibility = Visibility.Visible;
+
+            // 重入：前一条还没消失时直接替换文字并重置计时，避免两条叠在一起
+            _toastTimer?.Stop();
+
+            AnimateToast(1.0, 120);
+
+            _toastTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(milliseconds) };
+            _toastTimer.Tick += (s, e) =>
+            {
+                _toastTimer?.Stop();
+                AnimateToast(0.0, 220, onDone: () => ToastLayer.Visibility = Visibility.Collapsed);
+            };
+            _toastTimer.Start();
+        }
+
+        private void AnimateToast(double to, int ms, Action onDone = null)
+        {
+            var anim = new DoubleAnimation
+            {
+                To = to,
+                Duration = TimeSpan.FromMilliseconds(ms),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+
+            anim.Completed += (s, e) => onDone?.Invoke();
+            ToastLayer.BeginAnimation(OpacityProperty, anim);
+        }
     }
 }

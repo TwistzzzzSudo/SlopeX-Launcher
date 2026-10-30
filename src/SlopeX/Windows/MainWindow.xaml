@@ -196,11 +196,21 @@
                                HorizontalAlignment="Right" VerticalAlignment="Center"/>
                 </Grid>
             </Border>
+            <!-- ========== Toast 层（非阻断提示，不吃鼠标） ========== -->
+            <Grid x:Name="ToastLayer" Grid.RowSpan="3" IsHitTestVisible="False"
+                  Visibility="Collapsed" Opacity="0">
+                <Border x:Name="ToastBox" Style="{StaticResource ToastCard}">
+                    <TextBlock x:Name="ToastLabel" Style="{StaticResource ToastText}"/>
+                </Border>
+            </Grid>
+
             <!-- ========== 模态层（遮罩 + 居中卡片） ========== -->
             <Grid x:Name="ModalLayer" Grid.RowSpan="3" Visibility="Collapsed">
                 <Border Background="{DynamicResource Scrim}"/>
                 <Border Style="{StaticResource Card}" Width="520" Padding="22"
-                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        KeyboardNavigation.TabNavigation="Cycle"
+                        KeyboardNavigation.DirectionalNavigation="Cycle">
                     <ContentControl x:Name="ModalHost"/>
                 </Border>
             </Grid>

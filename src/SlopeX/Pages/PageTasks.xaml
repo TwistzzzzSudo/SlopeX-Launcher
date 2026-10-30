@@ -69,9 +69,12 @@
                     </ItemsControl>
                 </ScrollViewer>
 
-                <TextBlock x:Name="NoTaskText" Style="{StaticResource TSub}" HorizontalAlignment="Center"
-                           VerticalAlignment="Center" Margin="0,16,0,16"
-                           Text="暂无任务 — 去「下载」页安装一个版本试试"/>
+                <StackPanel x:Name="NoTaskPanel" HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Margin="0,16,0,16">
+                    <TextBlock Style="{StaticResource EmptyTitle}" Text="暂无任务"/>
+                    <TextBlock Style="{StaticResource EmptyHint}"
+                               Text="去「下载」页安装一个版本，或导入整合包，任务会出现在这里"/>
+                </StackPanel>
             </Grid>
         </Border>
 

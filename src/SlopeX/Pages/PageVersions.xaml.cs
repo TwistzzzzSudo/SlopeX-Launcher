@@ -57,14 +57,22 @@ namespace SlopeX.Pages
 
             if (list.Count == 0)
             {
-                EmptyText.Visibility = Visibility.Visible;
-                EmptyText.Text = _all.Count == 0
-                    ? "还没有安装任何版本\n点右上角「安装新版本」开始"
-                    : "没有匹配的版本";
+                EmptyPanel.Visibility = Visibility.Visible;
+
+                if (_all.Count == 0)
+                {
+                    EmptyTitle.Text = "还没有安装任何版本";
+                    EmptyHintText.Text = "点右上角「安装新版本」开始，或导入一个整合包";
+                }
+                else
+                {
+                    EmptyTitle.Text = "没有匹配的版本";
+                    EmptyHintText.Text = "换个关键词，或清空搜索框看全部";
+                }
             }
             else
             {
-                EmptyText.Visibility = Visibility.Collapsed;
+                EmptyPanel.Visibility = Visibility.Collapsed;
             }
         }
 
@@ -91,7 +99,11 @@ namespace SlopeX.Pages
 
         private void OpenOne_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button b && b.Tag is string dir) OpenFolder(dir);
+            if (sender is Button b && b.Tag is string dir)
+            {
+                OpenFolder(dir);
+                MainWindow.Current?.ShowToast("已在资源管理器中打开版本目录");
+            }
             e.Handled = true;
         }
 
