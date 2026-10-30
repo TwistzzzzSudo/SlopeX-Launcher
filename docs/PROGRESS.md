@@ -1,12 +1,12 @@
 # SlopeX Launcher 进度报告与实施计划
 
-> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-30 21:05
+> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-30 21:30
 > 对应产物：`SlopeX.exe` 1.0.0（自包含单文件，139 MB，win-x64）
 > 代码规模：40 个 C# / XAML 源文件，≈11,000 行
 > 版本控制：git 分支 `feature/neoforge`（NeoForge 安装），`main` 保持可构建；远端已公开 `github.com/TwistzzzzSudo/SlopeX-Launcher`
-> 当前状态：**进入视觉定案（S3）**——已补 Toast、空状态、模态焦点循环，组件缺口 3/7；登录错误已翻成可执行的中文提示；微软登录仍卡在 Mojang 白名单
+> 当前状态：**进入视觉定案（S3）**——已补 Toast、空状态、模态焦点循环与出入场动效，组件缺口 4/7；登录错误已翻成可执行的中文提示；微软登录仍卡在 Mojang 白名单
 > 下一个执行项 = 视觉定案剩余项（ComboBox / DataList / ContextMenu / Steps / 动效）→ 模组管理
-> 本轮改动：`Msa.ExplainHttpError` 登录错误中文化 + CLI `msa-explain`；`Toast` / `EmptyState` 组件与三页统一；模态焦点循环；`tools/screenshot.ps1` 增加 `-PostClickWaitMs`
+> 本轮改动：`Msa.ExplainHttpError` 登录错误中文化 + CLI `msa-explain`；`Toast` / `EmptyState` 组件与三页统一；模态焦点循环与出入场动效；`tools/screenshot.ps1` 增加 `-PostClickWaitMs` / `-FullScreen` / 每次点击前重新置前 / 优先用 UIA Invoke 点击
 > **工作量口径**：全文一律以「产出物 / 改动范围」描述，不使用时间估算。
 
 ---
@@ -336,6 +336,7 @@ UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeSe
 | 登录错误文案 | `msa-explain 403 "Invalid app registration…"` → 输出「没有状态查询页 / 约一周 / 再登录不报即通过 / 可先用离线登录」；401、429、503 各自命中对应分支 |
 | 空状态组件 | 三处列表统一为「标题 + 提示」两行；任务页浅色、深色截图均清晰（深色下提示为 `Muted`，仍可读） |
 | Toast | 设置页点「保存设置」→ 底部居中深色提示条「设置已保存」，350ms 内截到淡入中间态 |
+| 模态动效 | 用临时环境变量钩子开/关模态各截一张：开启后卡片居中不透明、背景被遮罩压暗；700ms 后关闭，遮罩与卡片完全消失、页面恢复（钩子验完已删除） |
 | 安装类型对话框 | 点任意行「安装」→ 弹出居中卡片 + 遮罩；原版默认选中；Forge / NeoForge 置灰带「即将支持」；Esc 或「取消」关闭 |
 | 对话框端到端 | 已安装行 →「安装」→ 选 Fabric →「开始安装」→ 日志 `Fabric 0.20.1（26.3）安装完成：fabric-loader-0.20.1-26.3，依赖 7 个`，版本数 5 → 6 |
 | 便携迁移 | 首次运行后 `SlopeXData\config.json` 生成（含新字段 `JavaRuntimeDir` / `DismissLegacySavesHint`），`logs\` 已复制，`%APPDATA%\SlopeX\config.json` 保留未删 |
