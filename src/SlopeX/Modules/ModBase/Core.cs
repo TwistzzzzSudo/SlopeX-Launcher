@@ -430,6 +430,7 @@ namespace SlopeX.Modules.ModBase
         private string _javaRuntimeDir = "";
         private bool _dismissLegacySavesHint;
         private string _curseForgeApiKey = "";
+        private double _contentOpacity = 1.0;
 
         /// <summary>游戏目录（.minecraft 根），内存中始终是绝对路径。</summary>
         [JsonIgnore]
@@ -512,6 +513,16 @@ namespace SlopeX.Modules.ModBase
 
         /// <summary>启动游戏后自动隐藏启动器。</summary>
         public bool CloseOnLaunch { get => _closeOnLaunch; set => Set(ref _closeOnLaunch, value); }
+
+        /// <summary>
+        /// 内容区整体不透明度（0.35–1）。插画主题下用来控制"卡片透出多少背景"。
+        /// 作用于整个页面宿主（底板 + 文字 + 按钮一起淡出），不做分层。
+        /// </summary>
+        public double ContentOpacity
+        {
+            get => _contentOpacity;
+            set => Set(ref _contentOpacity, Math.Clamp(value, 0.35, 1.0));
+        }
 
         public int WindowWidth { get => _windowWidth; set => Set(ref _windowWidth, value); }
         public int WindowHeight { get => _windowHeight; set => Set(ref _windowHeight, value); }

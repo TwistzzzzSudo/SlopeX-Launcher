@@ -36,8 +36,14 @@ namespace SlopeX.Windows
             Current = this;
 
             // 霓虹主题才有插画背景；主题切换时跟着显隐
-            Themes.ThemeService.Changed += (s2, e2) => ApplyBackdrop();
+            Themes.ThemeService.Changed += (s2, e2) =>
+            {
+                ApplyBackdrop();
+                ApplyContentOpacityPanel();
+            };
+
             ApplyBackdrop();
+            ApplyContentOpacityPanel();
 
             StateChanged += (s, e) =>
             {
@@ -145,6 +151,57 @@ namespace SlopeX.Windows
         {
             UpdateAccount();
             _ = RefreshStatusAsync();
+        }
+
+        // ---------------- 内容透明度 ----------------
+
+        /// <summary>
+        /// 面板只在插画主题下出现：纸质主题没有背景图，调透明度只是把卡片调淡，没有意义。
+        /// 切回纸质主题时顺带把宿主恢复成不透明，避免留下半透明页面。
+        /// </summary>
+        private void ApplyContentOpacityPanel()
+        {
+            var illustrated = Themes.ThemeService.HasArtBackdrop;
+
+            OpacityPanel.Visibility = illustrated ? Visibility.Visible : Visibility.Collapsed;
+
+            if (illustrated)
+            {
+                // 给浮层让出底部空间，否则它会压在页面最后一排内容上
+                PageHost.Margin = new Thickness(0, 0, 0, 46);
+
+                OpacitySlider.Value = Math.Round(Config.Current.ContentOpacity * 100);
+                ApplyContentOpacity(Config.Current.ContentOpacity);
+            }
+            else
+            {
+                PageHost.Margin = new Thickness(0);
+                PageHost.Opacity = 1;
+            }
+        }
+
+        private void OpacitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            // 构造期间 Slider 还没赋值，事件会先触发一次
+            if (OpacityLabel == null || PageHost == null) return;
+
+            var value = e.NewValue / 100.0;
+            ApplyContentOpacity(value);
+        }
+
+        private void ApplyContentOpacity(double value)
+        {
+            PageHost.Opacity = Math.Clamp(value, 0.35, 1.0);
+
+            if (OpacityLabel != null)
+                OpacityLabel.Text = Math.Round(value * 100) + "%";
+        }
+
+        /// <summary>拖动结束才落盘，避免拖动过程中反复写配置文件。</summary>
+        private void OpacitySlider_DragCompleted(object sender, RoutedEventArgs e)
+        {
+            Config.Current.ContentOpacity = OpacitySlider.Value / 100.0;
+            Config.Current.Save();
         }
 
         /// <summary>只有霓虹黄昏需要矢量背景，其余主题保持纯色纸面。</summary>
