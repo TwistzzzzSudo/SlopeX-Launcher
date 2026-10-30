@@ -243,6 +243,12 @@ namespace SlopeX.Pages
 
         // ---------------- 启动 ----------------
 
+        /// <summary>本轮启动是否已经尝试过补全，避免补完还缺时无限弹窗。</summary>
+        private bool _repairTried;
+
+        /// <summary>下一次 Launch_Click 是补全后的自动重试（不是用户新点的）。</summary>
+        private bool _retrying;
+
         private async void Launch_Click(object sender, RoutedEventArgs e)
         {
             if (_game != null && _game.IsRunning) return;
@@ -252,6 +258,11 @@ namespace SlopeX.Pages
                 MainWindow.Current?.Navigate(2);
                 return;
             }
+
+            // 用户新点一次启动 = 新的一轮，补全机会重置；自动重试则沿用上一轮的状态
+            var isRetry = _retrying;
+            _retrying = false;
+            if (!isRetry) _repairTried = false;
 
             BtnLaunch.IsEnabled = false;
             BtnLaunchText.Text = "正在启动…";
@@ -348,8 +359,58 @@ namespace SlopeX.Pages
                 LaunchHint.Text = ex is FileNotFoundException
                     ? "缺少依赖文件：" + ex.Message
                     : "启动失败：" + ex.Message;
+
+                // 缺文件多半是"外部复制进来的版本没带 libraries/assets"，
+                // 直接给一键补全（只补缺失文件，不改写版本 JSON）
+                if (ex is FileNotFoundException && !_repairTried && _selected != null)
+                {
+                    var choice = MessageBox.Show(
+                        ex.Message + "\n\n是否自动补全缺失文件？只补缺的部分，不会改动这个版本的设置。",
+                        "缺少依赖文件", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+
+                    if (choice == MessageBoxResult.Yes)
+                    {
+                        _repairTried = true;
+                        await RepairThenRetryAsync(_selected.Id);
+                        return;
+                    }
+                }
+
                 MessageBox.Show(ex.Message, "启动失败", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
+        }
+
+        /// <summary>补全缺失文件，成功后自动重试启动。</summary>
+        private async System.Threading.Tasks.Task RepairThenRetryAsync(string versionId)
+        {
+            BtnLaunch.IsEnabled = false;
+            BtnLaunchText.Text = "正在补全依赖…";
+
+            var task = Modules.ModDownload.TaskCenter.StartLibraryRepair(versionId);
+            MainWindow.Current?.SetStatus($"正在补全 {versionId} 的缺失文件…", null);
+
+            var done = new System.Threading.Tasks.TaskCompletionSource<bool>();
+            task.Updated += t =>
+            {
+                if (!t.Running) done.TrySetResult(t.Completed);
+            };
+
+            var ok = await done.Task;
+
+            if (!ok)
+            {
+                SetRunning(false);
+                MainWindow.Current?.SetStatus($"补全 {versionId} 失败", null);
+                MessageBox.Show(
+                    "补全失败：" + (task.Error ?? "未知错误") +
+                    "\n\n可在「任务与日志」页查看详情，或换网络环境后重试。",
+                    "补全失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            MainWindow.Current?.SetStatus("补全完成，正在重试启动…", null);
+            _retrying = true;
+            Launch_Click(null, null);   // 复用同一套启动流程
         }
 
         private void OnGameOutput(string line)

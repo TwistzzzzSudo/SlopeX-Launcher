@@ -76,6 +76,7 @@ src/SlopeX/
 - 版本清单（921 个版本）、原版客户端 jar、依赖库、资源文件全量下载
 - **安装类型选择**：点「安装」先选类型（原版 / Fabric / Forge / NeoForge）；已安装的版本同样可点，用于加装加载器或补齐文件
 - **Fabric 安装**：选最新稳定加载器自动拼 `inheritsFrom` 版本、下加载器依赖；原版缺失时先补原版
+- **版本补全**：启动时若缺文件（外部复制进来的版本没带 `libraries`/`assets`），弹窗一键补齐——只补缺的部分，不改写版本 JSON
 - **模组管理**：按版本管理 `mods\`（列表、启用/禁用、删除、打开目录）；从 **Modrinth** 搜索并安装，自动补齐必需依赖；**CurseForge** 在设置里填入自己的 API Key 后同样可搜索安装
 - **整合包导入**：支持 `.mrpack`（Modrinth）、CurseForge 整合包 zip、MultiMC / Prism 实例包、只有 mods 的普通压缩包；自动装对应原版与加载器、下载模组、解压 overrides
 - **Forge 安装**：取官方推荐的加载器版本，下载官方 installer 并用合适的 Java 无头执行（`--installClient`）；原版缺失时先补原版。进度以「已用时长」呈现——installer 本身不输出百分比，这是该路线的已知取舍
@@ -188,6 +189,7 @@ SlopeX.exe --cli install-forge 1.20.1    # 装 Forge（缺原版会先补）
 SlopeX.exe --cli neoforge-list 1.21.1    # 查该原版可用的 NeoForge 版本
 SlopeX.exe --cli install-neoforge 1.21.1 # 装 NeoForge（镜像优先）
 SlopeX.exe --cli fix-libs 1.21.1-neoforge-21.1.265  # 补齐缺失依赖
+SlopeX.exe --cli repair "Better MC [FORGE] BMC4"   # 补齐缺失的库 / 客户端 jar / 资源
 SlopeX.exe --cli mods-list 1.20.1-forge-47.4.28     # 列出该版本模组
 SlopeX.exe --cli mods-search 1.20.1-forge-47.4.28 jei   # 搜索（默认 Modrinth）
 SlopeX.exe --cli mods-install 1.20.1-forge-47.4.28 jei  # 搜索并安装首个结果（含依赖）

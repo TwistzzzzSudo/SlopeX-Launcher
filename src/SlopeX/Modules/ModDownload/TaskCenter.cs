@@ -107,6 +107,19 @@ namespace SlopeX.Modules.ModDownload
             return task;
         }
 
+        /// <summary>补齐某个已存在版本的缺失文件（库 / 客户端 jar / 资源）。</summary>
+        public static InstallTask StartLibraryRepair(string versionId)
+        {
+            var running = Tasks.FirstOrDefault(t => t.Kind == InstallKind.Libraries &&
+                                                    t.VersionId == versionId && t.Running);
+            if (running != null) return running;
+
+            var task = new InstallTask { Kind = InstallKind.Libraries, VersionId = versionId };
+            Tasks.Insert(0, task);
+            _ = task.RunAsync();
+            return task;
+        }
+
         public static bool IsBusy(string versionId) =>
             Tasks.Any(t => t.VersionId == versionId && t.Running);
 
