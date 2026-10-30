@@ -228,7 +228,7 @@ namespace SlopeX.Modules.ModAccount
 
             var (status, json) = await PostJsonRawAsync(XblUrl, payload, ct).ConfigureAwait(false);
             if (status < 200 || status >= 300)
-                throw new MsaException("Xbox Live 验证失败：" + Describe(json, status));
+                throw new MsaException(ExplainHttpError(status, Describe(json, status), json, "Xbox Live 验证"));
 
             var token = J.Str(json, "Token");
             var xui = J.Arr(J.Obj(json, "DisplayClaims"), "xui");
@@ -281,18 +281,7 @@ namespace SlopeX.Modules.ModAccount
 
             var (status, json) = await PostJsonRawAsync(McLoginUrl, payload, ct).ConfigureAwait(false);
             if (status < 200 || status >= 300)
-            {
-                var desc = Describe(json, status);
-
-                // Mojang 对第三方启动器做人工白名单：未放行的 client_id 会在这一步 403
-                if (status == 403 && desc.IndexOf("app registration", StringComparison.OrdinalIgnoreCase) >= 0)
-                    throw new MsaException(
-                        "Mojang 尚未放行这个客户端 ID。第三方启动器必须单独申请 Minecraft API 白名单，" +
-                        "审批通过前登录会卡在这一步（错误码 403 Invalid app registration）。\n" +
-                        "申请入口：https://aka.ms/mce-reviewappid —— 提交 client_id、应用名与用途，审核通过后可直接重试。");
-
-                throw new MsaException("Minecraft 登录失败：" + desc);
-            }
+                throw new MsaException(ExplainHttpError(status, Describe(json, status), json));
 
             var token = J.Str(json, "access_token");
             if (string.IsNullOrEmpty(token)) throw new MsaException("Minecraft 登录没有返回 access_token");
@@ -485,6 +474,44 @@ namespace SlopeX.Modules.ModAccount
         {
             try { return JsonNode.Parse(string.IsNullOrWhiteSpace(text) ? "{}" : text) as JsonObject; }
             catch { return new JsonObject(); }
+        }
+
+        /// <summary>
+        /// 把 HTTP 状态 + 英文错误原文翻成用户能看懂的话。
+        ///
+        /// 最要紧的是 403 "Invalid app registration"：第三方启动器必须单独申请 Minecraft API 白名单，
+        /// 官方**没有状态查询页**，只能靠"重试登录是否还卡在这一步"判断。实测该响应只在
+        /// XSTS 令牌有效时才出现（伪造 token 会先拿到 401），所以没有更轻量的探测方式。
+        /// </summary>
+        internal static string ExplainHttpError(int status, string desc, JsonObject body, string context = "Minecraft 登录")
+        {
+            var raw = (desc ?? "") + " " + (body?.ToJsonString() ?? "");
+            var isAppRegistration =
+                raw.IndexOf("app registration", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                raw.IndexOf("AppRegInfo", StringComparison.OrdinalIgnoreCase) >= 0;
+
+            if (status == 403 && isAppRegistration)
+                return "Mojang 还没有放行这个启动器（403 Invalid app registration）。\n" +
+                       "第三方启动器必须单独申请 Minecraft API 白名单。官方没有状态查询页，\n" +
+                       "提交后一般等一周左右，再次登录不报这个错就是通过了。\n" +
+                       "申请入口：https://aka.ms/mce-reviewappid\n" +
+                       "等待期间可以先用「离线登录」正常游玩。";
+
+            switch (status)
+            {
+                case 401:
+                    return context + "凭据无效或已过期（401），请重新登录。";
+                case 403:
+                    return context + "被拒绝（403）：" + desc +
+                           "\n如果反复出现，可能是账号权限或地区限制。";
+                case 429:
+                    return "请求太频繁（429），请等几分钟再试。";
+            }
+
+            if (status >= 500)
+                return $"Mojang 服务端暂时不可用（HTTP {status}），稍后重试即可。";
+
+            return (string.IsNullOrEmpty(desc) ? $"HTTP {status}" : desc);
         }
 
         private static string Describe(JsonObject body, int status)
