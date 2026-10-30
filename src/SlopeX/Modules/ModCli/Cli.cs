@@ -78,6 +78,7 @@ namespace SlopeX.Modules.ModCli
                     Out("  manifest [数量]          列出可安装的版本（默认 20 条）");
                     Out("  install <版本>           安装原版版本");
                     Out("  verify <版本>            校验依赖/资源是否齐全");
+                    Out("  repair <版本>            补齐缺失的库 / 客户端 jar / 资源（不改写版本 JSON）");
                     Out("  fix-libs <版本>          补齐缺失的依赖库（走镜像）");
                     Out("  msa-explain <状态码> [原文]  预览登录错误会被翻译成什么（排障用）");
                     Out("  mods-list <版本>         列出该版本 mods 目录的模组与元数据");
@@ -126,6 +127,9 @@ namespace SlopeX.Modules.ModCli
 
                 case "msa-explain":
                     return MsaExplain(args.FirstOrDefault(), string.Join(" ", args.Skip(1)));
+
+                case "repair":
+                    return RepairVersion(args.FirstOrDefault());
 
                 case "fix-libs":
                     return FixLibs(args.FirstOrDefault());
@@ -564,6 +568,38 @@ namespace SlopeX.Modules.ModCli
             return 0;
         }
 
+        private static int RepairVersion(string versionId)
+        {
+            if (string.IsNullOrEmpty(versionId)) { Out("用法：repair <版本>"); return 2; }
+
+            try
+            {
+                var before = ModDownload.VersionRepair.Check(Config.Current.GameDir, versionId);
+                Out($"修复前缺失 {before.Count} 项");
+
+                var task = new InstallTask { Kind = InstallKind.Libraries, VersionId = versionId };
+                var lastStage = "";
+                task.Updated += t =>
+                {
+                    if (string.IsNullOrEmpty(t.Stage) || t.Stage == lastStage) return;
+                    lastStage = t.Stage;
+                    Out("  " + t.Stage);
+                };
+
+                var n = ModDownload.VersionRepair.RepairAsync(Config.Current.GameDir, versionId, task,
+                    CancellationToken.None).GetAwaiter().GetResult();
+
+                var after = ModDownload.VersionRepair.Check(Config.Current.GameDir, versionId);
+                Out($"补下 {n} 个文件，修复后仍缺 {after.Count} 项");
+                return after.Count == 0 ? 0 : 1;
+            }
+            catch (Exception ex)
+            {
+                Out("修复失败：" + ex.Message);
+                return 1;
+            }
+        }
+
         private static int FixLibs(string versionId)
         {
             if (string.IsNullOrEmpty(versionId)) { Out("用法：fix-libs <版本>"); return 2; }
@@ -737,33 +773,19 @@ namespace SlopeX.Modules.ModCli
             return 0;
         }
 
-        private static int Verify(string versionId)        {
+        private static int Verify(string versionId)
+        {
             if (string.IsNullOrEmpty(versionId)) { Out("请指定版本 ID"); return 2; }
 
             var gameDir = Config.Current.GameDir;
             var resolved = VersionManager.Resolve(gameDir, versionId);
-            var libsDir = Paths.LibrariesDir(gameDir);
-            var missing = new List<string>();
 
-            foreach (var lib in resolved.Libraries)
-            {
-                var arch = JavaFinder.ArchOfCurrentProcess;
-                if (!Rules.Allowed(J.Arr(lib, "rules"), new Dictionary<string, bool>(), arch)) continue;
+            var missing = ModDownload.VersionRepair.Check(gameDir, versionId);
 
-                var artifact = J.Obj(J.Obj(lib, "downloads"), "artifact");
-                var rel = J.Str(artifact, "path") ?? LaunchBuilder.MavenPath(J.Str(lib, "name"));
-                if (string.IsNullOrEmpty(rel)) continue;
-
-                var full = Path.Combine(libsDir, rel.Replace('/', Path.DirectorySeparatorChar));
-                if (!File.Exists(full)) missing.Add("lib  " + rel);
-            }
-
-            if (string.IsNullOrEmpty(resolved.JarPath) || !File.Exists(resolved.JarPath))
-                missing.Add("jar  客户端主文件");
-
-            var indexFile = Path.Combine(Paths.AssetsDir(gameDir), "indexes", resolved.EffectiveAssetIndex + ".json");
-            if (!File.Exists(indexFile)) missing.Add("index 资源索引 " + resolved.EffectiveAssetIndex);
-            else
+            // 资源对象数量单独统计（可能上千个，只报个数）
+            var indexFile = Path.Combine(Paths.AssetsDir(gameDir), "indexes",
+                resolved.EffectiveAssetIndex + ".json");
+            if (File.Exists(indexFile))
             {
                 try
                 {
@@ -771,6 +793,7 @@ namespace SlopeX.Modules.ModCli
                     var objects = J.Obj(idx, "objects");
                     var objectsDir = Path.Combine(Paths.AssetsDir(gameDir), "objects");
                     var missingAssets = 0;
+
                     if (objects != null)
                         foreach (var kv in objects)
                         {
@@ -778,9 +801,13 @@ namespace SlopeX.Modules.ModCli
                             if (string.IsNullOrEmpty(hash) || hash.Length < 2) continue;
                             if (!File.Exists(Path.Combine(objectsDir, hash.Substring(0, 2), hash))) missingAssets++;
                         }
-                    if (missingAssets > 0) missing.Add($"asset 缺失 {missingAssets} 个资源对象");
+
+                    if (missingAssets > 0) missing.Add($"资源对象缺失 {missingAssets} 个");
                 }
-                catch (Exception ex) { missing.Add("index 解析失败 " + ex.Message); }
+                catch (Exception ex)
+                {
+                    missing.Add("资源索引解析失败 " + ex.Message);
+                }
             }
 
             Out($"版本 {versionId}：库 {resolved.Libraries.Count} 个，继承链 {string.Join(" -> ", resolved.Chain)}");
@@ -791,6 +818,7 @@ namespace SlopeX.Modules.ModCli
             Out($"缺失 {missing.Count} 项：");
             foreach (var m in missing.Take(20)) Out("  " + m);
             if (missing.Count > 20) Out($"  …… 另有 {missing.Count - 20} 项");
+            Out("可用 repair <版本> 自动补齐");
             return 1;
         }
 

@@ -1,12 +1,12 @@
 # SlopeX Launcher 进度报告与实施计划
 
-> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-30 23:35
+> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-30 23:50
 > 对应产物：`SlopeX.exe` 1.0.0（自包含单文件，139 MB，win-x64）
 > 代码规模：40 个 C# / XAML 源文件，≈11,000 行
 > 版本控制：git 分支 `feature/neoforge`（NeoForge 安装），`main` 保持可构建；远端已公开 `github.com/TwistzzzzSudo/SlopeX-Launcher`
 > 当前状态：**进入视觉定案（S3）**——已补 Toast、空状态、DataList、模态焦点循环与出入场动效，组件缺口 5/7；模组管理（本地 + Modrinth 搜索安装）已可用；登录错误已翻成可执行的中文提示；微软登录仍卡在 Mojang 白名单
-> 下一个执行项 = 模组依赖冲突提示 / 更新检查；CurseForge 搜索待用户提供 API Key 后验证
-> 本轮改动：新增 `ModMods/Modrinth.cs`、`CurseForge.cs`、`ModInstaller.cs` + `ModSearchDialog`；设置页新增 CurseForge API Key；`Net` 增加带头部请求与单文件下载；CLI `mods-search|mods-install`
+> 下一个执行项 = 启动失败诊断（秒退原因直接给出人话）；CurseForge 搜索待用户提供 API Key 后验证
+> 本轮改动：新增 `ModDownload/VersionRepair.cs`（版本完整性检查 + 一键补全，不改写版本 JSON）、`InstallKind.Libraries`、首页启动失败时的一键补全弹窗、CLI `repair`
 > **工作量口径**：全文一律以「产出物 / 改动范围」描述，不使用时间估算。
 
 ---
@@ -60,6 +60,7 @@
 | **Forge 安装** | ✅ | 取官方推荐版本 → 下 installer → 用合适 Java 无头执行 `--installClient` → 校验产物；缺原版自动补装；已加载 AppleSkin 实测 |
 | **NeoForge 安装** | ✅ | MC 版本推导版本号 → 镜像取 installer → 预取 install_profile 依赖 → 无头执行 → 补运行期库；已加载 AppleSkin（NeoForge 版）实测 |
 | **登录错误提示** | ✅ | 403 未授权 / 401 / 429 / 5xx / 网络异常各有中文说法；403 那条直接告知「无状态查询页、约一周、再登录不报即通过」 |
+| **版本补全** | ✅ | `VersionRepair.Check/RepairAsync`：库 / 客户端 jar / 资源索引 / 资源对象；启动失败自动提示一键补全并重试；CLI `repair` |
 | **模组管理** | ✅ | 本地：列表（jar 元数据）/ 启停 / 删除 / 打开目录；在线：Modrinth 搜索安装 + 必需依赖自动补齐；CurseForge 需自备 API Key；UIA 与 CLI 双向实测 |
 | **整合包导入** | ✅ | `.mrpack` / CurseForge zip / MultiMC 实例 / 普通 zip；自动补原版与加载器、下载模组、解压 overrides；已导入 Fabulously Optimized（149 模组）实测 |
 | **安装类型选择** | ✅ | 点「安装」弹出类型选择：原版 / Fabric / Forge / NeoForge 四选一；已安装版本仍可点（用于加装加载器或补齐文件） |
@@ -341,6 +342,7 @@ UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeSe
 | 模态动效 | 用临时环境变量钩子开/关模态各截一张：开启后卡片居中不透明、背景被遮罩压暗；700ms 后关闭，遮罩与卡片完全消失、页面恢复（钩子验完已删除） |
 | 模组元数据解析 | `mods-list` 实测：AppleSkin 3.0.10+mc26.3（NeoForge，neoforge.mods.toml + MANIFEST 兜底）、AppleSkin 2.5.1+mc1.20.1（Forge，mods.toml）均正确解析 |
 | 模组启停闭环 | 点「禁用」→ 磁盘改名 `.jar.disabled`、状态翻转、Toast「已禁用 Sodium」；点「启用」→ 文件名恢复。两方向均实测 |
+| 外部版本补全 | 把 Better MC 版本目录直接复制进 `versions\`（未带 libraries）→ 启动提示缺 2 个 Forge 库 → 一键补全后启动成功（整合包自身要求正版账号，属预期） |
 | 模组搜索 | 「添加模组」对话框输入 jei → 20 条结果（作者 + 下载量），状态行「已按 Minecraft 1.20.1 / fabric 过滤」 |
 | 依赖自动补齐（Forge） | `mods-install 1.20.1-forge-47.4.28 jei` → JEI 15.74.0.233 + MezzConfig 0.6.10 两个文件，游戏内 JEI 日志出现 `mezz.jei.library.load.PluginCaller` |
 | 依赖自动补齐（Fabric） | `mods-install fabric-loader-0.20.1-1.20.1 jei` → JEI + MezzConfig + Fabric API；二次执行跳过已存在文件；启动 `Loading 61 mods` 进主菜单 |
