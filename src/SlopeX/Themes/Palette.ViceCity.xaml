@@ -10,6 +10,11 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- 基础面：透明，露出插画 -->
+    <!-- 窗口底色：必须始终不透明。
+         插画主题的 Bg 是透明的（为了露出内容区插画），但窗口本身要实心，
+         否则圆角外/侧栏处会透出桌面。 -->
+    <SolidColorBrush x:Key="WindowBg" Color="#1C0716"/>
+
     <SolidColorBrush x:Key="Bg" Color="#00000000"/>
 
     <!-- 卡片面：接近不透明的深梅色。插画很亮，卡片必须压得住 -->

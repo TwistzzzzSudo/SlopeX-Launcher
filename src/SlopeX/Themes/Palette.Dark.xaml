@@ -12,6 +12,11 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- 纸面层级 -->
+    <!-- 窗口底色：必须始终不透明。
+         插画主题的 Bg 是透明的（为了露出内容区插画），但窗口本身要实心，
+         否则圆角外/侧栏处会透出桌面。 -->
+    <SolidColorBrush x:Key="WindowBg" Color="#1A1A16"/>
+
     <SolidColorBrush x:Key="Bg" Color="#1A1A16"/>
     <!-- 卡片面：纸主题里与 Bg 同色；霓虹主题用它做"半透明卡片"。
          单独留一个 token，是为了让换肤时卡片与窗口底可以分开调。 -->
