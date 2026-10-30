@@ -2,8 +2,8 @@
     复古未来 —— 第三套主题（深紫底 + 合成波暮色位图）
 
     与两套纸质主题的区别：这一套允许"图"参与界面 —— Bg 透明，
-    由 MainWindow 底层的 RetroFutureBackdrop 位图当背景（art/retro-future.jpg）；
-    Paper 系列带 alpha，卡片会透出一点背景，形成纵深。
+    由 RetroFutureBackdrop 在位图背景上作画；背景插画是可选的（不进仓库），
+    缺失时该控件退回纯渐变。Paper 系列带 alpha，卡片会透出一点背景，形成纵深。
 
     约束：
     - 所有引用仍必须 DynamicResource。
