@@ -14,8 +14,8 @@ namespace SlopeX.Themes
         Light,
         /// <summary>极简墨纸。</summary>
         Dark,
-        /// <summary>霓虹黄昏（合成波暮色插画 + 深紫卡片）。</summary>
-        Neon,
+        /// <summary>复古未来（合成波暮色位图 + 深紫卡片）。</summary>
+        RetroFuture,
         /// <summary>ViceCity（迈阿密暮色插画 + 深梅色卡片）。</summary>
         ViceCity
     }
@@ -31,7 +31,7 @@ namespace SlopeX.Themes
     {
         private const string LightUri = "Themes/Palette.Light.xaml";
         private const string DarkUri = "Themes/Palette.Dark.xaml";
-        private const string NeonUri = "Themes/Palette.Neon.xaml";
+        private const string RetroFutureUri = "Themes/Palette.RetroFuture.xaml";
         private const string ViceCityUri = "Themes/Palette.ViceCity.xaml";
         private const string PersonalizeKey =
             @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
@@ -44,14 +44,14 @@ namespace SlopeX.Themes
         /// <summary>当前实际生效的外观（跟随系统时会解析成 Light / Dark）。</summary>
         public static AppearanceMode CurrentMode { get; private set; } = AppearanceMode.Light;
 
-        /// <summary>当前是否是霓虹黄昏（决定是否显示矢量背景）。</summary>
-        public static bool IsNeon => CurrentMode == AppearanceMode.Neon;
+        /// <summary>当前是否是复古未来（决定是否显示位图背景）。</summary>
+        public static bool IsRetroFuture => CurrentMode == AppearanceMode.RetroFuture;
 
         /// <summary>当前是否是 ViceCity（决定是否显示位图背景）。</summary>
         public static bool IsViceCity => CurrentMode == AppearanceMode.ViceCity;
 
         /// <summary>当前主题是否用插画当背景（两种插画主题之一）。</summary>
-        public static bool HasArtBackdrop => IsNeon || IsViceCity;
+        public static bool HasArtBackdrop => IsRetroFuture || IsViceCity;
 
         /// <summary>主题变化后触发（供将来需要联动重绘的控件使用）。</summary>
         public static event EventHandler Changed;
@@ -60,7 +60,8 @@ namespace SlopeX.Themes
         {
             "System" => AppearanceMode.System,
             "Dark" => AppearanceMode.Dark,
-            "Neon" => AppearanceMode.Neon,
+            "RetroFuture" => AppearanceMode.RetroFuture,
+            "Neon" => AppearanceMode.RetroFuture,   // 旧配置兼容：这个主题原名「霓虹黄昏」
             "ViceCity" => AppearanceMode.ViceCity,
             _ => AppearanceMode.Light
         };
@@ -69,7 +70,7 @@ namespace SlopeX.Themes
         {
             AppearanceMode.System => "System",
             AppearanceMode.Dark => "Dark",
-            AppearanceMode.Neon => "Neon",
+            AppearanceMode.RetroFuture => "RetroFuture",
             AppearanceMode.ViceCity => "ViceCity",
             _ => "Light"
         };
@@ -111,7 +112,7 @@ namespace SlopeX.Themes
 
             SwapPalette(effective switch
             {
-                AppearanceMode.Neon => NeonUri,
+                AppearanceMode.RetroFuture => RetroFutureUri,
                 AppearanceMode.ViceCity => ViceCityUri,
                 AppearanceMode.Dark => DarkUri,
                 _ => LightUri
