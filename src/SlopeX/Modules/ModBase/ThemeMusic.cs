@@ -22,6 +22,10 @@ namespace SlopeX.Modules.ModBase
         private static string _currentTrack;      // 当前曲目对应的资源名，避免同曲重播
         private static bool _initialized;
 
+        // 游戏运行期间静音：不是"用户暂停"，要能区分开，退出游戏后才能只恢复自己停的那次
+        private static bool _suppressedByGame;
+        private static bool _pausedByGame;
+
         // 资源是否存在的探测结果（每个曲目只查一次）
         private static readonly System.Collections.Generic.Dictionary<string, bool> _resourceCache = new();
 
@@ -74,8 +78,9 @@ namespace SlopeX.Modules.ModBase
             Player.Volume = Math.Clamp(Config.Current.MusicVolume, 0, 1);
             Player.MediaEnded += (s, e) =>
             {
-                // 循环播放
+                // 循环播放。游戏运行期间不能续播 —— 否则一首放完就自己响起来了
                 Player.Position = TimeSpan.Zero;
+                if (_suppressedByGame) return;
                 Player.Play();
             };
             Player.MediaFailed += (s, e) =>
@@ -117,9 +122,19 @@ namespace SlopeX.Modules.ModBase
                 _currentTrack = track;
                 Player.Open(new Uri(path, UriKind.Absolute));
                 Player.Position = TimeSpan.Zero;
-                Player.Play();
 
-                IsPaused = false;
+                if (_suppressedByGame)
+                {
+                    // 游戏运行中切主题：把曲目准备好但不播，等退出游戏再恢复
+                    _pausedByGame = true;
+                    IsPaused = true;
+                }
+                else
+                {
+                    Player.Play();
+                    IsPaused = false;
+                }
+
                 StateChanged?.Invoke(null, EventArgs.Empty);
             }
             catch (Exception ex)
@@ -130,10 +145,62 @@ namespace SlopeX.Modules.ModBase
             }
         }
 
+        /// <summary>
+        /// 游戏启动：把背景音乐停下来。
+        ///
+        /// 只停"正在播"的那次，并记下是自己停的（<c>_pausedByGame</c>）——
+        /// 用户本来就手动暂停的，退出游戏时不该被我们"好心"恢复。
+        /// </summary>
+        public static void PauseForGame()
+        {
+            _suppressedByGame = true;
+
+            if (!HasTrack || IsPaused)
+            {
+                Log.Info("游戏已启动，背景音乐保持暂停（原本就没在播）");
+                return;
+            }
+
+            Player.Pause();
+            IsPaused = true;
+            _pausedByGame = true;
+            StateChanged?.Invoke(null, EventArgs.Empty);
+            Log.Info("游戏已启动，背景音乐暂停");
+        }
+
+        /// <summary>游戏退出：若当初是被游戏启动停掉的，恢复播放。</summary>
+        public static void ResumeAfterGame()
+        {
+            if (!_suppressedByGame) return;
+
+            _suppressedByGame = false;
+
+            if (!_pausedByGame)
+            {
+                Log.Info("游戏已退出，背景音乐不恢复（不是被游戏启动停掉的）");
+                StateChanged?.Invoke(null, EventArgs.Empty);
+                return;
+            }
+
+            _pausedByGame = false;
+
+            if (!HasTrack) return;
+
+            if (Player.Source == null) ApplyForTheme();
+            else Player.Play();
+
+            IsPaused = false;
+            StateChanged?.Invoke(null, EventArgs.Empty);
+            Log.Info("游戏已退出，背景音乐恢复");
+        }
+
         /// <summary>播放 / 暂停切换。</summary>
         public static void Toggle()
         {
             if (!HasTrack) return;
+
+            // 用户自己点了按钮 —— 之后不再替他"恢复"
+            _pausedByGame = false;
 
             if (IsPaused)
             {

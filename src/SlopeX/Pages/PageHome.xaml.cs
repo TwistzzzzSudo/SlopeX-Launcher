@@ -346,6 +346,9 @@ namespace SlopeX.Pages
                 _game.Exited += OnGameExited;
                 _game.Start(plan);
 
+                // 游戏在跑时背景音乐让路（只停我们自己那次，退出后原样恢复）
+                ThemeMusic.PauseForGame();
+
                 SetRunning(true);
                 Log.Info($"启动 {versionId}（Java {java.Major} · {java.Path}）");
                 MainWindow.Current?.SetStatus(
@@ -444,6 +447,7 @@ namespace SlopeX.Pages
                     _gameLog = null;
                 }
                 Log.Info($"游戏进程已退出，退出码 {code}");
+                ThemeMusic.ResumeAfterGame();
                 MainWindow.Current?.SetStatus($"游戏已退出（{_selected?.Id}，退出码 {code}）", null);
                 _ = MainWindow.Current?.RefreshStatusAsync();
 

@@ -81,6 +81,7 @@ namespace SlopeX.Modules.ModCli
                     Out("  repair <版本>            补齐缺失的库 / 客户端 jar / 资源（不改写版本 JSON）");
                     Out("  diagnose <版本> [日志文本]  对最近一次启动失败做诊断（排障用）");
                     Out("  music-test               播放当前主题背景音乐 3 秒并打印进度（排障用）");
+                    Out("  music-sim                模拟「启动游戏 / 退出游戏」的音乐挂起与恢复（排障用）");
                     Out("  fix-libs <版本>          补齐缺失的依赖库（走镜像）");
                     Out("  msa-explain <状态码> [原文]  预览登录错误会被翻译成什么（排障用）");
                     Out("  mods-list <版本>         列出该版本 mods 目录的模组与元数据");
@@ -132,6 +133,9 @@ namespace SlopeX.Modules.ModCli
 
                 case "music-test":
                     return MusicTest();
+
+                case "music-sim":
+                    return MusicSim();
 
                 case "diagnose":
                     return Diagnose(args.FirstOrDefault(), string.Join(" ", args.Skip(1)));
@@ -578,6 +582,46 @@ namespace SlopeX.Modules.ModCli
 
         /// <summary>排障用：对某个版本目录的日志（或追加的文本）跑一次诊断。</summary>
         /// <summary>排障用：确认背景音乐真的在走（MediaPlayer 不报错也可能没出声音）。</summary>
+        /// <summary>
+        /// 排障用：不用真的开游戏，把"启动游戏 → 退出游戏"的音乐挂起 / 恢复走一遍。
+        /// 重点是两个边界：用户本来就暂停时不该被恢复；用户手动接管后也不该被恢复。
+        /// </summary>
+        private static int MusicSim()
+        {
+            Themes.ThemeService.Apply(Themes.ThemeService.ParseMode(Config.Current.Appearance), force: true);
+            ThemeMusic.Initialize();
+
+            if (!ThemeMusic.HasTrack) { Out("当前主题没有可播曲目，跳过"); return 1; }
+
+            var ok = true;
+            void Step(string name, bool paused, bool expect)
+            {
+                var hit = paused == expect;
+                ok &= hit;
+                Out($"{name}：暂停={paused}（期望 {expect}）{(hit ? "" : "  ← 不符")}");
+            }
+
+            ThemeMusic.ApplyForTheme();
+            Step("初始", ThemeMusic.IsPaused, false);
+
+            ThemeMusic.PauseForGame();
+            Step("游戏启动后", ThemeMusic.IsPaused, true);
+
+            ThemeMusic.ResumeAfterGame();
+            Step("游戏退出后", ThemeMusic.IsPaused, false);
+
+            ThemeMusic.Toggle();                 // 用户自己按了暂停
+            Step("手动暂停后", ThemeMusic.IsPaused, true);
+
+            ThemeMusic.PauseForGame();
+            Step("（暂停状态下）游戏启动后", ThemeMusic.IsPaused, true);
+
+            ThemeMusic.ResumeAfterGame();
+            Step("（暂停状态下）游戏退出后", ThemeMusic.IsPaused, true);
+
+            return ok ? 0 : 1;
+        }
+
         private static int MusicTest()
         {
             // CLI 模式没有走 App 的启动流程，主题服务还没应用过配置

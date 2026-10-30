@@ -431,7 +431,7 @@ namespace SlopeX.Modules.ModBase
         private bool _dismissLegacySavesHint;
         private string _curseForgeApiKey = "";
         private double _contentOpacity = 0.75;
-        private double _musicVolume = 0.25;
+        private double _musicVolume = 0.20;
 
         /// <summary>游戏目录（.minecraft 根），内存中始终是绝对路径。</summary>
         [JsonIgnore]
@@ -526,7 +526,7 @@ namespace SlopeX.Modules.ModBase
             set => Set(ref _contentOpacity, Math.Clamp(value, 0.35, 1.0));
         }
 
-        /// <summary>主题背景音乐音量（0–1），默认 25%。</summary>
+        /// <summary>主题背景音乐音量（0–1），默认 20%。</summary>
         public double MusicVolume
         {
             get => _musicVolume;
