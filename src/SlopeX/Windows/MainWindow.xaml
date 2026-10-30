@@ -201,6 +201,16 @@
                         Background="{DynamicResource Surface}"
                         BorderBrush="{DynamicResource Line}" BorderThickness="1">
                     <StackPanel Orientation="Horizontal">
+                        <!-- 背景音乐开关：默认播放，点击暂停 -->
+                        <Button x:Name="MusicBtn" Style="{StaticResource BtnText}" Padding="0"
+                                Width="24" Height="20" Margin="0,0,8,0"
+                                Click="Music_Click"
+                                MouseEnter="MusicBtn_MouseEnter" MouseLeave="MusicBtn_MouseLeave"
+                                ToolTip="背景音乐（左键暂停 / 继续）">
+                            <TextBlock x:Name="MusicIcon" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="13" Text="&#xE767;"/>
+                        </Button>
+
                         <TextBlock Text="内容透明度" Style="{StaticResource TCaption}"
                                    VerticalAlignment="Center"/>
                         <Slider x:Name="OpacitySlider" Style="{StaticResource SliderThin}"
@@ -214,6 +224,28 @@
                                    Text="100%"/>
                     </StackPanel>
                 </Border>
+
+                <Popup x:Name="VolumePopup" PlacementTarget="{Binding ElementName=MusicBtn}"
+                       Placement="Left" HorizontalOffset="-8" VerticalOffset="-2"
+                       AllowsTransparency="True" StaysOpen="True" PopupAnimation="Fade">
+                    <Border x:Name="VolumeCard" Background="{DynamicResource Surface}"
+                            BorderBrush="{DynamicResource Line}" BorderThickness="1"
+                            CornerRadius="8" Padding="10,6" Margin="0,0,8,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="音量" Style="{StaticResource TCaption}"
+                                       VerticalAlignment="Center"/>
+                            <Slider x:Name="VolumeSlider" Style="{StaticResource SliderThin}"
+                                    Width="78" Margin="9,0,0,0"
+                                    Minimum="0" Maximum="100" SmallChange="1" LargeChange="10"
+                                    Value="25"
+                                    ValueChanged="VolumeSlider_ValueChanged"
+                                    Thumb.DragCompleted="VolumeSlider_DragCompleted"/>
+                            <TextBlock x:Name="VolumeLabel" Style="{StaticResource TCaption}"
+                                       Width="36" TextAlignment="Right" VerticalAlignment="Center"
+                                       Text="25%"/>
+                        </StackPanel>
+                    </Border>
+                </Popup>
             </Grid>
 
             <!-- ========== 状态栏 ========== -->

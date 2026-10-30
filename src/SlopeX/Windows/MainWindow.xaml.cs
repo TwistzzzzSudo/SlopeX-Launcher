@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Input;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using SlopeX.Modules.ModBase;
@@ -44,6 +45,14 @@ namespace SlopeX.Windows
 
             ApplyBackdrop();
             ApplyContentOpacityPanel();
+
+            // 背景音乐：跟着主题走，标题栏按钮反映播放状态
+            VolumeCard.MouseEnter += VolumeCard_MouseEnter;
+            VolumeCard.MouseLeave += VolumeCard_MouseLeave;
+            VolumeSlider.Value = Math.Round(Config.Current.MusicVolume * 100);
+            ThemeMusic.StateChanged += (s3, e3) => UpdateMusicIcon();
+            ThemeMusic.Initialize();
+            UpdateMusicIcon();
 
             RootBorder.SizeChanged += (s, e) => ApplyWindowCorner();
             ApplyWindowCorner();
@@ -236,6 +245,10 @@ namespace SlopeX.Windows
             if (OpacityPanel != null)
                 OpacityPanel.Opacity = Math.Max(0.5, clamped);
 
+            // 音量浮层是独立窗口（Popup），不吃面板的透明度，得单独同步
+            if (VolumeCard != null)
+                VolumeCard.Opacity = Math.Max(0.5, clamped);
+
             if (OpacityLabel != null)
                 OpacityLabel.Text = Math.Round(clamped * 100) + "%";
         }
@@ -246,6 +259,68 @@ namespace SlopeX.Windows
             Config.Current.ContentOpacity = OpacitySlider.Value / 100.0;
             Config.Current.Save();
         }
+
+        // ---------------- 背景音乐 ----------------
+
+        private DispatcherTimer _volumeCloseTimer;
+
+        private void UpdateMusicIcon()
+        {
+            if (MusicIcon == null) return;
+
+            // E767 = 喇叭（播放中）；E74F = 静音喇叭（已暂停）
+            MusicIcon.Text = ThemeMusic.IsPaused ? "\uE74F" : "\uE767";
+            MusicBtn.ToolTip = ThemeMusic.IsPaused ? "背景音乐：已暂停（左键继续）" : "背景音乐：播放中（左键暂停）";
+        }
+
+        private void Music_Click(object sender, RoutedEventArgs e)
+        {
+            ThemeMusic.Toggle();
+            UpdateMusicIcon();
+        }
+
+        private void MusicBtn_MouseEnter(object sender, MouseEventArgs e)
+        {
+            _volumeCloseTimer?.Stop();
+            VolumePopup.IsOpen = true;
+        }
+
+        private void MusicBtn_MouseLeave(object sender, MouseEventArgs e) => ScheduleVolumeClose();
+
+        private void VolumeCard_MouseEnter(object sender, MouseEventArgs e) => _volumeCloseTimer?.Stop();
+
+        private void VolumeCard_MouseLeave(object sender, MouseEventArgs e) => ScheduleVolumeClose();
+
+        /// <summary>
+        /// 延迟关闭：鼠标从按钮移到浮层要经过 8px 空隙，
+        /// 立即关会闪；200ms 足够跨过去，又不会显得赖着不走。
+        /// </summary>
+        private void ScheduleVolumeClose()
+        {
+            _volumeCloseTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+            _volumeCloseTimer.Stop();
+            _volumeCloseTimer.Tick -= VolumeCloseTick;
+            _volumeCloseTimer.Tick += VolumeCloseTick;
+            _volumeCloseTimer.Start();
+        }
+
+        private void VolumeCloseTick(object sender, EventArgs e)
+        {
+            _volumeCloseTimer.Stop();
+            if (MusicBtn.IsMouseOver || VolumeCard.IsMouseOver) return;
+            VolumePopup.IsOpen = false;
+        }
+
+        private void VolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (VolumeLabel == null) return;
+
+            var v = e.NewValue / 100.0;
+            ThemeMusic.SetVolume(v);
+            VolumeLabel.Text = Math.Round(v * 100) + "%";
+        }
+
+        private void VolumeSlider_DragCompleted(object sender, RoutedEventArgs e) => Config.Current.Save();
 
         /// <summary>只有插画主题需要背景层，其余主题保持纯色纸面。</summary>
         private void ApplyBackdrop()
