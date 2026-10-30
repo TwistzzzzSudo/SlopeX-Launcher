@@ -80,6 +80,7 @@ namespace SlopeX.Modules.ModCli
                     Out("  verify <版本>            校验依赖/资源是否齐全");
                     Out("  fix-libs <版本>          补齐缺失的依赖库（走镜像）");
                     Out("  msa-explain <状态码> [原文]  预览登录错误会被翻译成什么（排障用）");
+                    Out("  mods-list <版本>         列出该版本 mods 目录的模组与元数据");
                     Out("  plan <版本>              打印启动命令行（不启动）");
                     Out("  launch <版本>            启动游戏");
                     Out("  fabric-list <原版版本>   列出该原版可用的 Fabric 加载器");
@@ -109,6 +110,9 @@ namespace SlopeX.Modules.ModCli
 
                 case "install":
                     return Install(args.FirstOrDefault());
+
+                case "mods-list":
+                    return ModsList(args.FirstOrDefault());
 
                 case "msa-explain":
                     return MsaExplain(args.FirstOrDefault(), string.Join(" ", args.Skip(1)));
@@ -449,6 +453,21 @@ namespace SlopeX.Modules.ModCli
         }
 
         /// <summary>排障用：直接看某个 HTTP 状态会被翻译成什么提示，不必真的登录一次。</summary>
+        private static int ModsList(string versionId)
+        {
+            if (string.IsNullOrEmpty(versionId)) { Out("用法：mods-list <版本>"); return 2; }
+
+            var list = ModMods.ModManager.List(Config.Current.GameDir, versionId);
+            if (list.Count == 0) { Out("（无模组）"); return 0; }
+
+            foreach (var m in list)
+                Out($"{(m.Enabled ? "[启用]" : "[禁用]")} {m.Title}  {m.Version}  " +
+                    $"({m.LoaderHint}  {m.SizeText})  ←  {m.FileName}");
+
+            Out($"共 {list.Count} 个，启用 {list.Count(m => m.Enabled)} 个");
+            return 0;
+        }
+
         private static int MsaExplain(string statusText, string desc)
         {
             if (!int.TryParse(statusText, out var status))

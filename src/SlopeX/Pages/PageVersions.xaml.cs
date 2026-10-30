@@ -97,6 +97,34 @@ namespace SlopeX.Pages
             e.Handled = true;
         }
 
+        // ---------------- 模组面板 ----------------
+
+        private void ModsOpen_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button b || b.Tag is not string id) return;
+
+            VersionView.Visibility = Visibility.Collapsed;
+            ModsPanelView.Visibility = Visibility.Visible;
+
+            // 搜索框与页头按钮属于版本列表视图，进入模组视图时收起，避免误点
+            HeaderRow.Visibility = Visibility.Collapsed;
+            SearchRow.Visibility = Visibility.Collapsed;
+
+            ModsPanelView.Load(id);
+            MainWindow.Current?.SetStatus($"正在管理 {id} 的模组", null);
+        }
+
+        private void ModsBack_Click(object sender, EventArgs e)
+        {
+            ModsPanelView.Visibility = Visibility.Collapsed;
+            VersionView.Visibility = Visibility.Visible;
+
+            HeaderRow.Visibility = Visibility.Visible;
+            SearchRow.Visibility = Visibility.Visible;
+
+            Reload(); // 可能在面板里删过模组，回来时让版本行的提示保持最新
+        }
+
         private void OpenOne_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button b && b.Tag is string dir)
