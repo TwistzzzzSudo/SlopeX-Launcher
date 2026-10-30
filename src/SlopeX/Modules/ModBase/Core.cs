@@ -429,6 +429,7 @@ namespace SlopeX.Modules.ModBase
         private string _appearance = "Light";
         private string _javaRuntimeDir = "";
         private bool _dismissLegacySavesHint;
+        private string _curseForgeApiKey = "";
 
         /// <summary>游戏目录（.minecraft 根），内存中始终是绝对路径。</summary>
         [JsonIgnore]
@@ -502,6 +503,12 @@ namespace SlopeX.Modules.ModBase
 
         /// <summary>使用 BMCLAPI 镜像下载（国内网络推荐）。</summary>
         public bool UseMirror { get => _useMirror; set => Set(ref _useMirror, value); }
+
+        /// <summary>
+        /// CurseForge 官方 API Key（可选，用户在设置里自己填）。
+        /// 没有这个 Key，CurseForge 的搜索接口一律 403——官方要求申请后才给，不能绕过。
+        /// </summary>
+        public string CurseForgeApiKey { get => _curseForgeApiKey; set => Set(ref _curseForgeApiKey, value); }
 
         /// <summary>启动游戏后自动隐藏启动器。</summary>
         public bool CloseOnLaunch { get => _closeOnLaunch; set => Set(ref _closeOnLaunch, value); }

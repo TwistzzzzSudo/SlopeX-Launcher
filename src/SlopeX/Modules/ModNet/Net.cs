@@ -88,10 +88,92 @@ namespace SlopeX.Modules.ModNet
             return JsonNode.Parse(text);
         }
 
+        /// <summary>
+        /// 带自定义请求头的 GET（CurseForge 需要 x-api-key）。
+        /// 失败时把响应体带进异常——对方的错误信息（比如 Key 无效）比状态码有用得多。
+        /// </summary>
+        public static async Task<JsonNode> GetJsonWithHeadersAsync(string url, CancellationToken ct = default,
+            params (string Name, string Value)[] headers)
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, url);
+            foreach (var (name, value) in headers)
+            {
+                if (!string.IsNullOrWhiteSpace(value))
+                    req.Headers.TryAddWithoutValidation(name, value);
+            }
+
+            using var resp = await Client.SendAsync(req, HttpCompletionOption.ResponseContentRead, ct)
+                .ConfigureAwait(false);
+            var text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+
+            if (!resp.IsSuccessStatusCode)
+                throw new IOException($"HTTP {(int)resp.StatusCode}：{TrimForMessage(text)}");
+
+            return JsonNode.Parse(text);
+        }
+
+        private static string TrimForMessage(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return "（空响应）";
+            text = text.Replace("\r", " ").Replace("\n", " ").Trim();
+            return text.Length <= 200 ? text : text.Substring(0, 200) + "…";
+        }
+
         public static async Task<JsonNode> GetJsonAsync(string url, CancellationToken ct = default)
         {
             var text = await GetStringAsync(url, ct);
             return JsonNode.Parse(text);
+        }
+
+        /// <summary>
+        /// 下载单个文件到指定路径（带 SHA1 校验）。
+        /// 用于模组这种"一次几个、不想起下载队列"的场景；先写 .sxpart 再落位，
+        /// 中断不会留下半个 jar 被加载器当成有效模组。
+        /// </summary>
+        public static async Task DownloadToFileAsync(string url, string targetPath, string sha1 = null,
+            long size = 0, CancellationToken ct = default, int timeoutMs = 300000)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(targetPath) ?? ".");
+
+            var tmp = targetPath + ".sxpart";
+
+            try
+            {
+                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                timeoutCts.CancelAfter(timeoutMs);
+
+                using (var resp = await Client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token)
+                           .ConfigureAwait(false))
+                {
+                    resp.EnsureSuccessStatusCode();
+
+                    using var src = await resp.Content.ReadAsStreamAsync(timeoutCts.Token).ConfigureAwait(false);
+                    using var dst = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true);
+                    await src.CopyToAsync(dst, 81920, timeoutCts.Token).ConfigureAwait(false);
+                }
+
+                if (size > 0)
+                {
+                    var got = new FileInfo(tmp).Length;
+                    if (got != size)
+                        throw new IOException($"文件大小不符：期望 {Format.Bytes(size)}，实际 {Format.Bytes(got)}");
+                }
+
+                if (!string.IsNullOrEmpty(sha1))
+                {
+                    var actual = Sha1OfFile(tmp);
+                    if (!string.Equals(actual, sha1, StringComparison.OrdinalIgnoreCase))
+                        throw new IOException($"SHA1 校验失败（期望 {sha1}，实际 {actual}）");
+                }
+
+                if (File.Exists(targetPath)) File.Delete(targetPath);
+                File.Move(tmp, targetPath);
+            }
+            catch
+            {
+                try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
+                throw;
+            }
         }
 
         public static string Sha1OfFile(string path)

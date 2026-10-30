@@ -114,6 +114,33 @@ if ($ClickText -ne "") {
         foreach ($target in ($ClickText -split '\|')) {
             if ($target -eq "") { continue }
 
+            # 序列里可以夹带非点击动作：
+            #   type:文字   → 往当前窗口的输入框里填值（UIA ValuePattern，不依赖键盘焦点）
+            #   wait:毫秒   → 停顿
+            if ($target -like 'wait:*') {
+                [int]$ms = ($target.Substring(5))
+                Start-Sleep -Milliseconds $ms
+                continue
+            }
+
+            if ($target -like 'type:*') {
+                $text = $target.Substring(5)
+                $aeT = [System.Windows.Automation.AutomationElement]::FromHandle($hwnd)
+                $condEdit = New-Object System.Windows.Automation.PropertyCondition(
+                    [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                    [System.Windows.Automation.ControlType]::Edit)
+                $edits = $aeT.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condEdit)
+                $vp = $null
+                $ok = $false
+                foreach ($ed in $edits) {
+                    if ($ed.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$vp)) {
+                        $vp.SetValue($text); $ok = $true; break
+                    }
+                }
+                Write-Output ("TYPE=" + $text + " ok=" + $ok)
+                continue
+            }
+
 
 
             $aeRoot2 = [System.Windows.Automation.AutomationElement]::FromHandle($hwnd)
@@ -127,46 +154,57 @@ if ($ClickText -ne "") {
 
             $clicked = $false
             for ($attempt = 0; $attempt -lt 6 -and -not $clicked; $attempt++) {
-            if ($attempt -gt 0) { Start-Sleep -Milliseconds 1500 }
-            foreach ($b in $aeRoot2.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condAny)) {
-                $kids = $b.FindAll([System.Windows.Automation.TreeScope]::Descendants,
-                    [System.Windows.Automation.Condition]::TrueCondition)
-                $lab = ""
-                foreach ($k in $kids) { if ($k.Current.Name) { $lab = $lab + $k.Current.Name } }
-                if (-not $lab) { $lab = $b.Current.Name }
-                if ($lab -like "*$target*") {
-                    # 每次点击前重新置前：其他窗口（IDE / 预览面板）可能在这期间抢走焦点，
-                    # 否则 SetCursorPos + mouse_event 会点到别人的窗口上
-                    [WinCap]::SetForegroundWindow($hwnd) | Out-Null
-                    Start-Sleep -Milliseconds 120
-                    # 优先用 UIA 的 Invoke / Select：不依赖窗口层级，桌面被其他程序挡住也能点中。
-                    # 只有在控件不支持（少数自绘控件）时才退回鼠标坐标点击。
-                    $pattern = $null
-                    $did = $false
-                    try {
-                        if ($b.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) {
-                            $pattern.Invoke(); $did = $true
-                        }
-                        elseif ($b.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref]$pattern)) {
-                            $pattern.Select(); $did = $true
-                        }
-                    } catch { $did = $false }
+                if ($attempt -gt 0) { Start-Sleep -Milliseconds 1500 }
 
-                    if (-not $did) {
-                        $r = $b.Current.BoundingRectangle
-                        $cx = [int]($r.X + $r.Width / 2)
-                        $cy = [int]($r.Y + $r.Height / 2)
-                        [WinCap]::SetCursorPos($cx, $cy) | Out-Null
-                        Start-Sleep -Milliseconds 200
-                        [WinCap]::mouse_event(0x0002, 0, 0, 0, [IntPtr]::Zero)
-                        Start-Sleep -Milliseconds 60
-                        [WinCap]::mouse_event(0x0004, 0, 0, 0, [IntPtr]::Zero)
-                    }
-                    Write-Output ("CLICKED=" + $lab)
-                    $clicked = $true
-                    break
+                # 两遍匹配：先找标签完全相等的，再退回"包含"。
+                # 只做包含匹配会把「安装」错配到「安装新版本」，自动化里很危险。
+                $pick = $null
+                $pickLab = ""
+                foreach ($b in $aeRoot2.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condAny)) {
+                    $kids = $b.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+                        [System.Windows.Automation.Condition]::TrueCondition)
+                    $lab = ""
+                    foreach ($k in $kids) { if ($k.Current.Name) { $lab = $lab + $k.Current.Name } }
+                    if (-not $lab) { $lab = $b.Current.Name }
+
+                    if ($lab -eq $target) { $pick = $b; $pickLab = $lab; break }
+                    if ($null -eq $pick -and $lab -like "*$target*") { $pick = $b; $pickLab = $lab }
                 }
-            }
+
+                if ($null -eq $pick) { continue }
+
+                $b = $pick
+                $lab = $pickLab
+
+                # 点击前重新置前：其他窗口可能在这期间抢走焦点
+                [WinCap]::SetForegroundWindow($hwnd) | Out-Null
+                Start-Sleep -Milliseconds 120
+
+                # 优先 UIA Invoke / Select：不依赖窗口层级，被遮挡也能点中
+                $pattern = $null
+                $did = $false
+                try {
+                    if ($b.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) {
+                        $pattern.Invoke(); $did = $true
+                    }
+                    elseif ($b.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref]$pattern)) {
+                        $pattern.Select(); $did = $true
+                    }
+                } catch { $did = $false }
+
+                if (-not $did) {
+                    $r = $b.Current.BoundingRectangle
+                    $cx = [int]($r.X + $r.Width / 2)
+                    $cy = [int]($r.Y + $r.Height / 2)
+                    [WinCap]::SetCursorPos($cx, $cy) | Out-Null
+                    Start-Sleep -Milliseconds 200
+                    [WinCap]::mouse_event(0x0002, 0, 0, 0, [IntPtr]::Zero)
+                    Start-Sleep -Milliseconds 60
+                    [WinCap]::mouse_event(0x0004, 0, 0, 0, [IntPtr]::Zero)
+                }
+
+                Write-Output ("CLICKED=" + $lab)
+                $clicked = $true
             }   # attempt 循环
             if (-not $clicked) { Write-Output ("CLICK_TARGET_NOT_FOUND=" + $target) }
             $after = if ($PostClickWaitMs -ge 0) { $PostClickWaitMs } else { $PostWaitMs }
