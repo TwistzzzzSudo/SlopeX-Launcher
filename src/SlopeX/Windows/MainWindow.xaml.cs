@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using SlopeX.Modules.ModBase;
@@ -144,20 +145,88 @@ namespace SlopeX.Windows
 
         // ---------------- 模态 ----------------
 
+        /// <summary>
+        /// 每次 Show/Hide 递增，用于判断淡出结束时模态是否已经被重新打开。
+        /// 没有这个序号，"快速关掉又打开"会因为旧动画的 Completed 回调把新模态收起来。
+        /// </summary>
+        private int _modalEpoch;
+
+        /// <summary>系统设置里关掉"显示动画"时，模态直接出现，不做过渡。</summary>
+        private static bool MotionEnabled => SystemParameters.ClientAreaAnimation;
+
         /// <summary>在主窗口内显示模态卡片（遮罩挡住下层点击，Esc / 取消由内容自己处理）。</summary>
         public void ShowModal(UIElement content)
         {
+            _modalEpoch++;
+
             ModalHost.Content = content;
             ModalLayer.Visibility = Visibility.Visible;
+
+            if (!MotionEnabled)
+            {
+                ModalScrim.Opacity = 1;
+                ModalCard.Opacity = 1;
+                ModalCardShift.Y = 0;
+                return;
+            }
+
+            // 遮罩慢一点淡入，卡片更快，视觉上"先压暗再浮起"
+            Animate(ModalScrim, UIElement.OpacityProperty, 0, 1, 160);
+            Animate(ModalCard, UIElement.OpacityProperty, 0, 1, 130);
+            Animate(ModalCardShift, TranslateTransform.YProperty, 10, 0, 180);
+            Animate(ModalCardScale, ScaleTransform.ScaleXProperty, 0.985, 1, 180);
         }
 
         public void HideModal()
         {
-            ModalLayer.Visibility = Visibility.Collapsed;
-            ModalHost.Content = null;
+            if (ModalLayer.Visibility != Visibility.Visible) return;
+
+            var epoch = ++_modalEpoch;
+
+            void Collapse()
+            {
+                // 淡出期间又打开了新模态 → 这次收起作废
+                if (epoch != _modalEpoch) return;
+
+                ModalLayer.Visibility = Visibility.Collapsed;
+                ModalHost.Content = null;
+                ModalScrim.Opacity = 0;
+                ModalCard.Opacity = 0;
+                ModalCardShift.Y = 10;
+            }
+
+            if (!MotionEnabled)
+            {
+                Collapse();
+                return;
+            }
+
+            // 退出比进入快：退出是"确认完成"，拖沓会显得迟钝
+            Animate(ModalScrim, UIElement.OpacityProperty, null, 0, 120);
+            Animate(ModalCard, UIElement.OpacityProperty, null, 0, 110, Collapse);
+            Animate(ModalCardShift, TranslateTransform.YProperty, null, 6, 110);
+            Animate(ModalCardScale, ScaleTransform.ScaleXProperty, null, 0.99, 110);
         }
 
         public bool IsModalOpen => ModalLayer.Visibility == Visibility.Visible;
+
+        private static void Animate(IAnimatable target, DependencyProperty prop, double? from, double to,
+            int ms, Action onDone = null)
+        {
+            var anim = new DoubleAnimation
+            {
+                To = to,
+                Duration = TimeSpan.FromMilliseconds(ms),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+
+            if (from.HasValue) anim.From = from;
+
+            if (onDone != null)
+                anim.Completed += (s, e) => onDone();
+
+            target.BeginAnimation(prop, anim);
+        }
 
         // ---------------- Toast ----------------
 
@@ -188,17 +257,7 @@ namespace SlopeX.Windows
             _toastTimer.Start();
         }
 
-        private void AnimateToast(double to, int ms, Action onDone = null)
-        {
-            var anim = new DoubleAnimation
-            {
-                To = to,
-                Duration = TimeSpan.FromMilliseconds(ms),
-                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-            };
-
-            anim.Completed += (s, e) => onDone?.Invoke();
-            ToastLayer.BeginAnimation(OpacityProperty, anim);
-        }
+        private void AnimateToast(double to, int ms, Action onDone = null) =>
+            Animate(ToastLayer, OpacityProperty, null, to, ms, onDone);
     }
 }
