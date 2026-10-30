@@ -580,6 +580,43 @@
         </Style.Triggers>
     </Style>
 
+    <!-- ============ 细滑块 ============ -->
+    <!-- 用于"内容透明度"这类即时生效的微调；默认 Slider 模板太厚，会破坏留白 -->
+    <Style x:Key="SliderThin" TargetType="Slider">
+        <Setter Property="Height" Value="20"/>
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Slider">
+                    <Grid Height="20" Background="Transparent" VerticalAlignment="Center">
+                        <Border Height="3" CornerRadius="2" VerticalAlignment="Center"
+                                Background="{DynamicResource Paper3}"/>
+                        <Track x:Name="PART_Track" VerticalAlignment="Center">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="Slider.DecreaseLarge" Focusable="False"
+                                              Opacity="0" Height="20"/>
+                            </Track.DecreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb Width="12" Height="12" Focusable="False">
+                                    <Thumb.Template>
+                                        <ControlTemplate TargetType="Thumb">
+                                            <Ellipse Width="12" Height="12"
+                                                     Fill="{DynamicResource Primary}"/>
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Track.Thumb>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="Slider.IncreaseLarge" Focusable="False"
+                                              Opacity="0" Height="20"/>
+                            </Track.IncreaseRepeatButton>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ============ 转换器 ============ -->
     <ctl:BoolToVisibilityConverter x:Key="BoolToVis"/>
     <ctl:BoolToVisibilityConverter x:Key="BoolToVisInvert"/>
