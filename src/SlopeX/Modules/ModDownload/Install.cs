@@ -114,7 +114,10 @@ namespace SlopeX.Modules.ModDownload
         Fabric,
         Forge,
         NeoForge,
-        Modpack
+        Modpack,
+
+        /// <summary>补齐某个已存在版本的缺失文件（外部复制进来的版本常见）。</summary>
+        Libraries
     }
 
     /// <summary>安装任务：可观察的进度对象，供任务页展示。</summary>
@@ -164,6 +167,8 @@ namespace SlopeX.Modules.ModDownload
                         return "安装 NeoForge " +
                                (string.IsNullOrEmpty(LoaderVersion) ? "加载器" : LoaderVersion) +
                                $"（{BaseVersion}）";
+                    case InstallKind.Libraries:
+                        return "补全 " + VersionId + " 的缺失文件";
                     case InstallKind.Modpack:
                         return "导入整合包 " + (string.IsNullOrEmpty(PackPath)
                             ? VersionId
@@ -222,6 +227,12 @@ namespace SlopeX.Modules.ModDownload
                     VersionId = await NeoForgeInstaller.InstallAsync(Config.Current.GameDir, BaseVersion,
                         LoaderVersion, this, Cts.Token).ConfigureAwait(false);
                     Log.Info($"{VersionId} 安装完成");
+                }
+                else if (Kind == InstallKind.Libraries)
+                {
+                    var fixedCount = await VersionRepair.RepairAsync(Config.Current.GameDir, VersionId,
+                        this, Cts.Token).ConfigureAwait(false);
+                    Log.Info($"{VersionId} 补全完成：{fixedCount} 个文件");
                 }
                 else if (Kind == InstallKind.Modpack)
                 {
