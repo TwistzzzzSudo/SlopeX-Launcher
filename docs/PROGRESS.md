@@ -1,12 +1,12 @@
 # SlopeX Launcher 进度报告与实施计划
 
-> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-30 22:05
+> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-30 23:35
 > 对应产物：`SlopeX.exe` 1.0.0（自包含单文件，139 MB，win-x64）
 > 代码规模：40 个 C# / XAML 源文件，≈11,000 行
 > 版本控制：git 分支 `feature/neoforge`（NeoForge 安装），`main` 保持可构建；远端已公开 `github.com/TwistzzzzSudo/SlopeX-Launcher`
-> 当前状态：**进入视觉定案（S3）**——已补 Toast、空状态、DataList、模态焦点循环与出入场动效，组件缺口 5/7；模组管理（本地部分）已可用；登录错误已翻成可执行的中文提示；微软登录仍卡在 Mojang 白名单
-> 下一个执行项 = 模组管理第二步（Modrinth 搜索安装 + 依赖检查）；推送暂被加速器挡住（本地 ahead）
-> 本轮改动：新增 `ModMods/ModManager.cs` + `Controls/ModsPanel`（版本管理页内嵌面板）；CLI `mods-list`；`DataList` 组件样式；登录错误中文化；Toast / EmptyState / 模态动效（前两轮）
+> 当前状态：**进入视觉定案（S3）**——已补 Toast、空状态、DataList、模态焦点循环与出入场动效，组件缺口 5/7；模组管理（本地 + Modrinth 搜索安装）已可用；登录错误已翻成可执行的中文提示；微软登录仍卡在 Mojang 白名单
+> 下一个执行项 = 模组依赖冲突提示 / 更新检查；CurseForge 搜索待用户提供 API Key 后验证
+> 本轮改动：新增 `ModMods/Modrinth.cs`、`CurseForge.cs`、`ModInstaller.cs` + `ModSearchDialog`；设置页新增 CurseForge API Key；`Net` 增加带头部请求与单文件下载；CLI `mods-search|mods-install`
 > **工作量口径**：全文一律以「产出物 / 改动范围」描述，不使用时间估算。
 
 ---
@@ -60,7 +60,7 @@
 | **Forge 安装** | ✅ | 取官方推荐版本 → 下 installer → 用合适 Java 无头执行 `--installClient` → 校验产物；缺原版自动补装；已加载 AppleSkin 实测 |
 | **NeoForge 安装** | ✅ | MC 版本推导版本号 → 镜像取 installer → 预取 install_profile 依赖 → 无头执行 → 补运行期库；已加载 AppleSkin（NeoForge 版）实测 |
 | **登录错误提示** | ✅ | 403 未授权 / 401 / 429 / 5xx / 网络异常各有中文说法；403 那条直接告知「无状态查询页、约一周、再登录不报即通过」 |
-| **模组管理（本地）** | ✅ | 版本管理页每行「模组」进入面板：列表（含 jar 元数据）/ 启用禁用（.disabled 改名）/ 删除 / 打开目录；UIA 全流程实测 |
+| **模组管理** | ✅ | 本地：列表（jar 元数据）/ 启停 / 删除 / 打开目录；在线：Modrinth 搜索安装 + 必需依赖自动补齐；CurseForge 需自备 API Key；UIA 与 CLI 双向实测 |
 | **整合包导入** | ✅ | `.mrpack` / CurseForge zip / MultiMC 实例 / 普通 zip；自动补原版与加载器、下载模组、解压 overrides；已导入 Fabulously Optimized（149 模组）实测 |
 | **安装类型选择** | ✅ | 点「安装」弹出类型选择：原版 / Fabric / Forge / NeoForge 四选一；已安装版本仍可点（用于加装加载器或补齐文件） |
 | **便携（折中）** | ✅ | 配置与日志进 `SlopeXData\`，首次启用从 `%APPDATA%` 复制（原文件保留）；Java 运行时目录可配；目录不可写时整体回落 `%APPDATA%` |
@@ -89,6 +89,7 @@ ModMinecraft 版本扫描 / inheritsFrom 合并 / 强制存档隔离            
 ModJava      运行时探测 / 版本匹配 / 自动下载安装                   789 行
 ModLaunch    规则引擎 / classpath / natives / 命令行 / 进程         592 行
 ModDownload  原版 / Fabric / Forge / NeoForge / 整合包 / 任务中心   2,458 行
+ModMods      模组扫描 / 元数据 / 启停 / Modrinth / CurseForge      ≈900 行
 ModAccount   设备码登录 / XBL / XSTS / 档案 / 令牌刷新                494 行
 ModCli       无界面模式                                            816 行
 UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeService  4,158 行
@@ -340,6 +341,10 @@ UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeSe
 | 模态动效 | 用临时环境变量钩子开/关模态各截一张：开启后卡片居中不透明、背景被遮罩压暗；700ms 后关闭，遮罩与卡片完全消失、页面恢复（钩子验完已删除） |
 | 模组元数据解析 | `mods-list` 实测：AppleSkin 3.0.10+mc26.3（NeoForge，neoforge.mods.toml + MANIFEST 兜底）、AppleSkin 2.5.1+mc1.20.1（Forge，mods.toml）均正确解析 |
 | 模组启停闭环 | 点「禁用」→ 磁盘改名 `.jar.disabled`、状态翻转、Toast「已禁用 Sodium」；点「启用」→ 文件名恢复。两方向均实测 |
+| 模组搜索 | 「添加模组」对话框输入 jei → 20 条结果（作者 + 下载量），状态行「已按 Minecraft 1.20.1 / fabric 过滤」 |
+| 依赖自动补齐（Forge） | `mods-install 1.20.1-forge-47.4.28 jei` → JEI 15.74.0.233 + MezzConfig 0.6.10 两个文件，游戏内 JEI 日志出现 `mezz.jei.library.load.PluginCaller` |
+| 依赖自动补齐（Fabric） | `mods-install fabric-loader-0.20.1-1.20.1 jei` → JEI + MezzConfig + Fabric API；二次执行跳过已存在文件；启动 `Loading 61 mods` 进主菜单 |
+| CurseForge 无 Key | `mods-search … cf` → 「未配置 CurseForge API Key（设置里可填），无法搜索 CurseForge。」（有 Key 路径未实测） |
 | 安装类型对话框 | 点任意行「安装」→ 弹出居中卡片 + 遮罩；原版默认选中；Forge / NeoForge 置灰带「即将支持」；Esc 或「取消」关闭 |
 | 对话框端到端 | 已安装行 →「安装」→ 选 Fabric →「开始安装」→ 日志 `Fabric 0.20.1（26.3）安装完成：fabric-loader-0.20.1-26.3，依赖 7 个`，版本数 5 → 6 |
 | 便携迁移 | 首次运行后 `SlopeXData\config.json` 生成（含新字段 `JavaRuntimeDir` / `DismissLegacySavesHint`），`logs\` 已复制，`%APPDATA%\SlopeX\config.json` 保留未删 |
