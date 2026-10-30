@@ -562,6 +562,24 @@
         <Setter Property="MaxWidth" Value="520"/>
     </Style>
 
+    <!-- ============ DataList（列头 + 行） ============ -->
+    <!-- 列头与行使用同样的列宽定义，新列要两处同步 -->
+    <Style x:Key="DataListHeader" TargetType="TextBlock" BasedOn="{StaticResource TCaption}">
+        <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <Style x:Key="DataListRow" TargetType="Border">
+        <Setter Property="Padding" Value="10,8"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="CornerRadius" Value="{StaticResource R6}"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource Paper2}"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- ============ 转换器 ============ -->
     <ctl:BoolToVisibilityConverter x:Key="BoolToVis"/>
     <ctl:BoolToVisibilityConverter x:Key="BoolToVisInvert"/>
