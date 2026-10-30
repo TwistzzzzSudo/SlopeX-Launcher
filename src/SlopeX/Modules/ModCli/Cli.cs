@@ -79,6 +79,7 @@ namespace SlopeX.Modules.ModCli
                     Out("  install <版本>           安装原版版本");
                     Out("  verify <版本>            校验依赖/资源是否齐全");
                     Out("  repair <版本>            补齐缺失的库 / 客户端 jar / 资源（不改写版本 JSON）");
+                    Out("  diagnose <版本> [日志文本]  对最近一次启动失败做诊断（排障用）");
                     Out("  fix-libs <版本>          补齐缺失的依赖库（走镜像）");
                     Out("  msa-explain <状态码> [原文]  预览登录错误会被翻译成什么（排障用）");
                     Out("  mods-list <版本>         列出该版本 mods 目录的模组与元数据");
@@ -127,6 +128,9 @@ namespace SlopeX.Modules.ModCli
 
                 case "msa-explain":
                     return MsaExplain(args.FirstOrDefault(), string.Join(" ", args.Skip(1)));
+
+                case "diagnose":
+                    return Diagnose(args.FirstOrDefault(), string.Join(" ", args.Skip(1)));
 
                 case "repair":
                     return RepairVersion(args.FirstOrDefault());
@@ -565,6 +569,26 @@ namespace SlopeX.Modules.ModCli
 
             Out("—— 用户会看到的提示 ——");
             Out(Modules.ModAccount.Msa.ExplainHttpError(status, desc, null));
+            return 0;
+        }
+
+        /// <summary>排障用：对某个版本目录的日志（或追加的文本）跑一次诊断。</summary>
+        private static int Diagnose(string versionId, string extraText)
+        {
+            if (string.IsNullOrEmpty(versionId))
+            {
+                Out("用法：diagnose <版本> [日志文本]");
+                return 2;
+            }
+
+            var versionDir = Path.Combine(Paths.VersionsDir(Config.Current.GameDir), versionId);
+            var result = ModLaunch.Diagnosis.Analyze(versionDir, extraText, 1, TimeSpan.FromSeconds(30));
+
+            Out($"命中：{(result.Matched ? "是" : "否")}");
+            Out($"[{result.Title}]");
+            foreach (var line in result.Detail.Split('\n'))
+                Out("  " + line);
+            if (!string.IsNullOrEmpty(result.Action)) Out("建议动作：" + result.Action);
             return 0;
         }
 
