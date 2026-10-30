@@ -8,7 +8,7 @@
         Height="820" Width="1280" MinHeight="620" MinWidth="980"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None" ResizeMode="CanResize"
-        Background="{DynamicResource Bg}"
+        Background="Transparent" AllowsTransparency="True"
         FontFamily="{StaticResource UiFont}" FontSize="13"
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Ideal"
@@ -72,7 +72,10 @@
         </Style>
     </Window.Resources>
 
-    <Border x:Name="RootBorder" BorderBrush="{DynamicResource Line}" BorderThickness="1">
+    <!-- 圆角窗口：AllowsTransparency 让圆角外的区域透出桌面；
+         根边框负责画实心底色（WindowBg）与描边。最大化时由代码把圆角改回 0。 -->
+    <Border x:Name="RootBorder" Background="{DynamicResource WindowBg}"
+            CornerRadius="14" BorderBrush="{DynamicResource Line}" BorderThickness="1">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="46"/>

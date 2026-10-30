@@ -45,9 +45,21 @@ namespace SlopeX.Windows
             ApplyBackdrop();
             ApplyContentOpacityPanel();
 
+            RootBorder.SizeChanged += (s, e) => ApplyWindowCorner();
+            ApplyWindowCorner();
+
+            // 小屏 / 高缩放下 1280×820 可能超出可用区（例如 2560×1440 @200% 只有 1280×720 DIP），
+            // 超出部分会被屏幕切掉，底部状态栏看不见。这里按工作区收一下。
+            var work = SystemParameters.WorkArea;
+            Width = Math.Min(Width, Math.Max(MinWidth, work.Width - 40));
+            Height = Math.Min(Height, Math.Max(MinHeight, work.Height - 40));
+
             StateChanged += (s, e) =>
             {
                 BtnMax.Content = WindowState == WindowState.Maximized ? "\uE923" : "\uE922";
+
+                // 最大化时铺满屏幕，圆角会露出桌面的一块，必须归零
+                ApplyWindowCorner();
             };
 
             Loaded += async (s, e) =>
@@ -153,6 +165,32 @@ namespace SlopeX.Windows
             _ = RefreshStatusAsync();
         }
 
+        // ---------------- 圆角窗口 ----------------
+
+        private const double WindowCornerRadius = 14;
+
+        /// <summary>
+        /// 给根边框加圆角裁剪。
+        /// 只设 <c>Border.CornerRadius</c> 是不够的 —— 它只裁自己的背景，
+        /// 子元素（标题栏、侧栏、状态栏都各自画底色）仍会把四个角补成直角。
+        /// </summary>
+        private void ApplyWindowCorner()
+        {
+            if (RootBorder == null) return;
+
+            var radius = WindowState == WindowState.Maximized ? 0 : WindowCornerRadius;
+            RootBorder.CornerRadius = new CornerRadius(radius);
+
+            if (radius <= 0 || RootBorder.ActualWidth <= 0 || RootBorder.ActualHeight <= 0)
+            {
+                RootBorder.Clip = null;
+                return;
+            }
+
+            RootBorder.Clip = new System.Windows.Media.RectangleGeometry(
+                new Rect(0, 0, RootBorder.ActualWidth, RootBorder.ActualHeight), radius, radius);
+        }
+
         // ---------------- 内容透明度 ----------------
 
         /// <summary>
@@ -191,10 +229,15 @@ namespace SlopeX.Windows
 
         private void ApplyContentOpacity(double value)
         {
-            PageHost.Opacity = Math.Clamp(value, 0.35, 1.0);
+            var clamped = Math.Clamp(value, 0.35, 1.0);
+            PageHost.Opacity = clamped;
+
+            // 滑块面板本身也跟着淡，但下限 50% —— 再低就看不清、也不好拖了
+            if (OpacityPanel != null)
+                OpacityPanel.Opacity = Math.Max(0.5, clamped);
 
             if (OpacityLabel != null)
-                OpacityLabel.Text = Math.Round(value * 100) + "%";
+                OpacityLabel.Text = Math.Round(clamped * 100) + "%";
         }
 
         /// <summary>拖动结束才落盘，避免拖动过程中反复写配置文件。</summary>
