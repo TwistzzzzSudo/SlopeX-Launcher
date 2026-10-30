@@ -13,7 +13,11 @@ namespace SlopeX.Themes
         /// <summary>极简白纸（默认）。</summary>
         Light,
         /// <summary>极简墨纸。</summary>
-        Dark
+        Dark,
+        /// <summary>霓虹黄昏（合成波暮色插画 + 深紫卡片）。</summary>
+        Neon,
+        /// <summary>ViceCity（迈阿密暮色插画 + 深梅色卡片）。</summary>
+        ViceCity
     }
 
     /// <summary>
@@ -27,13 +31,27 @@ namespace SlopeX.Themes
     {
         private const string LightUri = "Themes/Palette.Light.xaml";
         private const string DarkUri = "Themes/Palette.Dark.xaml";
+        private const string NeonUri = "Themes/Palette.Neon.xaml";
+        private const string ViceCityUri = "Themes/Palette.ViceCity.xaml";
         private const string PersonalizeKey =
             @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
 
         private static bool _hooked;
 
-        /// <summary>当前生效的是否为深色。</summary>
+        /// <summary>当前生效的是否为深色（霓虹黄昏也算深色）。</summary>
         public static bool IsDark { get; private set; }
+
+        /// <summary>当前实际生效的外观（跟随系统时会解析成 Light / Dark）。</summary>
+        public static AppearanceMode CurrentMode { get; private set; } = AppearanceMode.Light;
+
+        /// <summary>当前是否是霓虹黄昏（决定是否显示矢量背景）。</summary>
+        public static bool IsNeon => CurrentMode == AppearanceMode.Neon;
+
+        /// <summary>当前是否是 ViceCity（决定是否显示位图背景）。</summary>
+        public static bool IsViceCity => CurrentMode == AppearanceMode.ViceCity;
+
+        /// <summary>当前主题是否用插画当背景（两种插画主题之一）。</summary>
+        public static bool HasArtBackdrop => IsNeon || IsViceCity;
 
         /// <summary>主题变化后触发（供将来需要联动重绘的控件使用）。</summary>
         public static event EventHandler Changed;
@@ -42,6 +60,8 @@ namespace SlopeX.Themes
         {
             "System" => AppearanceMode.System,
             "Dark" => AppearanceMode.Dark,
+            "Neon" => AppearanceMode.Neon,
+            "ViceCity" => AppearanceMode.ViceCity,
             _ => AppearanceMode.Light
         };
 
@@ -49,6 +69,8 @@ namespace SlopeX.Themes
         {
             AppearanceMode.System => "System",
             AppearanceMode.Dark => "Dark",
+            AppearanceMode.Neon => "Neon",
+            AppearanceMode.ViceCity => "ViceCity",
             _ => "Light"
         };
 
@@ -75,17 +97,26 @@ namespace SlopeX.Themes
         /// <summary>按指定模式应用主题（System 时实时读注册表）。</summary>
         public static void Apply(AppearanceMode mode, bool force = false)
         {
-            var dark = mode switch
+            // 跟随系统时解析成实际深浅色；霓虹是独立主题，不参与这个解析
+            var effective = mode switch
             {
-                AppearanceMode.Dark => true,
-                AppearanceMode.Light => false,
-                _ => IsSystemDark()
+                AppearanceMode.System => IsSystemDark() ? AppearanceMode.Dark : AppearanceMode.Light,
+                _ => mode
             };
 
-            if (!force && dark == IsDark) return;
+            if (!force && effective == CurrentMode) return;
 
-            IsDark = dark;
-            SwapPalette(dark ? DarkUri : LightUri);
+            CurrentMode = effective;
+            IsDark = effective != AppearanceMode.Light;
+
+            SwapPalette(effective switch
+            {
+                AppearanceMode.Neon => NeonUri,
+                AppearanceMode.ViceCity => ViceCityUri,
+                AppearanceMode.Dark => DarkUri,
+                _ => LightUri
+            });
+
             Changed?.Invoke(null, EventArgs.Empty);
         }
 
