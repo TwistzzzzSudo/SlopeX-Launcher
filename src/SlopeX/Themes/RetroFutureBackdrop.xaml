@@ -4,15 +4,31 @@
              IsHitTestVisible="False" ClipToBounds="True">
 
     <!--
-        复古未来背景：art/retro-future.jpg（1824×1280，与内容区同比例）
+        插画主题背景。
 
-        插画本身很亮，直接铺会让页面标题读不清，所以叠了两层处理：
+        图源不写进 XAML（<Image Source="pack://…">）——素材是可选的，缺失时那样写会
+        在 InitializeComponent 直接抛异常。改由代码后置调用 ArtSource.TryLoad：
+        拿到图就显示并隐藏 Fallback，拿不到就留着渐变当背景。
+
+        图的上层叠两层处理：
         1) 顶部暗角 —— 白字标题区需要更深的底；
         2) 整体轻微压暗 —— 把饱和度留在边缘，中心让给卡片。
     -->
 
     <Grid>
-        <Image Source="pack://application:,,,/Assets/retro-future.jpg"
+        <!-- 缺图时的兜底：深紫夜空 + 底部洋红辉光 -->
+        <Rectangle x:Name="Fallback">
+            <Rectangle.Fill>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#1B0A3C" Offset="0"/>
+                    <GradientStop Color="#2C0E52" Offset="0.55"/>
+                    <GradientStop Color="#4A1050" Offset="0.82"/>
+                    <GradientStop Color="#7A1B54" Offset="1"/>
+                </LinearGradientBrush>
+            </Rectangle.Fill>
+        </Rectangle>
+
+        <Image x:Name="Art" Visibility="Collapsed"
                Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"/>
 
         <!-- 顶部到中部的暗角 -->

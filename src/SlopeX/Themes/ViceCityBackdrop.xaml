@@ -4,15 +4,27 @@
              IsHitTestVisible="False" ClipToBounds="True">
 
     <!--
-        ViceCity 背景：art/vicecity.jpg（1920×1344，与内容区同比例）
+        ViceCity 背景。图源由代码后置加载（同 RetroFutureBackdrop 的理由）：
+        素材不进仓库，XAML 里硬写 pack:// 会在缺失时抛异常。
 
-        插画本身很亮，直接铺会让页面标题读不清，所以叠了两层处理：
-        1) 顶部暗角 —— 白字标题区需要更深的底；
-        2) 整体轻微压暗 —— 把饱和度留在边缘，中心让给卡片。
+        插画本身很亮，直接铺会让页面标题读不清，所以叠两层：
+        1) 顶部暗角；2) 整体轻微压暗。
     -->
 
     <Grid>
-        <Image Source="pack://application:,,,/Assets/vicecity.jpg"
+        <!-- 缺图时的兜底：暮色粉橙渐变 -->
+        <Rectangle x:Name="Fallback">
+            <Rectangle.Fill>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#1C0716" Offset="0"/>
+                    <GradientStop Color="#3A0E2C" Offset="0.5"/>
+                    <GradientStop Color="#79204A" Offset="0.82"/>
+                    <GradientStop Color="#C2416A" Offset="1"/>
+                </LinearGradientBrush>
+            </Rectangle.Fill>
+        </Rectangle>
+
+        <Image x:Name="Art" Visibility="Collapsed"
                Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"/>
 
         <Rectangle>

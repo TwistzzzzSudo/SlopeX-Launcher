@@ -22,14 +22,49 @@ namespace SlopeX.Modules.ModBase
         private static string _currentTrack;      // 当前曲目对应的资源名，避免同曲重播
         private static bool _initialized;
 
+        // 资源是否存在的探测结果（每个曲目只查一次）
+        private static readonly System.Collections.Generic.Dictionary<string, bool> _resourceCache = new();
+
         /// <summary>曲目切换或播放状态变化时触发（供 UI 更新图标）。</summary>
         public static event EventHandler StateChanged;
 
         /// <summary>当前是否处于暂停（或没有可播曲目）。</summary>
         public static bool IsPaused { get; private set; }
 
-        /// <summary>当前主题是否有背景音乐。</summary>
-        public static bool HasTrack => !string.IsNullOrEmpty(TrackFor(ThemeService.CurrentMode));
+        /// <summary>
+        /// 当前主题是否有可播放的背景音乐。
+        /// 不只看"这个主题该有曲目"，还要确认音频资源真的在包里 ——
+        /// 音频是可选素材（不进仓库），缺失时按钮应当直接隐藏，而不是点了没反应。
+        /// </summary>
+        public static bool HasTrack
+        {
+            get
+            {
+                var track = TrackFor(ThemeService.CurrentMode);
+                return !string.IsNullOrEmpty(track) && ResourceExists(track);
+            }
+        }
+
+        private static bool ResourceExists(string name)
+        {
+            if (_resourceCache.TryGetValue(name, out var cached)) return cached;
+
+            bool ok;
+            try
+            {
+                var uri = new Uri($"pack://application:,,,/music/{name}", UriKind.Absolute);
+                var info = System.Windows.Application.GetResourceStream(uri);
+                ok = info?.Stream != null;
+                info?.Stream?.Dispose();
+            }
+            catch
+            {
+                ok = false;
+            }
+
+            _resourceCache[name] = ok;
+            return ok;
+        }
 
         public static void Initialize()
         {

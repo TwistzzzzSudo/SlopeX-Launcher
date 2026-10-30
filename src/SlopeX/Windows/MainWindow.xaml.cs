@@ -268,6 +268,12 @@ namespace SlopeX.Windows
         {
             if (MusicIcon == null) return;
 
+            // 没有可播曲目（主题本身没有音乐，或音频素材缺失）就不显示按钮，
+            // 免得用户点了没有任何反应
+            var hasTrack = ThemeMusic.HasTrack;
+            MusicBtn.Visibility = hasTrack ? Visibility.Visible : Visibility.Collapsed;
+            if (!hasTrack) VolumePopup.IsOpen = false;
+
             // E767 = 喇叭（播放中）；E74F = 静音喇叭（已暂停）
             MusicIcon.Text = ThemeMusic.IsPaused ? "\uE74F" : "\uE767";
             MusicBtn.ToolTip = ThemeMusic.IsPaused ? "背景音乐：已暂停（左键继续）" : "背景音乐：播放中（左键暂停）";
