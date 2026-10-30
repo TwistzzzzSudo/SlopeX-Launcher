@@ -12,6 +12,9 @@
 
     <!-- 纸面层级：Bg 为基础面，Paper → Paper3 逐级加深（描边、悬停、选中、轨道） -->
     <SolidColorBrush x:Key="Bg" Color="#FFFFFF"/>
+    <!-- 卡片面：纸主题里与 Bg 同色；霓虹主题用它做"半透明卡片"。
+         单独留一个 token，是为了让换肤时卡片与窗口底可以分开调。 -->
+    <SolidColorBrush x:Key="Surface" Color="#FFFFFF"/>
     <SolidColorBrush x:Key="Paper" Color="#FAFAF8"/>
     <SolidColorBrush x:Key="Paper2" Color="#F2F2EE"/>
     <SolidColorBrush x:Key="Paper3" Color="#ECECE7"/>
@@ -34,6 +37,12 @@
     <SolidColorBrush x:Key="CloseHover" Color="#E5484D"/>
 
     <!-- 落在 Ink 上的前景色（主按钮文字、选中胶囊文字、勾选符号） -->
+    <!-- 主按钮的强调色。纸质主题里就是墨色本身；插画主题改用品牌色，避免出现一大块白/黑按钮。 -->
+    <SolidColorBrush x:Key="Primary" Color="#1A1A18"/>
+    <SolidColorBrush x:Key="PrimaryHover" Color="#33332F"/>
+    <SolidColorBrush x:Key="PrimaryPressed" Color="#0A0A08"/>
+    <SolidColorBrush x:Key="OnPrimary" Color="#FFFFFF"/>
+
     <SolidColorBrush x:Key="OnInk" Color="#FFFFFF"/>
 
     <!-- 落在 Bad / CloseHover 上的前景色 -->

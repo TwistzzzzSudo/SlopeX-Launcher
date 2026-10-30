@@ -1,0 +1,159 @@
+<UserControl x:Class="SlopeX.Themes.NeonBackdrop"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             IsHitTestVisible="False" ClipToBounds="True">
+
+    <!--
+        霓虹黄昏背景（纯矢量，无位图）
+
+        构图取自合成波（synthwave）经典暮色：落日、棕榈剪影、城市天际线、透视网格。
+        刻意不放人物与车辆——保持"背景"的定位，不抢内容。
+
+        画布固定 800×450，外层 Viewbox 用 UniformToFill 铺满窗口：
+        超宽/超窄时裁掉边缘，中心（落日与地平线）始终在场。
+    -->
+
+    <UserControl.Resources>
+        <!-- 天空渐变用绝对坐标（0→270），这样"太阳缝隙"里填同一支笔，
+             缝隙颜色与所在高度的天空完全一致，不用手调近似色 -->
+        <LinearGradientBrush x:Key="SkyBrush" MappingMode="Absolute"
+                             StartPoint="0,0" EndPoint="0,270">
+            <GradientStop Color="#2A0B44" Offset="0"/>
+            <GradientStop Color="#4A0F4E" Offset="0.30"/>
+            <GradientStop Color="#7A1A5A" Offset="0.55"/>
+            <GradientStop Color="#C03A66" Offset="0.80"/>
+            <GradientStop Color="#F0705E" Offset="0.93"/>
+            <GradientStop Color="#FFA766" Offset="1"/>
+        </LinearGradientBrush>
+
+        <LinearGradientBrush x:Key="GroundBrush" MappingMode="Absolute"
+                             StartPoint="0,270" EndPoint="0,450">
+            <GradientStop Color="#1E0A2E" Offset="0"/>
+            <GradientStop Color="#150523" Offset="0.45"/>
+            <GradientStop Color="#0E0318" Offset="1"/>
+        </LinearGradientBrush>
+
+        <LinearGradientBrush x:Key="SunBrush" MappingMode="Absolute"
+                             StartPoint="0,146" EndPoint="0,240">
+            <GradientStop Color="#FFF7DC" Offset="0"/>
+            <GradientStop Color="#FFE3A8" Offset="0.55"/>
+            <GradientStop Color="#FFC07A" Offset="1"/>
+        </LinearGradientBrush>
+
+        <RadialGradientBrush x:Key="HorizonGlow">
+            <GradientStop Color="#CCFF6AA8" Offset="0"/>
+            <GradientStop Color="#55FF6AA8" Offset="0.45"/>
+            <GradientStop Color="#00FF6AA8" Offset="1"/>
+        </RadialGradientBrush>
+    </UserControl.Resources>
+
+    <Viewbox Stretch="UniformToFill">
+        <Canvas Width="800" Height="450" ClipToBounds="True">
+
+            <!-- 1. 天空 -->
+            <Rectangle Canvas.Left="0" Canvas.Top="0" Width="800" Height="272" Fill="{StaticResource SkyBrush}"/>
+
+            <!-- 2. 星点（越靠上越密） -->
+            <Ellipse Canvas.Left="62"  Canvas.Top="38"  Width="2"   Height="2"   Fill="#FFE1F2" Opacity="0.85"/>
+            <Ellipse Canvas.Left="146" Canvas.Top="72"  Width="1.6" Height="1.6" Fill="#FFE1F2" Opacity="0.65"/>
+            <Ellipse Canvas.Left="228" Canvas.Top="30"  Width="2.2" Height="2.2" Fill="#FFE1F2" Opacity="0.8"/>
+            <Ellipse Canvas.Left="318" Canvas.Top="86"  Width="1.4" Height="1.4" Fill="#FFE1F2" Opacity="0.5"/>
+            <Ellipse Canvas.Left="392" Canvas.Top="44"  Width="1.8" Height="1.8" Fill="#FFE1F2" Opacity="0.6"/>
+            <Ellipse Canvas.Left="470" Canvas.Top="24"  Width="2"   Height="2"   Fill="#FFE1F2" Opacity="0.7"/>
+            <Ellipse Canvas.Left="548" Canvas.Top="66"  Width="1.6" Height="1.6" Fill="#FFE1F2" Opacity="0.55"/>
+            <Ellipse Canvas.Left="620" Canvas.Top="36"  Width="2.2" Height="2.2" Fill="#FFE1F2" Opacity="0.8"/>
+            <Ellipse Canvas.Left="702" Canvas.Top="82"  Width="1.5" Height="1.5" Fill="#FFE1F2" Opacity="0.5"/>
+            <Ellipse Canvas.Left="742" Canvas.Top="46"  Width="1.9" Height="1.9" Fill="#FFE1F2" Opacity="0.7"/>
+
+            <!-- 3. 落日（圆心 400,240 / 半径 100），底部会被天际线压住 -->
+            <Ellipse Canvas.Left="300" Canvas.Top="140" Width="200" Height="200" Fill="{StaticResource SunBrush}"/>
+
+            <!-- 3.1 复古横条：用天空渐变填，缝隙与背景严丝合缝 -->
+            <Rectangle Canvas.Left="300" Canvas.Top="196" Width="200" Height="6"  Fill="{StaticResource SkyBrush}"/>
+            <Rectangle Canvas.Left="300" Canvas.Top="214" Width="200" Height="6"  Fill="{StaticResource SkyBrush}"/>
+            <Rectangle Canvas.Left="300" Canvas.Top="231" Width="200" Height="7"  Fill="{StaticResource SkyBrush}"/>
+            <Rectangle Canvas.Left="300" Canvas.Top="247" Width="200" Height="8"  Fill="{StaticResource SkyBrush}"/>
+            <Rectangle Canvas.Left="300" Canvas.Top="264" Width="200" Height="9"  Fill="{StaticResource SkyBrush}"/>
+
+            <!-- 4. 地平线辉光 -->
+            <Ellipse Canvas.Left="140" Canvas.Top="150" Width="520" Height="270"
+                     Fill="{StaticResource HorizonGlow}"/>
+
+            <!-- 5. 天际线剪影（两层：远层稍亮，拉开纵深） -->
+            <Rectangle Canvas.Left="0"   Canvas.Top="238" Width="46" Height="46" Fill="#3E1358"/>
+            <Rectangle Canvas.Left="52"  Canvas.Top="214" Width="34" Height="70" Fill="#451662"/>
+            <Rectangle Canvas.Left="92"  Canvas.Top="246" Width="52" Height="38" Fill="#3E1358"/>
+            <Rectangle Canvas.Left="150" Canvas.Top="226" Width="30" Height="58" Fill="#451662"/>
+            <Rectangle Canvas.Left="186" Canvas.Top="252" Width="58" Height="32" Fill="#3E1358"/>
+            <Rectangle Canvas.Left="250" Canvas.Top="200" Width="28" Height="84" Fill="#451662"/>
+            <Rectangle Canvas.Left="284" Canvas.Top="236" Width="44" Height="48" Fill="#3E1358"/>
+            <Rectangle Canvas.Left="334" Canvas.Top="188" Width="30" Height="96" Fill="#4B1869"/>
+            <Rectangle Canvas.Left="370" Canvas.Top="222" Width="46" Height="62" Fill="#451662"/>
+            <Rectangle Canvas.Left="422" Canvas.Top="170" Width="26" Height="114" Fill="#4B1869"/>
+            <Rectangle Canvas.Left="454" Canvas.Top="228" Width="40" Height="56" Fill="#451662"/>
+            <Rectangle Canvas.Left="500" Canvas.Top="206" Width="30" Height="78" Fill="#4B1869"/>
+            <Rectangle Canvas.Left="536" Canvas.Top="244" Width="54" Height="40" Fill="#3E1358"/>
+            <Rectangle Canvas.Left="596" Canvas.Top="218" Width="32" Height="66" Fill="#451662"/>
+            <Rectangle Canvas.Left="634" Canvas.Top="248" Width="48" Height="36" Fill="#3E1358"/>
+            <Rectangle Canvas.Left="688" Canvas.Top="224" Width="30" Height="60" Fill="#451662"/>
+            <Rectangle Canvas.Left="724" Canvas.Top="240" Width="76" Height="44" Fill="#3E1358"/>
+
+            <!-- 6. 棕榈剪影（左高右低，画面更稳） -->
+            <!-- 左树：树干 -->
+            <Path Data="M104,286 C110,248 126,206 148,170 L160,175 C140,212 128,250 124,286 Z">
+                <Path.Fill>
+                    <SolidColorBrush Color="#2A0A3E"/>
+                </Path.Fill>
+            </Path>
+            <!-- 左树：叶片（从 150,168 向两侧散开） -->
+            <Path Data="M150,168 C126,142 96,134 68,144 C92,154 122,162 150,168 Z">
+                <Path.Fill><SolidColorBrush Color="#2A0A3E"/></Path.Fill>
+            </Path>
+            <Path Data="M150,168 C132,136 108,116 80,112 C100,130 126,152 150,168 Z">
+                <Path.Fill><SolidColorBrush Color="#2A0A3E"/></Path.Fill>
+            </Path>
+            <Path Data="M150,168 C152,132 166,102 190,84 C182,112 168,142 150,168 Z">
+                <Path.Fill><SolidColorBrush Color="#2A0A3E"/></Path.Fill>
+            </Path>
+            <Path Data="M150,168 C170,140 198,126 226,128 C202,142 176,156 150,168 Z">
+                <Path.Fill><SolidColorBrush Color="#2A0A3E"/></Path.Fill>
+            </Path>
+            <Path Data="M150,168 C142,148 128,132 108,124 C120,140 136,156 150,168 Z">
+                <Path.Fill><SolidColorBrush Color="#2A0A3E"/></Path.Fill>
+            </Path>
+
+            <!-- 右树：树干 -->
+            <Path Data="M688,290 C684,254 672,216 654,184 L666,178 C684,214 696,252 700,290 Z">
+                <Path.Fill><SolidColorBrush Color="#240835"/></Path.Fill>
+            </Path>
+            <!-- 右树：叶片（从 660,182 展开） -->
+            <Path Data="M660,182 C680,158 706,148 732,154 C710,166 684,174 660,182 Z">
+                <Path.Fill><SolidColorBrush Color="#240835"/></Path.Fill>
+            </Path>
+            <Path Data="M660,182 C668,154 686,132 712,122 C698,144 680,166 660,182 Z">
+                <Path.Fill><SolidColorBrush Color="#240835"/></Path.Fill>
+            </Path>
+            <Path Data="M660,182 C646,152 626,132 600,124 C616,144 638,168 660,182 Z">
+                <Path.Fill><SolidColorBrush Color="#240835"/></Path.Fill>
+            </Path>
+            <Path Data="M660,182 C640,170 616,164 594,170 C612,178 636,182 660,182 Z">
+                <Path.Fill><SolidColorBrush Color="#240835"/></Path.Fill>
+            </Path>
+
+            <!-- 7. 地面 -->
+            <Rectangle Canvas.Left="0" Canvas.Top="272" Width="800" Height="178" Fill="{StaticResource GroundBrush}"/>
+
+            <!-- 8. 透视网格（消失点在 400,272） -->
+            <Path Stroke="#FF3E8F" StrokeThickness="1" Opacity="0.32"
+                  Data="M400,272 L-260,450 M400,272 L-40,450 M400,272 L160,450
+                        M400,272 L320,450 M400,272 L480,450 M400,272 L640,450
+                        M400,272 L840,450 M400,272 L1060,450"/>
+            <Path Stroke="#FF3E8F" StrokeThickness="1" Opacity="0.28"
+                  Data="M0,272 L800,272 M0,284 L800,284 M0,300 L800,300 M0,322 L800,322
+                        M0,352 L800,352 M0,392 L800,392 M0,442 L800,442"/>
+
+            <!-- 9. 压暗层：插画是背景不是主角，亮度过高会跟文字抢注意力 -->
+            <Rectangle Canvas.Left="0" Canvas.Top="0" Width="800" Height="450" Fill="#33000000"/>
+        </Canvas>
+    </Viewbox>
+</UserControl>

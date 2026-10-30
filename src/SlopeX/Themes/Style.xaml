@@ -76,7 +76,7 @@
 
     <!-- ============ 容器 ============ -->
     <Style x:Key="Card" TargetType="Border">
-        <Setter Property="Background" Value="{DynamicResource Bg}"/>
+        <Setter Property="Background" Value="{DynamicResource Surface}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource Line}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="10"/>
@@ -100,8 +100,8 @@
 
     <!-- ============ 按钮 ============ -->
     <Style x:Key="BtnPrimary" TargetType="Button">
-        <Setter Property="Foreground" Value="{DynamicResource OnInk}"/>
-        <Setter Property="Background" Value="{DynamicResource Ink}"/>
+        <Setter Property="Foreground" Value="{DynamicResource OnPrimary}"/>
+        <Setter Property="Background" Value="{DynamicResource Primary}"/>
         <Setter Property="FontSize" Value="13.5"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Height" Value="40"/>
@@ -118,10 +118,10 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource InkHover}"/>
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource PrimaryHover}"/>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource InkPressed}"/>
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource PrimaryPressed}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="bd" Property="Background" Value="{DynamicResource Paper2}"/>

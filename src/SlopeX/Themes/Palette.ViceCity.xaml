@@ -1,0 +1,49 @@
+<!--
+    ViceCity —— 第四套主题（迈阿密暮色插画 + 深紫卡片）
+
+    与「霓虹黄昏」同属"插画型主题"：Bg 透明，内容区底部铺 art/vicecity.jpg。
+    区别是插画更亮更饱和（粉红天空 + 白色日轮），因此：
+    - 卡片面比霓虹更深、更不透明，保证白字压在亮图上依然清楚；
+    - 插画顶部加了一层暗色渐变（在 ViceCityBackdrop 里），页面标题才读得清。
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- 基础面：透明，露出插画 -->
+    <SolidColorBrush x:Key="Bg" Color="#00000000"/>
+
+    <!-- 卡片面：接近不透明的深梅色。插画很亮，卡片必须压得住 -->
+    <SolidColorBrush x:Key="Surface" Color="#F51C0716"/>
+
+    <SolidColorBrush x:Key="Paper" Color="#F5230A1D"/>
+    <SolidColorBrush x:Key="Paper2" Color="#F52E0F28"/>
+    <SolidColorBrush x:Key="Paper3" Color="#F53A1434"/>
+
+    <!-- 描边：带一点洋红，避免和插画的粉脱节 -->
+    <SolidColorBrush x:Key="Line" Color="#5A2148"/>
+    <SolidColorBrush x:Key="LineStrong" Color="#84345F"/>
+
+    <!-- 文字：暖白，压在任何深色卡片上都清晰 -->
+    <SolidColorBrush x:Key="Ink" Color="#FFF4F9"/>
+    <SolidColorBrush x:Key="InkHover" Color="#FFDCEB"/>
+    <SolidColorBrush x:Key="InkPressed" Color="#F5C3D9"/>
+    <SolidColorBrush x:Key="Sub" Color="#F2C8DD"/>
+    <SolidColorBrush x:Key="Muted" Color="#C99BB6"/>
+
+    <!-- 语义色：青 / 琥珀 / 洋红，取自插画里的霓虹反光 -->
+    <SolidColorBrush x:Key="Good" Color="#5BE7F0"/>
+    <SolidColorBrush x:Key="Warn" Color="#FFC46B"/>
+    <SolidColorBrush x:Key="Bad" Color="#FF4F8B"/>
+    <SolidColorBrush x:Key="CloseHover" Color="#E23A68"/>
+
+    <!-- 主按钮的强调色。纸质主题里就是墨色本身；插画主题改用品牌色，避免出现一大块白/黑按钮。 -->
+    <SolidColorBrush x:Key="Primary" Color="#FF3D7F"/>
+    <SolidColorBrush x:Key="PrimaryHover" Color="#FF5C93"/>
+    <SolidColorBrush x:Key="PrimaryPressed" Color="#E62F6E"/>
+    <SolidColorBrush x:Key="OnPrimary" Color="#FFFFFF"/>
+
+    <SolidColorBrush x:Key="OnInk" Color="#2A0A22"/>
+    <SolidColorBrush x:Key="OnBad" Color="#FFFFFF"/>
+
+    <SolidColorBrush x:Key="Scrim" Color="#B3100412"/>
+</ResourceDictionary>
