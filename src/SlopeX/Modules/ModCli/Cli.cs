@@ -80,6 +80,7 @@ namespace SlopeX.Modules.ModCli
                     Out("  verify <版本>            校验依赖/资源是否齐全");
                     Out("  repair <版本>            补齐缺失的库 / 客户端 jar / 资源（不改写版本 JSON）");
                     Out("  diagnose <版本> [日志文本]  对最近一次启动失败做诊断（排障用）");
+                    Out("  music-test               播放当前主题背景音乐 3 秒并打印进度（排障用）");
                     Out("  fix-libs <版本>          补齐缺失的依赖库（走镜像）");
                     Out("  msa-explain <状态码> [原文]  预览登录错误会被翻译成什么（排障用）");
                     Out("  mods-list <版本>         列出该版本 mods 目录的模组与元数据");
@@ -128,6 +129,9 @@ namespace SlopeX.Modules.ModCli
 
                 case "msa-explain":
                     return MsaExplain(args.FirstOrDefault(), string.Join(" ", args.Skip(1)));
+
+                case "music-test":
+                    return MusicTest();
 
                 case "diagnose":
                     return Diagnose(args.FirstOrDefault(), string.Join(" ", args.Skip(1)));
@@ -573,6 +577,29 @@ namespace SlopeX.Modules.ModCli
         }
 
         /// <summary>排障用：对某个版本目录的日志（或追加的文本）跑一次诊断。</summary>
+        /// <summary>排障用：确认背景音乐真的在走（MediaPlayer 不报错也可能没出声音）。</summary>
+        private static int MusicTest()
+        {
+            // CLI 模式没有走 App 的启动流程，主题服务还没应用过配置
+            Themes.ThemeService.Apply(Themes.ThemeService.ParseMode(Config.Current.Appearance), force: true);
+            ThemeMusic.Initialize();
+
+            Out($"主题：{Themes.ThemeService.CurrentMode}，有曲目：{(ThemeMusic.HasTrack ? "是" : "否")}");
+            if (!ThemeMusic.HasTrack) return 1;
+
+            Out($"音量：{ThemeMusic.Volume:P0}");
+            System.Threading.Thread.Sleep(3000);
+
+            var playerField = typeof(ThemeMusic).GetField("Player",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            var player = playerField?.GetValue(null) as System.Windows.Media.MediaPlayer;
+
+            if (player == null) { Out("读不到 MediaPlayer"); return 1; }
+
+            Out($"播放位置：{player.Position:mm\\:ss}，状态：{player.HasAudio}");
+            return player.Position.TotalSeconds > 1 ? 0 : 1;
+        }
+
         private static int Diagnose(string versionId, string extraText)
         {
             if (string.IsNullOrEmpty(versionId))

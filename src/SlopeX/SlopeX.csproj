@@ -25,6 +25,8 @@
     <Resource Include="..\..\ico\SlopeX.ico" Link="Assets\SlopeX.ico" />
     <Resource Include="..\..\art\vicecity.jpg" Link="Assets\vicecity.jpg" />
     <Resource Include="..\..\art\retro-future.jpg" Link="Assets\retro-future.jpg" />
+    <Resource Include="..\..\music\vicecity.mp3" Link="music\vicecity.mp3" />
+    <Resource Include="..\..\music\retro-future.mp3" Link="music\retro-future.mp3" />
   </ItemGroup>
 
 </Project>
