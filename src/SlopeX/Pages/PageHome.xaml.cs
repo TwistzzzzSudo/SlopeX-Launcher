@@ -42,7 +42,7 @@ namespace SlopeX.Pages
                 var gameDir = Config.Current.GameDir;
                 _versions = VersionManager.Scan(gameDir);
                 RecentList.ItemsSource = _versions;
-                EmptyHint.Visibility = _versions.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+                EmptyPanel.Visibility = _versions.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
                 _selected = _versions.FirstOrDefault(v => v.Id == Config.Current.LastVersion)
                             ?? _versions.FirstOrDefault();

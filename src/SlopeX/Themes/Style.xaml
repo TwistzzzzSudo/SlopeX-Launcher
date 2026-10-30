@@ -523,6 +523,45 @@
         </Setter>
     </Style>
 
+    <!-- ============ 空状态 ============ -->
+    <!--
+        列表为空时统一用这两行：标题说明"这里是什么"，提示说明"下一步做什么"。
+        不要在页面里临时拼 TextBlock —— 字号、颜色、行距会各写一套。
+    -->
+    <Style x:Key="EmptyTitle" TargetType="TextBlock" BasedOn="{StaticResource TSub}">
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="TextAlignment" Value="Center"/>
+    </Style>
+
+    <Style x:Key="EmptyHint" TargetType="TextBlock" BasedOn="{StaticResource TCaption}">
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="TextAlignment" Value="Center"/>
+        <Setter Property="Margin" Value="0,7,0,0"/>
+        <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
+    </Style>
+
+    <!-- ============ Toast 轻提示 ============ -->
+    <!--
+        非阻断反馈（已保存、已复制、已导入）。反色底（Ink）保证在任何页面底色上都读得清，
+        文字用 OnInk。由 MainWindow.ShowToast 控制显隐与时长。
+    -->
+    <Style x:Key="ToastCard" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Ink}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource R8}"/>
+        <Setter Property="Padding" Value="16,10"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Bottom"/>
+        <Setter Property="Margin" Value="0,0,0,26"/>
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
+    </Style>
+
+    <Style x:Key="ToastText" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource OnInk}"/>
+        <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+        <Setter Property="MaxWidth" Value="520"/>
+    </Style>
+
     <!-- ============ 转换器 ============ -->
     <ctl:BoolToVisibilityConverter x:Key="BoolToVis"/>
     <ctl:BoolToVisibilityConverter x:Key="BoolToVisInvert"/>

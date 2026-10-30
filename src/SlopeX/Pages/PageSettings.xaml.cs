@@ -243,6 +243,7 @@ namespace SlopeX.Pages
             UpdateThemeChips();
 
             MainWindow.Current?.SetStatus("主题已切换：" + ThemeName(ThemeService.IsDark), null);
+                MainWindow.Current?.ShowToast(ThemeName(ThemeService.IsDark) + " 已应用");
             Log.Info($"主题切换为 {Config.Current.Appearance}（{(ThemeService.IsDark ? "深色" : "浅色")}）");
         }
 
@@ -303,6 +304,7 @@ namespace SlopeX.Pages
                 RuntimeDirHint.Text = "当前生效：" + c.JavaRuntimeDirHint;
                 MainWindow.Current?.ApplyConfigChanged();
                 MainWindow.Current?.SetStatus("设置已保存", null);
+                MainWindow.Current?.ShowToast("设置已保存");
                 Log.Info("设置已保存");
             }
             catch (Exception ex)
