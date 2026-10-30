@@ -17,6 +17,15 @@ dist/
 /runtime/
 *.sxpart
 
+# ---- 主题素材（私人内容，永不入库）----
+# 主题插画与背景音乐只保留在本地。仓库里不含它们，克隆下来照常能编译运行：
+# 背景退化为纯渐变、没有背景音乐（见 Themes/ArtSource.cs 与 ThemeMusic）。
+/art/
+/music/
+
+# 主题相关的界面截图同样不传
+/docs/screenshots/theme-*.png
+
 # ---- 工具产生的临时文件 ----
 *.log
 *.tmp

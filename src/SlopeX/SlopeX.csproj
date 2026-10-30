@@ -23,10 +23,20 @@
   <ItemGroup>
     <!-- 同一份 ico 也作为 WPF 资源嵌入，供窗口 / 任务栏图标使用（复制进包，不重复维护副本） -->
     <Resource Include="..\..\ico\SlopeX.ico" Link="Assets\SlopeX.ico" />
-    <Resource Include="..\..\art\vicecity.jpg" Link="Assets\vicecity.jpg" />
-    <Resource Include="..\..\art\retro-future.jpg" Link="Assets\retro-future.jpg" />
-    <Resource Include="..\..\music\vicecity.mp3" Link="music\vicecity.mp3" />
-    <Resource Include="..\..\music\retro-future.mp3" Link="music\retro-future.mp3" />
+
+    <!--
+      主题素材（插画 + 背景音乐）是可选的：它们是私人素材，不进仓库。
+      Condition="Exists(...)" 让"没有素材的干净克隆"也能编译通过 ——
+      主题会退化为纯渐变背景、无背景音乐（见 Themes/ArtSource.cs 与 ThemeMusic）。
+    -->
+    <Resource Include="..\..\art\vicecity.jpg" Link="Assets\vicecity.jpg"
+              Condition="Exists('$(MSBuildThisFileDirectory)..\..\art\vicecity.jpg')" />
+    <Resource Include="..\..\art\retro-future.jpg" Link="Assets\retro-future.jpg"
+              Condition="Exists('$(MSBuildThisFileDirectory)..\..\art\retro-future.jpg')" />
+    <Resource Include="..\..\music\vicecity.mp3" Link="music\vicecity.mp3"
+              Condition="Exists('$(MSBuildThisFileDirectory)..\..\music\vicecity.mp3')" />
+    <Resource Include="..\..\music\retro-future.mp3" Link="music\retro-future.mp3"
+              Condition="Exists('$(MSBuildThisFileDirectory)..\..\music\retro-future.mp3')" />
   </ItemGroup>
 
 </Project>
