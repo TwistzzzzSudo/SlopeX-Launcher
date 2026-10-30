@@ -114,6 +114,8 @@ if ($ClickText -ne "") {
         foreach ($target in ($ClickText -split '\|')) {
             if ($target -eq "") { continue }
 
+
+
             $aeRoot2 = [System.Windows.Automation.AutomationElement]::FromHandle($hwnd)
             $condBtn = New-Object System.Windows.Automation.PropertyCondition(
                 [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
@@ -124,6 +126,8 @@ if ($ClickText -ne "") {
             $condAny = New-Object System.Windows.Automation.OrCondition($condBtn, $condRadio)
 
             $clicked = $false
+            for ($attempt = 0; $attempt -lt 6 -and -not $clicked; $attempt++) {
+            if ($attempt -gt 0) { Start-Sleep -Milliseconds 1500 }
             foreach ($b in $aeRoot2.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condAny)) {
                 $kids = $b.FindAll([System.Windows.Automation.TreeScope]::Descendants,
                     [System.Windows.Automation.Condition]::TrueCondition)
@@ -163,6 +167,7 @@ if ($ClickText -ne "") {
                     break
                 }
             }
+            }   # attempt 循环
             if (-not $clicked) { Write-Output ("CLICK_TARGET_NOT_FOUND=" + $target) }
             $after = if ($PostClickWaitMs -ge 0) { $PostClickWaitMs } else { $PostWaitMs }
             Start-Sleep -Milliseconds $after
