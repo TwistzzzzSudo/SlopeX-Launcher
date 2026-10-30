@@ -31,13 +31,17 @@
                     <StackPanel>
                         <TextBlock Style="{StaticResource TSection}" Text="主题"/>
                         <TextBlock Style="{StaticResource TCaption}" Margin="0,4,0,12" TextWrapping="Wrap"
-                                   Text="默认「极简白纸」，可跟随 Windows 深浅色。"/>
+                                   Text="默认「极简白纸」，可跟随 Windows 深浅色；「霓虹黄昏」与「ViceCity」是带插画的深色主题。"/>
                         <StackPanel Orientation="Horizontal">
                             <ToggleButton x:Name="ChipThemeSystem" Style="{StaticResource Chip}" Content="跟随系统"
                                           Click="ThemeChip_Click"/>
                             <ToggleButton x:Name="ChipThemeLight" Style="{StaticResource Chip}" Content="极简白纸"
                                           Click="ThemeChip_Click"/>
                             <ToggleButton x:Name="ChipThemeDark" Style="{StaticResource Chip}" Content="极简墨纸"
+                                          Click="ThemeChip_Click"/>
+                            <ToggleButton x:Name="ChipThemeNeon" Style="{StaticResource Chip}" Content="霓虹黄昏"
+                                          Click="ThemeChip_Click"/>
+                            <ToggleButton x:Name="ChipThemeVice" Style="{StaticResource Chip}" Content="ViceCity"
                                           Click="ThemeChip_Click"/>
                         </StackPanel>
                         <TextBlock x:Name="ThemeHint" Style="{StaticResource TCaption}" Margin="0,8,0,0"

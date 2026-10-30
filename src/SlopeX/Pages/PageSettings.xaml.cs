@@ -237,7 +237,9 @@ namespace SlopeX.Pages
 
         private void ThemeChip_Click(object sender, RoutedEventArgs e)
         {
-            var mode = ReferenceEquals(sender, ChipThemeDark) ? AppearanceMode.Dark
+            var mode = ReferenceEquals(sender, ChipThemeVice) ? AppearanceMode.ViceCity
+                     : ReferenceEquals(sender, ChipThemeNeon) ? AppearanceMode.Neon
+                     : ReferenceEquals(sender, ChipThemeDark) ? AppearanceMode.Dark
                      : ReferenceEquals(sender, ChipThemeSystem) ? AppearanceMode.System
                      : AppearanceMode.Light;
 
@@ -246,12 +248,19 @@ namespace SlopeX.Pages
             ThemeService.Apply(mode, force: true);
             UpdateThemeChips();
 
-            MainWindow.Current?.SetStatus("主题已切换：" + ThemeName(ThemeService.IsDark), null);
-                MainWindow.Current?.ShowToast(ThemeName(ThemeService.IsDark) + " 已应用");
+            var applied = ThemeName(ThemeService.CurrentMode);
+            MainWindow.Current?.SetStatus("主题已切换：" + applied, null);
+            MainWindow.Current?.ShowToast(applied + " 已应用");
             Log.Info($"主题切换为 {Config.Current.Appearance}（{(ThemeService.IsDark ? "深色" : "浅色")}）");
         }
 
-        private static string ThemeName(bool dark) => dark ? "极简墨纸" : "极简白纸";
+        private static string ThemeName(AppearanceMode mode) => mode switch
+        {
+            AppearanceMode.Neon => "霓虹黄昏",
+            AppearanceMode.ViceCity => "ViceCity",
+            AppearanceMode.Dark => "极简墨纸",
+            _ => "极简白纸"
+        };
 
         /// <summary>三选一互斥 + 说明文字。</summary>
         private void UpdateThemeChips()
@@ -259,6 +268,8 @@ namespace SlopeX.Pages
             var mode = ThemeService.ParseMode(Config.Current.Appearance);
 
             ChipThemeSystem.IsChecked = mode == AppearanceMode.System;
+            ChipThemeNeon.IsChecked = mode == AppearanceMode.Neon;
+            ChipThemeVice.IsChecked = mode == AppearanceMode.ViceCity;
             ChipThemeLight.IsChecked = mode == AppearanceMode.Light;
             ChipThemeDark.IsChecked = mode == AppearanceMode.Dark;
 
@@ -266,8 +277,11 @@ namespace SlopeX.Pages
             {
                 AppearanceMode.System =>
                     "跟随系统：Windows 当前为" + (ThemeService.IsSystemDark() ? "深色" : "浅色") +
-                    " → 使用「" + ThemeName(ThemeService.IsDark) + "」",
+                    " → 使用「" + ThemeName(ThemeService.CurrentMode) + "」",
+                AppearanceMode.Light => "固定浅色：使用「极简白纸」（默认）",
                 AppearanceMode.Dark => "固定深色：使用「极简墨纸」",
+                AppearanceMode.Neon => "插画主题：「霓虹黄昏」——矢量绘制的合成波暮色，卡片半透明",
+                AppearanceMode.ViceCity => "插画主题：「ViceCity」——迈阿密暮色位图，卡片近乎不透明",
                 _ => "固定浅色：使用「极简白纸」（默认）"
             };
         }

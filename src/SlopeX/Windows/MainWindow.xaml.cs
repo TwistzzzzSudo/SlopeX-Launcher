@@ -35,6 +35,10 @@ namespace SlopeX.Windows
             InitializeComponent();
             Current = this;
 
+            // 霓虹主题才有插画背景；主题切换时跟着显隐
+            Themes.ThemeService.Changed += (s2, e2) => ApplyBackdrop();
+            ApplyBackdrop();
+
             StateChanged += (s, e) =>
             {
                 BtnMax.Content = WindowState == WindowState.Maximized ? "\uE923" : "\uE922";
@@ -141,6 +145,13 @@ namespace SlopeX.Windows
         {
             UpdateAccount();
             _ = RefreshStatusAsync();
+        }
+
+        /// <summary>只有霓虹黄昏需要矢量背景，其余主题保持纯色纸面。</summary>
+        private void ApplyBackdrop()
+        {
+            Backdrop.Visibility = Themes.ThemeService.IsNeon ? Visibility.Visible : Visibility.Collapsed;
+            ViceBackdrop.Visibility = Themes.ThemeService.IsViceCity ? Visibility.Visible : Visibility.Collapsed;
         }
 
         // ---------------- 模态 ----------------

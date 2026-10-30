@@ -31,7 +31,16 @@ namespace SlopeX.Pages
             InitializeComponent();
         }
 
-        public void OnShown() => Reload();
+        public void OnShown()
+        {
+            Reload();
+
+            // 每次回到首页都从顶部开始。
+            // 注意要等布局与焦点处理完（ContextIdle）再滚 —— 直接同步调用会被
+            // "把焦点控件滚进视野"的默认行为覆盖掉，表现就是标题被切掉一截。
+            Dispatcher.BeginInvoke(new Action(() => PageScroll.ScrollToTop()),
+                System.Windows.Threading.DispatcherPriority.ContextIdle);
+        }
 
         public async void Reload()
         {
