@@ -60,7 +60,20 @@ namespace SlopeX.Controls
             catch (Exception ex)
             {
                 if (_finished) return;
-                StatusText.Text = "登录失败：" + ex.Message;
+
+                // 网络层错误常常是"加速器没开/线路断了"，原始异常信息对用户没有意义
+                var message = ex.Message;
+                var isNetwork = ex is System.Net.Http.HttpRequestException ||
+                                ex.InnerException is System.Net.Http.HttpRequestException;
+
+                if (isNetwork)
+                    message = "网络连接失败，无法访问微软或 Mojang 的服务器。\n" +
+                              "请检查网络，或开启加速器后重试。\n" +
+                              "也可以先用「离线登录」进入游戏。";
+                else if (ex is System.TimeoutException || ex is System.Threading.Tasks.TaskCanceledException)
+                    message = "连接超时。请检查网络后重试。";
+
+                StatusText.Text = "登录失败：" + message;
                 Log.Warn("微软登录失败：" + ex.Message);
             }
         }

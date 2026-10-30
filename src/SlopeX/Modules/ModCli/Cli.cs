@@ -79,6 +79,7 @@ namespace SlopeX.Modules.ModCli
                     Out("  install <版本>           安装原版版本");
                     Out("  verify <版本>            校验依赖/资源是否齐全");
                     Out("  fix-libs <版本>          补齐缺失的依赖库（走镜像）");
+                    Out("  msa-explain <状态码> [原文]  预览登录错误会被翻译成什么（排障用）");
                     Out("  plan <版本>              打印启动命令行（不启动）");
                     Out("  launch <版本>            启动游戏");
                     Out("  fabric-list <原版版本>   列出该原版可用的 Fabric 加载器");
@@ -108,6 +109,9 @@ namespace SlopeX.Modules.ModCli
 
                 case "install":
                     return Install(args.FirstOrDefault());
+
+                case "msa-explain":
+                    return MsaExplain(args.FirstOrDefault(), string.Join(" ", args.Skip(1)));
 
                 case "fix-libs":
                     return FixLibs(args.FirstOrDefault());
@@ -441,6 +445,21 @@ namespace SlopeX.Modules.ModCli
 
             Out($"NeoForge 安装完成：{installedId}（耗时 {sw.Elapsed.TotalSeconds:0.0} 秒）");
             Out($"游戏目录：{VersionEnv.Resolve(Config.Current.GameDir, installedId)}");
+            return 0;
+        }
+
+        /// <summary>排障用：直接看某个 HTTP 状态会被翻译成什么提示，不必真的登录一次。</summary>
+        private static int MsaExplain(string statusText, string desc)
+        {
+            if (!int.TryParse(statusText, out var status))
+            {
+                Out("用法：msa-explain <状态码> [错误原文]");
+                Out("例：msa-explain 403 \"Invalid app registration, see https://aka.ms/AppRegInfo\"");
+                return 2;
+            }
+
+            Out("—— 用户会看到的提示 ——");
+            Out(Modules.ModAccount.Msa.ExplainHttpError(status, desc, null));
             return 0;
         }
 
