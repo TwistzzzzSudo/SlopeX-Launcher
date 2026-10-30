@@ -54,6 +54,10 @@ namespace SlopeX.Pages
 
                 DataDirText.Text = Paths.DataDir;
                 InputRuntimeDir.Text = c.JavaRuntimeDir ?? "";
+                InputCfKey.Text = c.CurseForgeApiKey ?? "";
+                CfKeyHint.Text = string.IsNullOrEmpty(c.CurseForgeApiKey)
+                    ? "未填写：CurseForge 搜索不可用"
+                    : "已填写：可在模组搜索里切换到 CurseForge";
                 RuntimeDirHint.Text = "当前生效：" + c.JavaRuntimeDirHint;
 
                 ChipMirror.IsChecked = c.UseMirror;
@@ -299,6 +303,10 @@ namespace SlopeX.Pages
                 c.UseMirror = ChipMirror.IsChecked == true;
 
                 c.JavaRuntimeDir = (InputRuntimeDir.Text ?? "").Trim();
+                c.CurseForgeApiKey = (InputCfKey.Text ?? "").Trim();
+                CfKeyHint.Text = string.IsNullOrEmpty(c.CurseForgeApiKey)
+                    ? "未填写：CurseForge 搜索不可用"
+                    : "已填写：可在模组搜索里切换到 CurseForge";
 
                 c.Save();
                 RuntimeDirHint.Text = "当前生效：" + c.JavaRuntimeDirHint;

@@ -308,6 +308,27 @@
                     </StackPanel>
                 </Border>
 
+                <!-- 模组来源 -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,14">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource TSection}" Text="模组来源"/>
+                        <TextBlock Style="{StaticResource TCaption}" Margin="0,4,0,12" TextWrapping="Wrap"
+                                   Text="Modrinth 免 Key 直接可搜；CurseForge 搜索必须填官方 API Key（免费，console.curseforge.com 申请）。"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="112"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Style="{StaticResource TSub}" Text="CurseForge Key"
+                                       VerticalAlignment="Center"/>
+                            <TextBox x:Name="InputCfKey" Grid.Column="1" Style="{StaticResource Input}"
+                                     ToolTip="留空表示只用 Modrinth"/>
+                        </Grid>
+                        <TextBlock x:Name="CfKeyHint" Style="{StaticResource TCaption}" Margin="112,6,0,0"
+                                   TextWrapping="Wrap" Text=""/>
+                    </StackPanel>
+                </Border>
+
                 <!-- 关于 -->
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
