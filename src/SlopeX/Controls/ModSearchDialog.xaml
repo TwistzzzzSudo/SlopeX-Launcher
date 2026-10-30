@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              FontFamily="{StaticResource UiFont}">
 
-    <!-- 模组搜索：Modrinth 免 Key；CurseForge 需要用户自己在设置里填 API Key -->
+    <!-- 模组搜索：只有一个来源 Modrinth（免 Key），不再做多来源切换 -->
 
     <StackPanel>
         <Grid>
@@ -17,7 +17,6 @@
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
@@ -40,8 +39,6 @@
 
             <Button Grid.Column="1" Style="{StaticResource BtnGhost}" Content="搜索" Margin="8,0,0,0"
                     Click="Search_Click"/>
-            <Button x:Name="SourceBtn" Grid.Column="2" Style="{StaticResource BtnGhost}" Margin="8,0,0,0"
-                    Click="Source_Click" ToolTip="切换来源：Modrinth / CurseForge"/>
         </Grid>
 
         <TextBlock x:Name="StatusText" Style="{StaticResource TCaption}" Margin="0,10,0,0"
@@ -75,9 +72,5 @@
                 </ListBox.ItemTemplate>
             </ListBox>
         </Border>
-
-        <Button Style="{StaticResource BtnText}" Content="在设置里填写 CurseForge API Key"
-                HorizontalAlignment="Left" Margin="0,8,0,0" Click="OpenSettingsHint_Click"
-                x:Name="CfHintBtn" Visibility="Collapsed"/>
     </StackPanel>
 </UserControl>

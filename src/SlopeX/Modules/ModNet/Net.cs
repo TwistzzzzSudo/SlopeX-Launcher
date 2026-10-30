@@ -88,37 +88,6 @@ namespace SlopeX.Modules.ModNet
             return JsonNode.Parse(text);
         }
 
-        /// <summary>
-        /// 带自定义请求头的 GET（CurseForge 需要 x-api-key）。
-        /// 失败时把响应体带进异常——对方的错误信息（比如 Key 无效）比状态码有用得多。
-        /// </summary>
-        public static async Task<JsonNode> GetJsonWithHeadersAsync(string url, CancellationToken ct = default,
-            params (string Name, string Value)[] headers)
-        {
-            using var req = new HttpRequestMessage(HttpMethod.Get, url);
-            foreach (var (name, value) in headers)
-            {
-                if (!string.IsNullOrWhiteSpace(value))
-                    req.Headers.TryAddWithoutValidation(name, value);
-            }
-
-            using var resp = await Client.SendAsync(req, HttpCompletionOption.ResponseContentRead, ct)
-                .ConfigureAwait(false);
-            var text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-
-            if (!resp.IsSuccessStatusCode)
-                throw new IOException($"HTTP {(int)resp.StatusCode}：{TrimForMessage(text)}");
-
-            return JsonNode.Parse(text);
-        }
-
-        private static string TrimForMessage(string text)
-        {
-            if (string.IsNullOrWhiteSpace(text)) return "（空响应）";
-            text = text.Replace("\r", " ").Replace("\n", " ").Trim();
-            return text.Length <= 200 ? text : text.Substring(0, 200) + "…";
-        }
-
         public static async Task<JsonNode> GetJsonAsync(string url, CancellationToken ct = default)
         {
             var text = await GetStringAsync(url, ct);

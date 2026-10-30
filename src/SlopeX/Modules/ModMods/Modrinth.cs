@@ -12,8 +12,8 @@ namespace SlopeX.Modules.ModMods
     /// <summary>搜索到的一个模组（来源无关的视图模型）。</summary>
     public sealed class ModSearchHit
     {
-        public string Source { get; set; } = "";      // Modrinth / CurseForge
-        public string ProjectId { get; set; } = "";   // Modrinth 用字符串 ID，CurseForge 用数字 ID 的字符串形式
+        public string Source { get; set; } = "Modrinth";   // 目前只有 Modrinth
+        public string ProjectId { get; set; } = "";   // Modrinth 的项目 ID（字符串）的字符串形式
         public string Slug { get; set; } = "";
         public string Title { get; set; } = "";
         public string Description { get; set; } = "";

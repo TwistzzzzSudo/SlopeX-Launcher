@@ -81,9 +81,9 @@ namespace SlopeX.Modules.ModMods
 
                 files.Add(list[0]);
 
-                // 依赖只对 Modrinth 做：CurseForge 的文件级依赖需要再多一次请求，
-                // 且作者常把依赖写在描述里而不是元数据里，收益低。
-                if (cur.Source != "Modrinth" || depth >= 2) continue;
+                // 依赖递归最多两层：够覆盖"模组 → 前置 → 前置的前置"这种常见结构，
+                // 再深就容易把整包依赖链一次拖下来。
+                if (depth >= 2) continue;
 
                 var deps = await ModrinthSource.RequiredDepsAsync(cur.ProjectId, list[0].VersionLabel,
                     mcVersion, loader, ct).ConfigureAwait(false);
@@ -170,11 +170,7 @@ namespace SlopeX.Modules.ModMods
 
         private static Task<List<ModFileRef>> ListFilesAsync(ModSearchHit hit, string mc, string loader,
             CancellationToken ct)
-        {
-            return hit.Source == "CurseForge"
-                ? CurseForgeSource.ListFilesAsync(hit.ProjectId, mc, loader, ct)
-                : ModrinthSource.ListFilesAsync(hit.ProjectId, mc, loader, ct);
-        }
+            => ModrinthSource.ListFilesAsync(hit.ProjectId, mc, loader, ct);
 
         /// <summary>由版本 ID 推断 MC 版本与加载器（用于界面自动带出过滤条件）。</summary>
         public static (string McVersion, string Loader) ResolveTarget(string gameDir, string versionId)

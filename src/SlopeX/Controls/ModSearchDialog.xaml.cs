@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
@@ -14,8 +12,9 @@ namespace SlopeX.Controls
     /// <summary>
     /// 模组搜索对话框。
     ///
-    /// 来源：Modrinth 免 Key 直接可用；CurseForge 必须用户自己在设置里填 API Key
-    /// （官方没有公开搜索接口，实测无 Key 一律 403）。
+    /// 只有一个来源：Modrinth（免 Key、有公开搜索接口）。
+    /// CurseForge 的搜索被移除了 —— 官方接口强制 x-api-key，没有 Key 一律 403，
+    /// 而保留一个"填了 Key 才能用"的入口，实际价值不抵它带来的复杂度。
     /// </summary>
     public partial class ModSearchDialog : UserControl
     {
@@ -23,7 +22,6 @@ namespace SlopeX.Controls
         private readonly string _mcVersion;
         private readonly string _loader;
 
-        private string _source = "Modrinth";
         private CancellationTokenSource _cts;
 
         /// <summary>装完一个模组后通知外面刷新列表。</summary>
@@ -42,43 +40,11 @@ namespace SlopeX.Controls
 
             if (string.IsNullOrEmpty(loader))
                 StatusText.Text = "这个版本没有安装加载器，模组装进去也不会被加载。建议先安装 Fabric / Forge / NeoForge。";
-
-            UpdateSourceButton();
         }
 
         public void FocusQuery()
         {
             QueryBox.Focus();
-        }
-
-        private void UpdateSourceButton()
-        {
-            SourceBtn.Content = "来源：" + _source;
-
-            var cfUsable = CurseForgeSource.HasKey;
-            CfHintBtn.Visibility = cfUsable ? Visibility.Collapsed : Visibility.Visible;
-        }
-
-        private void Source_Click(object sender, RoutedEventArgs e)
-        {
-            if (_source == "Modrinth")
-            {
-                if (!CurseForgeSource.HasKey)
-                {
-                    StatusText.Text = "CurseForge 搜索需要 API Key：官方接口强制 x-api-key，没有 Key 一律 403。\n" +
-                                      "到 console.curseforge.com 免费申请后填进「设置」，就能在这里切换来源。";
-                    CfHintBtn.Visibility = Visibility.Visible;
-                    return;
-                }
-
-                _source = "CurseForge";
-            }
-            else
-            {
-                _source = "Modrinth";
-            }
-
-            UpdateSourceButton();
         }
 
         private void Query_KeyDown(object sender, KeyEventArgs e)
@@ -105,14 +71,12 @@ namespace SlopeX.Controls
             _cts?.Cancel();
             _cts = new CancellationTokenSource();
 
-            StatusText.Text = $"正在从 {_source} 搜索「{query}」…";
+            StatusText.Text = $"正在搜索「{query}」…";
             ResultList.ItemsSource = null;
 
             try
             {
-                var hits = _source == "CurseForge"
-                    ? await CurseForgeSource.SearchAsync(query, _mcVersion, _loader, 20, 0, _cts.Token)
-                    : await ModrinthSource.SearchAsync(query, _mcVersion, _loader, 20, 0, _cts.Token);
+                var hits = await ModrinthSource.SearchAsync(query, _mcVersion, _loader, 20, 0, _cts.Token);
 
                 if (_cts.IsCancellationRequested) return;
 
@@ -128,7 +92,7 @@ namespace SlopeX.Controls
             catch (Exception ex)
             {
                 StatusText.Text = "搜索失败：" + ex.Message;
-                Log.Warn($"模组搜索失败（{_source}）：{ex.Message}");
+                Log.Warn($"模组搜索失败：{ex.Message}");
             }
         }
 
@@ -164,12 +128,6 @@ namespace SlopeX.Controls
             {
                 b.IsEnabled = true;
             }
-        }
-
-        private void OpenSettingsHint_Click(object sender, RoutedEventArgs e)
-        {
-            MainWindow.Current?.HideModal();
-            MainWindow.Current?.Navigate(4);   // 4 = 设置页
         }
 
         private void Close_Click(object sender, RoutedEventArgs e) => MainWindow.Current?.HideModal();

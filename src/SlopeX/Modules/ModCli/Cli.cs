@@ -85,8 +85,8 @@ namespace SlopeX.Modules.ModCli
                     Out("  fix-libs <版本>          补齐缺失的依赖库（走镜像）");
                     Out("  msa-explain <状态码> [原文]  预览登录错误会被翻译成什么（排障用）");
                     Out("  mods-list <版本>         列出该版本 mods 目录的模组与元数据");
-                    Out("  mods-search <版本> <关键词> [cf]   搜索模组（默认 Modrinth，cf 需 API Key）");
-                    Out("  mods-install <版本> <关键词|项目ID> [cf]   搜索并安装首个结果（含必需依赖）");
+                    Out("  mods-search <版本> <关键词>   搜索模组（Modrinth）");
+                    Out("  mods-install <版本> <关键词|项目ID>   搜索并安装首个结果（含必需依赖）");
                     Out("  plan <版本>              打印启动命令行（不启动）");
                     Out("  launch <版本>            启动游戏");
                     Out("  fabric-list <原版版本>   列出该原版可用的 Fabric 加载器");
@@ -118,12 +118,12 @@ namespace SlopeX.Modules.ModCli
                     return Install(args.FirstOrDefault());
 
                 case "mods-search":
-                    return ModsSearch(args.FirstOrDefault(), args.Skip(1).FirstOrDefault(),
-                        args.Skip(2).FirstOrDefault());
+                    WarnRemovedCurseForge(args);
+                    return ModsSearch(args.FirstOrDefault(), args.Skip(1).FirstOrDefault());
 
                 case "mods-install":
-                    return ModsInstall(args.FirstOrDefault(), args.Skip(1).FirstOrDefault(),
-                        args.Skip(2).FirstOrDefault());
+                    WarnRemovedCurseForge(args);
+                    return ModsInstall(args.FirstOrDefault(), args.Skip(1).FirstOrDefault());
 
                 case "mods-list":
                     return ModsList(args.FirstOrDefault());
@@ -479,18 +479,32 @@ namespace SlopeX.Modules.ModCli
         }
 
         /// <summary>排障用：直接看某个 HTTP 状态会被翻译成什么提示，不必真的登录一次。</summary>
-        private static int ModsSearch(string versionId, string query, string source)
+        /// <summary>
+        /// 老命令里可以带 cf 指定 CurseForge。该来源已移除，
+        /// 但直接忽略第三个参数会让人以为"选了 CurseForge 却出来 Modrinth"，所以明说一句。
+        /// </summary>
+        private static void WarnRemovedCurseForge(System.Collections.Generic.List<string> args)
+        {
+            var extra = args.Skip(2).FirstOrDefault();
+            if (extra == null) return;
+
+            if (extra.Equals("cf", StringComparison.OrdinalIgnoreCase) ||
+                extra.Equals("curseforge", StringComparison.OrdinalIgnoreCase))
+                Out("CurseForge 搜索已移除（官方要求 API Key），本次按 Modrinth 搜索。");
+        }
+
+        private static int ModsSearch(string versionId, string query)
         {
             if (string.IsNullOrEmpty(versionId) || string.IsNullOrEmpty(query))
             {
-                Out("用法：mods-search <版本> <关键词> [cf]");
+                Out("用法：mods-search <版本> <关键词>");
                 return 2;
             }
 
             var (mc, loader) = ModMods.ModInstaller.ResolveTarget(Config.Current.GameDir, versionId);
             Out($"目标：{versionId} → MC {mc}，加载器 {(string.IsNullOrEmpty(loader) ? "原版" : loader)}");
 
-            var hits = Search(source, query, mc, loader);
+            var hits = Search(query, mc, loader);
             if (hits.Count == 0) { Out("（无结果）"); return 0; }
 
             foreach (var h in hits)
@@ -498,18 +512,18 @@ namespace SlopeX.Modules.ModCli
             return 0;
         }
 
-        private static int ModsInstall(string versionId, string query, string source)
+        private static int ModsInstall(string versionId, string query)
         {
             if (string.IsNullOrEmpty(versionId) || string.IsNullOrEmpty(query))
             {
-                Out("用法：mods-install <版本> <关键词|项目ID> [cf]");
+                Out("用法：mods-install <版本> <关键词|项目ID>");
                 return 2;
             }
 
             var (mc, loader) = ModMods.ModInstaller.ResolveTarget(Config.Current.GameDir, versionId);
             Out($"目标：{versionId} → MC {mc}，加载器 {(string.IsNullOrEmpty(loader) ? "原版" : loader)}");
 
-            var hits = Search(source, query, mc, loader);
+            var hits = Search(query, mc, loader);
             if (hits.Count == 0) { Out("（无结果）"); return 1; }
 
             var hit = hits[0];
@@ -532,24 +546,9 @@ namespace SlopeX.Modules.ModCli
             }
         }
 
-        private static System.Collections.Generic.List<ModMods.ModSearchHit> Search(string source, string query,
+        private static System.Collections.Generic.List<ModMods.ModSearchHit> Search(string query,
             string mc, string loader)
-        {
-            if (string.Equals(source, "cf", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(source, "curseforge", StringComparison.OrdinalIgnoreCase))
-            {
-                if (!ModMods.CurseForgeSource.HasKey)
-                {
-                    Out("未配置 CurseForge API Key（设置里可填），无法搜索 CurseForge。");
-                    return new System.Collections.Generic.List<ModMods.ModSearchHit>();
-                }
-
-                return ModMods.CurseForgeSource.SearchAsync(query, mc, loader)
-                    .GetAwaiter().GetResult();
-            }
-
-            return ModMods.ModrinthSource.SearchAsync(query, mc, loader).GetAwaiter().GetResult();
-        }
+            => ModMods.ModrinthSource.SearchAsync(query, mc, loader).GetAwaiter().GetResult();
 
         private static int ModsList(string versionId)
         {

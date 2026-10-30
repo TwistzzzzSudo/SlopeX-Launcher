@@ -78,7 +78,7 @@ src/SlopeX/
 - **Fabric 安装**：选最新稳定加载器自动拼 `inheritsFrom` 版本、下加载器依赖；原版缺失时先补原版
 - **启动失败诊断**：非零退出时读 `latest.log` 与最新崩溃报告，把内存不足 / Java 版本 / 缺前置模组 / 重复模组 / Mixin 冲突 / 版本不匹配 / 账号校验 / 显卡驱动等特征翻译成人话；认不出来就直说，并给出日志位置
 - **版本补全**：启动时若缺文件（外部复制进来的版本没带 `libraries`/`assets`），弹窗一键补齐——只补缺的部分，不改写版本 JSON
-- **模组管理**：按版本管理 `mods\`（列表、启用/禁用、删除、打开目录）；从 **Modrinth** 搜索并安装，自动补齐必需依赖；**CurseForge** 在设置里填入自己的 API Key 后同样可搜索安装
+- **模组管理**：按版本管理 `mods\`（列表、启用/禁用、删除、打开目录）；从 **Modrinth** 搜索并安装，自动补齐必需依赖
 - **整合包导入**：支持 `.mrpack`（Modrinth）、CurseForge 整合包 zip、MultiMC / Prism 实例包、只有 mods 的普通压缩包；自动装对应原版与加载器、下载模组、解压 overrides
 - **Forge 安装**：取官方推荐的加载器版本，下载官方 installer 并用合适的 Java 无头执行（`--installClient`）；原版缺失时先补原版。进度以「已用时长」呈现——installer 本身不输出百分比，这是该路线的已知取舍
 - **NeoForge 安装**：按 MC 版本推导 NeoForge 版本号（1.21.1 → 21.1.x、26.3 → 26.3.0.x），installer 与其依赖全部走 BMCLAPI 镜像（官方 maven 域名在国内常被 DNS 污染）；原版缺失时先补原版
@@ -222,7 +222,7 @@ tools/make-icon.ps1  # 由矢量几何重新生成 ico；改标记形状时改�
 - **仅支持 Windows**（WPF + 注册表探测）
 - **微软登录需要 Mojang 白名单**：第三方启动器访问 Minecraft API 需要人工审核（[说明](https://help.minecraft.net/hc/en-us/articles/16254801392141)，[申请表](https://aka.ms/mce-reviewappid)）。当前 client_id 尚未在名单内，登录会停在 `403 Invalid app registration`；审核通过后无需改代码即可使用
 - 模组只补必需依赖，不检查版本区间冲突：会自动装 `dependency_type=required` 的依赖，但不会判断「这包要求 X ≥ 2.0，你装的是 1.8」这类问题，冲突仍以游戏日志为准
-- **CurseForge 搜索必须自备 API Key**：官方接口强制 `x-api-key`，无 Key 一律 403；网站内部接口被 Cloudflare 拦、第三方镜像 cfwidget 只有按 ID 查询没有搜索。
+- 模组搜索只支持 Modrinth：CurseForge 的搜索接口强制 API Key（无 Key 一律 403），因此**不提供** CurseForge 搜索安装；CurseForge 只支持整合包 zip 导入
 - CurseForge 整合包依赖 cfwidget 公开镜像反查文件名，首次导入要拉取每个模组的文件列表（大包可达数十 MB 元数据），结果缓存 30 天
 - 存档隔离为强制行为，不提供"共享材质包 / 共用存档"的混合模式；需要共用时由用户自行复制文件
 - Java 自动下载只覆盖 x64 / arm64 桌面平台，且依赖国内镜像的可达性；镜像全部不可达时需手动指定 Java

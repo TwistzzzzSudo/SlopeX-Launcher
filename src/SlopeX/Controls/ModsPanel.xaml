@@ -30,7 +30,7 @@
                 <Button Style="{StaticResource BtnGhost}" Content="刷新" Margin="8,0,0,0"
                         Click="Refresh_Click"/>
                 <Button Style="{StaticResource BtnPrimary}" Content="添加模组" Height="32" Padding="16,0"
-                        Margin="8,0,0,0" Click="AddMod_Click" ToolTip="从 Modrinth 搜索并安装（CurseForge 需 API Key）"/>
+                        Margin="8,0,0,0" Click="AddMod_Click" ToolTip="从 Modrinth 搜索并安装，自动补齐必需依赖"/>
             </StackPanel>
         </Grid>
 

@@ -5,7 +5,7 @@
 > 代码规模：40 个 C# / XAML 源文件，≈11,000 行
 > 版本控制：git 分支 `feature/neoforge`（NeoForge 安装），`main` 保持可构建；远端已公开 `github.com/TwistzzzzSudo/SlopeX-Launcher`
 > 当前状态：**进入视觉定案（S3）**——已补 Toast、空状态、DataList、模态焦点循环与出入场动效，组件缺口 5/7；模组管理（本地 + Modrinth 搜索安装）已可用；登录错误已翻成可执行的中文提示；微软登录仍卡在 Mojang 白名单
-> 下一个执行项 = 模组更新检查 / 依赖冲突提示；CurseForge 搜索待用户提供 API Key 后验证
+> 下一个执行项 = 模组更新检查 / 依赖冲突提示
 > 本轮改动：主题素材（插画 / 背景音乐）移出版本库，`csproj` 改为 `Exists` 条件引用，缺素材时自动退化为渐变背景且隐藏音乐按钮；窗口圆角 + 分层窗口实现
 > **工作量口径**：全文一律以「产出物 / 改动范围」描述，不使用时间估算。
 
@@ -63,7 +63,7 @@
 | **圆角窗口** | ✅ | 四角 14px 圆角，最大化归零；Win10 走分层窗口 + 几何裁剪，新增 `WindowBg` 令牌保证窗口底始终不透明 |
 | **启动失败诊断** | ✅ | 9 条规则（内存 / Java / 缺依赖 / 重复模组 / Mixin / 版本不匹配 / 账号 / 驱动 / 端口）+ 未命中时给日志位置；`diagnose` CLI 可复现 |
 | **版本补全** | ✅ | `VersionRepair.Check/RepairAsync`：库 / 客户端 jar / 资源索引 / 资源对象；启动失败自动提示一键补全并重试；CLI `repair` |
-| **模组管理** | ✅ | 本地：列表（jar 元数据）/ 启停 / 删除 / 打开目录；在线：Modrinth 搜索安装 + 必需依赖自动补齐；CurseForge 需自备 API Key；UIA 与 CLI 双向实测 |
+| **模组管理** | ✅ | 本地：列表（jar 元数据）/ 启停 / 删除 / 打开目录；在线：Modrinth 搜索安装 + 必需依赖自动补齐（CurseForge 搜索已移除）；UIA 与 CLI 双向实测 |
 | **整合包导入** | ✅ | `.mrpack` / CurseForge zip / MultiMC 实例 / 普通 zip；自动补原版与加载器、下载模组、解压 overrides；已导入 Fabulously Optimized（149 模组）实测 |
 | **安装类型选择** | ✅ | 点「安装」弹出类型选择：原版 / Fabric / Forge / NeoForge 四选一；已安装版本仍可点（用于加装加载器或补齐文件） |
 | **便携（折中）** | ✅ | 配置与日志进 `SlopeXData\`，首次启用从 `%APPDATA%` 复制（原文件保留）；Java 运行时目录可配；目录不可写时整体回落 `%APPDATA%` |
@@ -92,7 +92,7 @@ ModMinecraft 版本扫描 / inheritsFrom 合并 / 强制存档隔离            
 ModJava      运行时探测 / 版本匹配 / 自动下载安装                   789 行
 ModLaunch    规则引擎 / classpath / natives / 命令行 / 进程         592 行
 ModDownload  原版 / Fabric / Forge / NeoForge / 整合包 / 任务中心   2,458 行
-ModMods      模组扫描 / 元数据 / 启停 / Modrinth / CurseForge      ≈900 行
+ModMods      模组扫描 / 元数据 / 启停 / Modrinth 搜索与安装        ≈740 行
 ModAccount   设备码登录 / XBL / XSTS / 档案 / 令牌刷新                494 行
 ModCli       无界面模式                                            816 行
 UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeService  4,158 行
@@ -353,7 +353,6 @@ UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeSe
 | 模组搜索 | 「添加模组」对话框输入 jei → 20 条结果（作者 + 下载量），状态行「已按 Minecraft 1.20.1 / fabric 过滤」 |
 | 依赖自动补齐（Forge） | `mods-install 1.20.1-forge-47.4.28 jei` → JEI 15.74.0.233 + MezzConfig 0.6.10 两个文件，游戏内 JEI 日志出现 `mezz.jei.library.load.PluginCaller` |
 | 依赖自动补齐（Fabric） | `mods-install fabric-loader-0.20.1-1.20.1 jei` → JEI + MezzConfig + Fabric API；二次执行跳过已存在文件；启动 `Loading 61 mods` 进主菜单 |
-| CurseForge 无 Key | `mods-search … cf` → 「未配置 CurseForge API Key（设置里可填），无法搜索 CurseForge。」（有 Key 路径未实测） |
 | 安装类型对话框 | 点任意行「安装」→ 弹出居中卡片 + 遮罩；原版默认选中；Forge / NeoForge 置灰带「即将支持」；Esc 或「取消」关闭 |
 | 对话框端到端 | 已安装行 →「安装」→ 选 Fabric →「开始安装」→ 日志 `Fabric 0.20.1（26.3）安装完成：fabric-loader-0.20.1-26.3，依赖 7 个`，版本数 5 → 6 |
 | 便携迁移 | 首次运行后 `SlopeXData\config.json` 生成（含新字段 `JavaRuntimeDir` / `DismissLegacySavesHint`），`logs\` 已复制，`%APPDATA%\SlopeX\config.json` 保留未删 |
