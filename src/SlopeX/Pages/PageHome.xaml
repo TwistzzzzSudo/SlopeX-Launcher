@@ -166,8 +166,11 @@
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
-                            <TextBlock x:Name="EmptyHint" Style="{StaticResource TCaption}" Margin="8,4,8,10"
-                                       Text="还没有安装任何版本。" Visibility="Collapsed"/>
+                            <StackPanel x:Name="EmptyPanel" Margin="8,6,8,12" Visibility="Collapsed">
+                                <TextBlock Style="{StaticResource EmptyTitle}" Text="还没有可启动的版本"/>
+                                <TextBlock Style="{StaticResource EmptyHint}"
+                                           Text="去「下载」页安装一个版本，装好会自动出现在这里"/>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 
