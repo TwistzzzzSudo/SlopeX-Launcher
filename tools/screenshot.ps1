@@ -9,7 +9,8 @@ param(
     [int]$Scroll = 0,
     [int]$PostWaitMs = 1200,
     [int]$PostClickWaitMs = -1,
-    [switch]$KeepOpen
+    [switch]$KeepOpen,
+    [switch]$FullScreen
 )
 
 Add-Type -AssemblyName System.Drawing
@@ -130,14 +131,33 @@ if ($ClickText -ne "") {
                 foreach ($k in $kids) { if ($k.Current.Name) { $lab = $lab + $k.Current.Name } }
                 if (-not $lab) { $lab = $b.Current.Name }
                 if ($lab -like "*$target*") {
-                    $r = $b.Current.BoundingRectangle
-                    $cx = [int]($r.X + $r.Width / 2)
-                    $cy = [int]($r.Y + $r.Height / 2)
-                    [WinCap]::SetCursorPos($cx, $cy) | Out-Null
-                    Start-Sleep -Milliseconds 200
-                    [WinCap]::mouse_event(0x0002, 0, 0, 0, [IntPtr]::Zero)
-                    Start-Sleep -Milliseconds 60
-                    [WinCap]::mouse_event(0x0004, 0, 0, 0, [IntPtr]::Zero)
+                    # 每次点击前重新置前：其他窗口（IDE / 预览面板）可能在这期间抢走焦点，
+                    # 否则 SetCursorPos + mouse_event 会点到别人的窗口上
+                    [WinCap]::SetForegroundWindow($hwnd) | Out-Null
+                    Start-Sleep -Milliseconds 120
+                    # 优先用 UIA 的 Invoke / Select：不依赖窗口层级，桌面被其他程序挡住也能点中。
+                    # 只有在控件不支持（少数自绘控件）时才退回鼠标坐标点击。
+                    $pattern = $null
+                    $did = $false
+                    try {
+                        if ($b.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) {
+                            $pattern.Invoke(); $did = $true
+                        }
+                        elseif ($b.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref]$pattern)) {
+                            $pattern.Select(); $did = $true
+                        }
+                    } catch { $did = $false }
+
+                    if (-not $did) {
+                        $r = $b.Current.BoundingRectangle
+                        $cx = [int]($r.X + $r.Width / 2)
+                        $cy = [int]($r.Y + $r.Height / 2)
+                        [WinCap]::SetCursorPos($cx, $cy) | Out-Null
+                        Start-Sleep -Milliseconds 200
+                        [WinCap]::mouse_event(0x0002, 0, 0, 0, [IntPtr]::Zero)
+                        Start-Sleep -Milliseconds 60
+                        [WinCap]::mouse_event(0x0004, 0, 0, 0, [IntPtr]::Zero)
+                    }
                     Write-Output ("CLICKED=" + $lab)
                     $clicked = $true
                     break
@@ -191,12 +211,23 @@ if ($ClickRelX -ge 0 -and $ClickRelY -ge 0) {
     Write-Output "CLICKED $px,$py"
 }
 
-$bmp = New-Object System.Drawing.Bitmap($w, $h)
-$g = [System.Drawing.Graphics]::FromImage($bmp)
-$hdc = $g.GetHdc()
-$ok = [WinCap]::PrintWindow($hwnd, $hdc, 2)
-$g.ReleaseHdc($hdc)
-$g.Dispose()
+if ($FullScreen) {
+    Add-Type -AssemblyName System.Windows.Forms
+    $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+    $bmp = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
+    $g = [System.Drawing.Graphics]::FromImage($bmp)
+    $g.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+    $g.Dispose()
+    $ok = $true
+}
+else {
+    $bmp = New-Object System.Drawing.Bitmap($w, $h)
+    $g = [System.Drawing.Graphics]::FromImage($bmp)
+    $hdc = $g.GetHdc()
+    $ok = [WinCap]::PrintWindow($hwnd, $hdc, 2)
+    $g.ReleaseHdc($hdc)
+    $g.Dispose()
+}
 $bmp.Save($Out, [System.Drawing.Imaging.ImageFormat]::Png)
 $bmp.Dispose()
 Write-Output "PRINTWINDOW=$ok SAVED=$Out"
