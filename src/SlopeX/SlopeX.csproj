@@ -24,6 +24,7 @@
     <!-- 同一份 ico 也作为 WPF 资源嵌入，供窗口 / 任务栏图标使用（复制进包，不重复维护副本） -->
     <Resource Include="..\..\ico\SlopeX.ico" Link="Assets\SlopeX.ico" />
     <Resource Include="..\..\art\vicecity.jpg" Link="Assets\vicecity.jpg" />
+    <Resource Include="..\..\art\retro-future.jpg" Link="Assets\retro-future.jpg" />
   </ItemGroup>
 
 </Project>

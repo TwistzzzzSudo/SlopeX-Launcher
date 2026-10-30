@@ -204,10 +204,10 @@ namespace SlopeX.Windows
             Config.Current.Save();
         }
 
-        /// <summary>只有霓虹黄昏需要矢量背景，其余主题保持纯色纸面。</summary>
+        /// <summary>只有插画主题需要背景层，其余主题保持纯色纸面。</summary>
         private void ApplyBackdrop()
         {
-            Backdrop.Visibility = Themes.ThemeService.IsNeon ? Visibility.Visible : Visibility.Collapsed;
+            RetroBackdrop.Visibility = Themes.ThemeService.IsRetroFuture ? Visibility.Visible : Visibility.Collapsed;
             ViceBackdrop.Visibility = Themes.ThemeService.IsViceCity ? Visibility.Visible : Visibility.Collapsed;
         }
 
