@@ -127,10 +127,10 @@ if ($ClickText -ne "") {
                 [WinCap]::SetForegroundWindow($hwnd) | Out-Null
                 Start-Sleep -Milliseconds 250
                 $xy = ($target.Substring(6)) -split ','
-                $hr = New-Object WinCap+RECT
-                [WinCap]::GetWindowRect($hwnd, [ref]$hr) | Out-Null
-                $hx = [int]$hr.Left + [int]$xy[0]
-                $hy = [int]$hr.Top + [int]$xy[1]
+                $hroot = [System.Windows.Automation.AutomationElement]::FromHandle($hwnd)
+                $hrect = $hroot.Current.BoundingRectangle
+                $hx = [int]($hrect.X + $xy[0])
+                $hy = [int]($hrect.Y + $xy[1])
                 [WinCap]::SetCursorPos($hx, $hy) | Out-Null
                 Start-Sleep -Milliseconds 450
                 Write-Output ("HOVER=" + $xy[0] + "," + $xy[1])
@@ -226,7 +226,8 @@ if ($ClickText -ne "") {
         }
     }
     catch {
-        Write-Output ("CLICK_ERR " + $_.Exception.Message)
+        Write-Output ("CLICK_ERR " + $_.Exception.Message + " @L" + $_.InvocationInfo.ScriptLineNumber +
+                      " : " + ("" + $_.InvocationInfo.Line).Trim())
     }
 }
 
