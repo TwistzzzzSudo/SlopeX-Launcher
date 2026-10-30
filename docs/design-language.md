@@ -237,9 +237,20 @@ DataList 已有真实使用方：版本管理页的「模组管理」面板。
 | 落盘 | 拖动结束（`DragCompleted`）才写 `config.json`，避免拖动中反复落盘 |
 | 空间 | 出现时给 `PageHost` 底部留 46px，避免压在页面最后一排内容上 |
 | 纸质主题 | 面板隐藏，`PageHost.Opacity` 强制回 1，`Margin` 归零 |
+| 面板自身 | 跟随内容透明度一起淡，但**下限 50%**（`OpacityPanel.Opacity = max(0.5, v)`） |
 
 改这里要注意：作用在宿主上意味着滚动条、列表分隔线也会一起变淡——这是有意的，
 "只调底板不调文字"会让层级看起来错乱。
+
+## 6.7 圆角窗口
+
+窗口四角 14px 圆角，最大化时归零。
+
+- Windows 10 没有 DWM 圆角能力，只能用 `AllowsTransparency` + 分层窗口；
+  Windows 11 若要走系统圆角，可改用 `DwmSetWindowAttribute(DWMWA_WINDOW_CORNER_PREFERENCE)`。
+- **只设 `Border.CornerRadius` 不够**：它只裁自己的背景，子元素（标题栏、侧栏、状态栏各自画底色）
+  会把四个角补回直角。必须给根边框设 `Clip`（`RectangleGeometry` + 同一半径），并在 `SizeChanged` 里更新。
+- 插画主题的 `Bg` 是透明的，所以窗口需要单独的 `WindowBg` 令牌（四套主题都不透明），否则圆角处和侧栏会透出桌面。
 
 ## 7. 新增颜色的流程
 
