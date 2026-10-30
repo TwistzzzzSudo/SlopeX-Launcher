@@ -1,8 +1,8 @@
 <!--
-    霓虹黄昏 —— 第三套主题（深色底 + 合成波暮色插画）
+    复古未来 —— 第三套主题（深紫底 + 合成波暮色位图）
 
     与两套纸质主题的区别：这一套允许"图"参与界面 —— Bg 透明，
-    由 MainWindow 底层的 NeonBackdrop 矢量插画当背景；
+    由 MainWindow 底层的 RetroFutureBackdrop 位图当背景（art/retro-future.jpg）；
     Paper 系列带 alpha，卡片会透出一点背景，形成纵深。
 
     约束：
@@ -17,7 +17,7 @@
     <SolidColorBrush x:Key="Bg" Color="#00000000"/>
 
     <!-- 卡片面：95% 不透明——够透出一点背景插画，又不至于让文字发虚 -->
-    <SolidColorBrush x:Key="Surface" Color="#F22A1042"/>
+    <SolidColorBrush x:Key="Surface" Color="#F51B0A3C"/>
 
     <!-- 纸面层级：半透明的深紫，越高层越亮 -->
     <SolidColorBrush x:Key="Paper" Color="#FA26103D"/>
@@ -25,32 +25,32 @@
     <SolidColorBrush x:Key="Paper3" Color="#FB40205F"/>
 
     <!-- 描边 -->
-    <SolidColorBrush x:Key="Line" Color="#4A2568"/>
-    <SolidColorBrush x:Key="LineStrong" Color="#6B3591"/>
+    <SolidColorBrush x:Key="Line" Color="#4E2270"/>
+    <SolidColorBrush x:Key="LineStrong" Color="#7238A6"/>
 
     <!-- 文字 -->
-    <SolidColorBrush x:Key="Ink" Color="#FFE9F5"/>
-    <SolidColorBrush x:Key="InkHover" Color="#FFD3EA"/>
-    <SolidColorBrush x:Key="InkPressed" Color="#F2B8D8"/>
-    <SolidColorBrush x:Key="Sub" Color="#D9B8E8"/>
-    <SolidColorBrush x:Key="Muted" Color="#A98BC4"/>
+    <SolidColorBrush x:Key="Ink" Color="#FFF0FA"/>
+    <SolidColorBrush x:Key="InkHover" Color="#FFD9F2"/>
+    <SolidColorBrush x:Key="InkPressed" Color="#F7C0E4"/>
+    <SolidColorBrush x:Key="Sub" Color="#E0BCF0"/>
+    <SolidColorBrush x:Key="Muted" Color="#AE8CCC"/>
 
     <!-- 语义色：霓虹系的青 / 琥珀 / 品红 -->
-    <SolidColorBrush x:Key="Good" Color="#4FF0C8"/>
+    <SolidColorBrush x:Key="Good" Color="#4FE3C1"/>
     <SolidColorBrush x:Key="Warn" Color="#FFC65C"/>
-    <SolidColorBrush x:Key="Bad" Color="#FF5C8A"/>
-    <SolidColorBrush x:Key="CloseHover" Color="#E23F6E"/>
+    <SolidColorBrush x:Key="Bad" Color="#FF4F7E"/>
+    <SolidColorBrush x:Key="CloseHover" Color="#E0366A"/>
 
     <!-- 反色（深色主题里主按钮是亮粉，字用深紫） -->
     <!-- 主按钮的强调色。纸质主题里就是墨色本身；插画主题改用品牌色，避免出现一大块白/黑按钮。 -->
-    <SolidColorBrush x:Key="Primary" Color="#FF3E8F"/>
-    <SolidColorBrush x:Key="PrimaryHover" Color="#FF5C9F"/>
-    <SolidColorBrush x:Key="PrimaryPressed" Color="#E62F7D"/>
-    <SolidColorBrush x:Key="OnPrimary" Color="#2A0F42"/>
+    <SolidColorBrush x:Key="Primary" Color="#FF2D95"/>
+    <SolidColorBrush x:Key="PrimaryHover" Color="#FF4FA5"/>
+    <SolidColorBrush x:Key="PrimaryPressed" Color="#E0207F"/>
+    <SolidColorBrush x:Key="OnPrimary" Color="#2B0A33"/>
 
-    <SolidColorBrush x:Key="OnInk" Color="#2A0F42"/>
+    <SolidColorBrush x:Key="OnInk" Color="#1B0A3C"/>
     <SolidColorBrush x:Key="OnBad" Color="#FFFFFF"/>
 
     <!-- 遮罩：带一点紫，压暗时仍保留暮色 -->
-    <SolidColorBrush x:Key="Scrim" Color="#B312061F"/>
+    <SolidColorBrush x:Key="Scrim" Color="#B30D0320"/>
 </ResourceDictionary>

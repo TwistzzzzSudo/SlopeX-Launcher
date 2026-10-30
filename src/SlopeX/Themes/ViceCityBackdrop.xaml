@@ -15,7 +15,6 @@
         <Image Source="pack://application:,,,/Assets/vicecity.jpg"
                Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"/>
 
-        <!-- 顶部到中部的暗角 -->
         <Rectangle>
             <Rectangle.Fill>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">

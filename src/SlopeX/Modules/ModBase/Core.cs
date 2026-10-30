@@ -430,7 +430,7 @@ namespace SlopeX.Modules.ModBase
         private string _javaRuntimeDir = "";
         private bool _dismissLegacySavesHint;
         private string _curseForgeApiKey = "";
-        private double _contentOpacity = 1.0;
+        private double _contentOpacity = 0.75;
 
         /// <summary>游戏目录（.minecraft 根），内存中始终是绝对路径。</summary>
         [JsonIgnore]
@@ -517,6 +517,7 @@ namespace SlopeX.Modules.ModBase
         /// <summary>
         /// 内容区整体不透明度（0.35–1）。插画主题下用来控制"卡片透出多少背景"。
         /// 作用于整个页面宿主（底板 + 文字 + 按钮一起淡出），不做分层。
+        /// 默认 0.75：插画主题开箱就有"半透"的观感；纸质主题不看这个值（面板隐藏、强制 1）。
         /// </summary>
         public double ContentOpacity
         {

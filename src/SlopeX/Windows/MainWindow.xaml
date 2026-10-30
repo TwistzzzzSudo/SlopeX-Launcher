@@ -186,7 +186,7 @@
 
                 <!-- 页面容器 -->
                 <!-- 霓虹主题的矢量背景：只铺内容区，侧栏/标题栏/状态栏保持纯色 -->
-                <themes:NeonBackdrop x:Name="Backdrop" Grid.Column="1" Visibility="Collapsed"/>
+                <themes:RetroFutureBackdrop x:Name="RetroBackdrop" Grid.Column="1" Visibility="Collapsed"/>
                 <themes:ViceCityBackdrop x:Name="ViceBackdrop" Grid.Column="1" Visibility="Collapsed"/>
 
                 <ContentControl x:Name="PageHost" Grid.Column="1"/>

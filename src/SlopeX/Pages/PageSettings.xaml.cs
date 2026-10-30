@@ -238,7 +238,7 @@ namespace SlopeX.Pages
         private void ThemeChip_Click(object sender, RoutedEventArgs e)
         {
             var mode = ReferenceEquals(sender, ChipThemeVice) ? AppearanceMode.ViceCity
-                     : ReferenceEquals(sender, ChipThemeNeon) ? AppearanceMode.Neon
+                     : ReferenceEquals(sender, ChipThemeRetro) ? AppearanceMode.RetroFuture
                      : ReferenceEquals(sender, ChipThemeDark) ? AppearanceMode.Dark
                      : ReferenceEquals(sender, ChipThemeSystem) ? AppearanceMode.System
                      : AppearanceMode.Light;
@@ -256,7 +256,7 @@ namespace SlopeX.Pages
 
         private static string ThemeName(AppearanceMode mode) => mode switch
         {
-            AppearanceMode.Neon => "霓虹黄昏",
+            AppearanceMode.RetroFuture => "复古未来",
             AppearanceMode.ViceCity => "ViceCity",
             AppearanceMode.Dark => "极简墨纸",
             _ => "极简白纸"
@@ -268,7 +268,7 @@ namespace SlopeX.Pages
             var mode = ThemeService.ParseMode(Config.Current.Appearance);
 
             ChipThemeSystem.IsChecked = mode == AppearanceMode.System;
-            ChipThemeNeon.IsChecked = mode == AppearanceMode.Neon;
+            ChipThemeRetro.IsChecked = mode == AppearanceMode.RetroFuture;
             ChipThemeVice.IsChecked = mode == AppearanceMode.ViceCity;
             ChipThemeLight.IsChecked = mode == AppearanceMode.Light;
             ChipThemeDark.IsChecked = mode == AppearanceMode.Dark;
@@ -280,7 +280,7 @@ namespace SlopeX.Pages
                     " → 使用「" + ThemeName(ThemeService.CurrentMode) + "」",
                 AppearanceMode.Light => "固定浅色：使用「极简白纸」（默认）",
                 AppearanceMode.Dark => "固定深色：使用「极简墨纸」",
-                AppearanceMode.Neon => "插画主题：「霓虹黄昏」——矢量绘制的合成波暮色，卡片半透明",
+                AppearanceMode.RetroFuture => "插画主题：「复古未来」——合成波暮色位图，卡片半透明",
                 AppearanceMode.ViceCity => "插画主题：「ViceCity」——迈阿密暮色位图，卡片近乎不透明",
                 _ => "固定浅色：使用「极简白纸」（默认）"
             };
