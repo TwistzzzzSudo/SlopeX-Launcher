@@ -221,7 +221,7 @@ tools/make-icon.ps1  # 由矢量几何重新生成 ico；改标记形状时改�
 
 - **仅支持 Windows**（WPF + 注册表探测）
 - **微软登录需要 Mojang 白名单**：第三方启动器访问 Minecraft API 需要人工审核（[说明](https://help.minecraft.net/hc/en-us/articles/16254801392141)，[申请表](https://aka.ms/mce-reviewappid)）。当前 client_id 尚未在名单内，登录会停在 `403 Invalid app registration`；审核通过后无需改代码即可使用
-- 模组管理尚未实现（增删模组、冲突检测）
+- 模组只补必需依赖，不检查版本区间冲突：会自动装 `dependency_type=required` 的依赖，但不会判断「这包要求 X ≥ 2.0，你装的是 1.8」这类问题，冲突仍以游戏日志为准
 - **CurseForge 搜索必须自备 API Key**：官方接口强制 `x-api-key`，无 Key 一律 403；网站内部接口被 Cloudflare 拦、第三方镜像 cfwidget 只有按 ID 查询没有搜索。
 - CurseForge 整合包依赖 cfwidget 公开镜像反查文件名，首次导入要拉取每个模组的文件列表（大包可达数十 MB 元数据），结果缓存 30 天
 - 存档隔离为强制行为，不提供"共享材质包 / 共用存档"的混合模式；需要共用时由用户自行复制文件
