@@ -123,6 +123,20 @@ if ($ClickText -ne "") {
                 continue
             }
 
+            if ($target -like 'hover:*') {
+                [WinCap]::SetForegroundWindow($hwnd) | Out-Null
+                Start-Sleep -Milliseconds 250
+                $xy = ($target.Substring(6)) -split ','
+                $hr = New-Object WinCap+RECT
+                [WinCap]::GetWindowRect($hwnd, [ref]$hr) | Out-Null
+                $hx = [int]$hr.Left + [int]$xy[0]
+                $hy = [int]$hr.Top + [int]$xy[1]
+                [WinCap]::SetCursorPos($hx, $hy) | Out-Null
+                Start-Sleep -Milliseconds 450
+                Write-Output ("HOVER=" + $xy[0] + "," + $xy[1])
+                continue
+            }
+
             if ($target -like 'type:*') {
                 $text = $target.Substring(5)
                 $aeT = [System.Windows.Automation.AutomationElement]::FromHandle($hwnd)
