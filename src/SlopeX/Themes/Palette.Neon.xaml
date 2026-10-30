@@ -1,0 +1,56 @@
+<!--
+    霓虹黄昏 —— 第三套主题（深色底 + 合成波暮色插画）
+
+    与两套纸质主题的区别：这一套允许"图"参与界面 —— Bg 透明，
+    由 MainWindow 底层的 NeonBackdrop 矢量插画当背景；
+    Paper 系列带 alpha，卡片会透出一点背景，形成纵深。
+
+    约束：
+    - 所有引用仍必须 DynamicResource。
+    - 文字色必须保证在"卡片叠在插画上"时依然可读，
+      所以 Ink/Sub/Muted 都偏亮，Paper 的不透明度不低于 0.9。
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- 基础面：透明，露出插画 -->
+    <SolidColorBrush x:Key="Bg" Color="#00000000"/>
+
+    <!-- 卡片面：95% 不透明——够透出一点背景插画，又不至于让文字发虚 -->
+    <SolidColorBrush x:Key="Surface" Color="#F22A1042"/>
+
+    <!-- 纸面层级：半透明的深紫，越高层越亮 -->
+    <SolidColorBrush x:Key="Paper" Color="#FA26103D"/>
+    <SolidColorBrush x:Key="Paper2" Color="#FB33164F"/>
+    <SolidColorBrush x:Key="Paper3" Color="#FB40205F"/>
+
+    <!-- 描边 -->
+    <SolidColorBrush x:Key="Line" Color="#4A2568"/>
+    <SolidColorBrush x:Key="LineStrong" Color="#6B3591"/>
+
+    <!-- 文字 -->
+    <SolidColorBrush x:Key="Ink" Color="#FFE9F5"/>
+    <SolidColorBrush x:Key="InkHover" Color="#FFD3EA"/>
+    <SolidColorBrush x:Key="InkPressed" Color="#F2B8D8"/>
+    <SolidColorBrush x:Key="Sub" Color="#D9B8E8"/>
+    <SolidColorBrush x:Key="Muted" Color="#A98BC4"/>
+
+    <!-- 语义色：霓虹系的青 / 琥珀 / 品红 -->
+    <SolidColorBrush x:Key="Good" Color="#4FF0C8"/>
+    <SolidColorBrush x:Key="Warn" Color="#FFC65C"/>
+    <SolidColorBrush x:Key="Bad" Color="#FF5C8A"/>
+    <SolidColorBrush x:Key="CloseHover" Color="#E23F6E"/>
+
+    <!-- 反色（深色主题里主按钮是亮粉，字用深紫） -->
+    <!-- 主按钮的强调色。纸质主题里就是墨色本身；插画主题改用品牌色，避免出现一大块白/黑按钮。 -->
+    <SolidColorBrush x:Key="Primary" Color="#FF3E8F"/>
+    <SolidColorBrush x:Key="PrimaryHover" Color="#FF5C9F"/>
+    <SolidColorBrush x:Key="PrimaryPressed" Color="#E62F7D"/>
+    <SolidColorBrush x:Key="OnPrimary" Color="#2A0F42"/>
+
+    <SolidColorBrush x:Key="OnInk" Color="#2A0F42"/>
+    <SolidColorBrush x:Key="OnBad" Color="#FFFFFF"/>
+
+    <!-- 遮罩：带一点紫，压暗时仍保留暮色 -->
+    <SolidColorBrush x:Key="Scrim" Color="#B312061F"/>
+</ResourceDictionary>

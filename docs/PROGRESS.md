@@ -1,12 +1,12 @@
 # SlopeX Launcher 进度报告与实施计划
 
-> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-31 00:15
+> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-31 01:05
 > 对应产物：`SlopeX.exe` 1.0.0（自包含单文件，139 MB，win-x64）
 > 代码规模：40 个 C# / XAML 源文件，≈11,000 行
 > 版本控制：git 分支 `feature/neoforge`（NeoForge 安装），`main` 保持可构建；远端已公开 `github.com/TwistzzzzSudo/SlopeX-Launcher`
 > 当前状态：**进入视觉定案（S3）**——已补 Toast、空状态、DataList、模态焦点循环与出入场动效，组件缺口 5/7；模组管理（本地 + Modrinth 搜索安装）已可用；登录错误已翻成可执行的中文提示；微软登录仍卡在 Mojang 白名单
 > 下一个执行项 = 模组更新检查 / 依赖冲突提示；CurseForge 搜索待用户提供 API Key 后验证
-> 本轮改动：新增 `ModLaunch/Diagnosis.cs`（9 条崩溃特征规则 + 诚实兜底）、首页退出提示改接诊断、CLI `diagnose`；另有 `VersionRepair` 一键补全（上一提交）
+> 本轮改动：主题系统扩到四套——新增 `Palette.Neon`（矢量插画）与 `Palette.ViceCity`（位图插画），引入 `Surface` / `Primary` 两个跨主题令牌；修复首页切回时滚动停在半截
 > **工作量口径**：全文一律以「产出物 / 改动范围」描述，不使用时间估算。
 
 ---
@@ -60,6 +60,7 @@
 | **Forge 安装** | ✅ | 取官方推荐版本 → 下 installer → 用合适 Java 无头执行 `--installClient` → 校验产物；缺原版自动补装；已加载 AppleSkin 实测 |
 | **NeoForge 安装** | ✅ | MC 版本推导版本号 → 镜像取 installer → 预取 install_profile 依赖 → 无头执行 → 补运行期库；已加载 AppleSkin（NeoForge 版）实测 |
 | **登录错误提示** | ✅ | 403 未授权 / 401 / 429 / 5xx / 网络异常各有中文说法；403 那条直接告知「无状态查询页、约一周、再登录不报即通过」 |
+| **主题** | ✅ | 四套：极简白纸 / 极简墨纸 / 霓虹黄昏（矢量插画）/ ViceCity（位图插画）；`Surface`、`Primary` 令牌让卡片与主按钮随主题变而不写死颜色 |
 | **启动失败诊断** | ✅ | 9 条规则（内存 / Java / 缺依赖 / 重复模组 / Mixin / 版本不匹配 / 账号 / 驱动 / 端口）+ 未命中时给日志位置；`diagnose` CLI 可复现 |
 | **版本补全** | ✅ | `VersionRepair.Check/RepairAsync`：库 / 客户端 jar / 资源索引 / 资源对象；启动失败自动提示一键补全并重试；CLI `repair` |
 | **模组管理** | ✅ | 本地：列表（jar 元数据）/ 启停 / 删除 / 打开目录；在线：Modrinth 搜索安装 + 必需依赖自动补齐；CurseForge 需自备 API Key；UIA 与 CLI 双向实测 |
@@ -343,6 +344,7 @@ UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeSe
 | 模态动效 | 用临时环境变量钩子开/关模态各截一张：开启后卡片居中不透明、背景被遮罩压暗；700ms 后关闭，遮罩与卡片完全消失、页面恢复（钩子验完已删除） |
 | 模组元数据解析 | `mods-list` 实测：AppleSkin 3.0.10+mc26.3（NeoForge，neoforge.mods.toml + MANIFEST 兜底）、AppleSkin 2.5.1+mc1.20.1（Forge，mods.toml）均正确解析 |
 | 模组启停闭环 | 点「禁用」→ 磁盘改名 `.jar.disabled`、状态翻转、Toast「已禁用 Sodium」；点「启用」→ 文件名恢复。两方向均实测 |
+| 主题切换 | 四套逐一截图核对：白纸（黑主按钮）、ViceCity（粉主按钮 + 插画可见）、设置页五个芯片单行排列、说明文字随所选主题变化 |
 | 启动失败诊断 | 4 组样本实测：真实 Better MC 日志 **不误报**（走兜底并指出未生成崩溃报告）；`OutOfMemoryError`、`Missing or mandatory dependencies`、`Failed to verify username … premium account` 分别命中内存 / 缺依赖 / 账号规则 |
 | 外部版本补全 | 把 Better MC 版本目录直接复制进 `versions\`（未带 libraries）→ 启动提示缺 2 个 Forge 库 → 一键补全后启动成功（整合包自身要求正版账号，属预期） |
 | 模组搜索 | 「添加模组」对话框输入 jei → 20 条结果（作者 + 下载量），状态行「已按 Minecraft 1.20.1 / fabric 过滤」 |
