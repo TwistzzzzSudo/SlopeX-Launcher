@@ -85,7 +85,7 @@ namespace SlopeX.Pages
 
         private void UpdateEmptyState()
         {
-            NoTaskText.Visibility = TaskCenter.Tasks.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            NoTaskPanel.Visibility = TaskCenter.Tasks.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void CancelTask_Click(object sender, RoutedEventArgs e)

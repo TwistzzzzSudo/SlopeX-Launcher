@@ -8,6 +8,7 @@ param(
     [string]$ClickText = "",
     [int]$Scroll = 0,
     [int]$PostWaitMs = 1200,
+    [int]$PostClickWaitMs = -1,
     [switch]$KeepOpen
 )
 
@@ -143,7 +144,8 @@ if ($ClickText -ne "") {
                 }
             }
             if (-not $clicked) { Write-Output ("CLICK_TARGET_NOT_FOUND=" + $target) }
-            Start-Sleep -Milliseconds $PostWaitMs
+            $after = if ($PostClickWaitMs -ge 0) { $PostClickWaitMs } else { $PostWaitMs }
+            Start-Sleep -Milliseconds $after
         }
     }
     catch {

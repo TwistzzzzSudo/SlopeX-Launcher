@@ -108,9 +108,13 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <TextBlock x:Name="EmptyText" Style="{StaticResource TSub}" HorizontalAlignment="Center"
-                           VerticalAlignment="Center" TextAlignment="Center" Visibility="Collapsed"
-                           Text="还没有安装任何版本&#x0a;点右上角「安装新版本」开始"/>
+                <StackPanel x:Name="EmptyPanel" HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Visibility="Collapsed">
+                    <TextBlock x:Name="EmptyTitle" Style="{StaticResource EmptyTitle}"
+                               Text="还没有安装任何版本"/>
+                    <TextBlock x:Name="EmptyHintText" Style="{StaticResource EmptyHint}"
+                               Text="点右上角「安装新版本」开始，或导入一个整合包"/>
+                </StackPanel>
             </Grid>
         </Border>
     </Grid>

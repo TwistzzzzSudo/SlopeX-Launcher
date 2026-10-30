@@ -1,12 +1,12 @@
 # SlopeX Launcher 进度报告与实施计划
 
-> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-29 22:20
+> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-30 21:05
 > 对应产物：`SlopeX.exe` 1.0.0（自包含单文件，139 MB，win-x64）
-> 代码规模：40 个 C# / XAML 源文件，10,878 行
+> 代码规模：40 个 C# / XAML 源文件，≈11,000 行
 > 版本控制：git 分支 `feature/neoforge`（NeoForge 安装），`main` 保持可构建；远端已公开 `github.com/TwistzzzzSudo/SlopeX-Launcher`
-> 当前状态：**NeoForge 安装完成并真机验证**——26.3 + NeoForge 26.3.0.99 进游戏、AppleSkin 加载生效；四种加载器（原版/Fabric/Forge/NeoForge）+ 整合包导入均已可用；微软登录仍卡在 Mojang 白名单
-> 下一个执行项 = 模组管理（增删 / 冲突检测）或视觉定案（S3）
-> 本轮改动：新增 `NeoForge.cs` + `InstallerSupport.cs`（Forge/NeoForge 共用安装器执行、库预取）；CLI `neoforge-list|install-neoforge|fix-libs`；安装对话框放开 NeoForge
+> 当前状态：**进入视觉定案（S3）**——已补 Toast、空状态、模态焦点循环，组件缺口 3/7；登录错误已翻成可执行的中文提示；微软登录仍卡在 Mojang 白名单
+> 下一个执行项 = 视觉定案剩余项（ComboBox / DataList / ContextMenu / Steps / 动效）→ 模组管理
+> 本轮改动：`Msa.ExplainHttpError` 登录错误中文化 + CLI `msa-explain`；`Toast` / `EmptyState` 组件与三页统一；模态焦点循环；`tools/screenshot.ps1` 增加 `-PostClickWaitMs`
 > **工作量口径**：全文一律以「产出物 / 改动范围」描述，不使用时间估算。
 
 ---
@@ -59,6 +59,7 @@
 | **Fabric 安装** | ✅ | 拉 meta 选最新稳定加载器 → 写 `inheritsFrom` 版本 JSON → 下载加载器依赖；缺原版自动补装；已加载 Sodium 实测 |
 | **Forge 安装** | ✅ | 取官方推荐版本 → 下 installer → 用合适 Java 无头执行 `--installClient` → 校验产物；缺原版自动补装；已加载 AppleSkin 实测 |
 | **NeoForge 安装** | ✅ | MC 版本推导版本号 → 镜像取 installer → 预取 install_profile 依赖 → 无头执行 → 补运行期库；已加载 AppleSkin（NeoForge 版）实测 |
+| **登录错误提示** | ✅ | 403 未授权 / 401 / 429 / 5xx / 网络异常各有中文说法；403 那条直接告知「无状态查询页、约一周、再登录不报即通过」 |
 | **整合包导入** | ✅ | `.mrpack` / CurseForge zip / MultiMC 实例 / 普通 zip；自动补原版与加载器、下载模组、解压 overrides；已导入 Fabulously Optimized（149 模组）实测 |
 | **安装类型选择** | ✅ | 点「安装」弹出类型选择：原版 / Fabric / Forge / NeoForge 四选一；已安装版本仍可点（用于加装加载器或补齐文件） |
 | **便携（折中）** | ✅ | 配置与日志进 `SlopeXData\`，首次启用从 `%APPDATA%` 复制（原文件保留）；Java 运行时目录可配；目录不可写时整体回落 `%APPDATA%` |
@@ -332,6 +333,9 @@ UI 层        5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeSe
 | NeoForge 版本解析 | `neoforge-list 26.3` → 21 个版本、最新 26.3.0.99；`neoforge-list 1.21.1` → 260 个、最新 21.1.265；`1.20.1` 明确拒绝（该线为 net.neoforged:forge） |
 | NeoForge 安装 | 26.3 → 7.8 秒（依赖已预取）；`verify` 140 库通过、Java 25；真机 `Mod List: AppleSkin / Minecraft 26.3 / NeoForge 26.3.0.99`，`config/appleskin-client.toml` 已生成 |
 | 依赖补齐 | 首次安装后 `verify` 报 5 个缺失库，`fix-libs` 一次性补 63 个（含运行期库），补后校验通过 |
+| 登录错误文案 | `msa-explain 403 "Invalid app registration…"` → 输出「没有状态查询页 / 约一周 / 再登录不报即通过 / 可先用离线登录」；401、429、503 各自命中对应分支 |
+| 空状态组件 | 三处列表统一为「标题 + 提示」两行；任务页浅色、深色截图均清晰（深色下提示为 `Muted`，仍可读） |
+| Toast | 设置页点「保存设置」→ 底部居中深色提示条「设置已保存」，350ms 内截到淡入中间态 |
 | 安装类型对话框 | 点任意行「安装」→ 弹出居中卡片 + 遮罩；原版默认选中；Forge / NeoForge 置灰带「即将支持」；Esc 或「取消」关闭 |
 | 对话框端到端 | 已安装行 →「安装」→ 选 Fabric →「开始安装」→ 日志 `Fabric 0.20.1（26.3）安装完成：fabric-loader-0.20.1-26.3，依赖 7 个`，版本数 5 → 6 |
 | 便携迁移 | 首次运行后 `SlopeXData\config.json` 生成（含新字段 `JavaRuntimeDir` / `DismissLegacySavesHint`），`logs\` 已复制，`%APPDATA%\SlopeX\config.json` 保留未删 |
