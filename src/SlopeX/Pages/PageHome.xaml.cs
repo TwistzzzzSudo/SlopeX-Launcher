@@ -438,10 +438,10 @@ namespace SlopeX.Pages
                 MainWindow.Current?.SetStatus($"游戏已退出（{_selected?.Id}，退出码 {code}）", null);
                 _ = MainWindow.Current?.RefreshStatusAsync();
 
-                // 秒退：多半是 Java 版本不对或依赖缺失，把原因直接说清楚
+                // 非零退出码一律诊断：崩溃不分多少秒，只是秒退还往往更有特征
                 var elapsed = DateTime.Now - _launchAt;
-                if (code != 0 && elapsed.TotalSeconds < 20)
-                    ShowExitReason(code);
+                if (code != 0)
+                    ShowExitReason(code, elapsed);
 
                 var win = Window.GetWindow(this);
                 if (win != null && win.WindowState == WindowState.Minimized)
@@ -449,32 +449,19 @@ namespace SlopeX.Pages
             }));
         }
 
-        private void ShowExitReason(int code)
+        private void ShowExitReason(int code, TimeSpan elapsed)
         {
-            string reason;
-            lock (_logGate)
-            {
-                var versionError = _recentOutput.FirstOrDefault(l =>
-                    l.Contains("UnsupportedClassVersionError") || l.Contains("class file version"));
+            string recent;
+            lock (_logGate) recent = string.Join("\n", _recentOutput);
 
-                if (versionError != null)
-                {
-                    reason = "游戏启动后立即退出：当前 Java 版本过低，无法运行该版本。" +
-                             "可开启「缺少 Java 时自动下载」，或到「设置」中更换 Java。";
-                }
-                else
-                {
-                    var err = _recentOutput.FirstOrDefault(l =>
-                        l.Contains("Exception") || l.Contains("Error") || l.Contains("Could not") ||
-                        l.Contains("Caused by"));
-                    reason = err != null
-                        ? $"游戏启动后立即退出（退出码 {code}）：{err.Trim()}"
-                        : $"游戏启动后立即退出（退出码 {code}），完整日志见「任务与日志」页。";
-                }
-            }
+            var versionDir = Path.Combine(Paths.VersionsDir(Config.Current.GameDir), _selected?.Id ?? "");
+            var result = Diagnosis.Analyze(versionDir, recent, code, elapsed);
 
-            Log.Warn(reason);
-            ShowHint(reason, true);
+            Log.Warn($"退出诊断（{code}）：{result.Title}");
+            ShowHint(result.Text, true);
+
+            if (result.Matched)
+                MainWindow.Current?.ShowToast("已识别退出原因：" + result.Title);
         }
 
         private void SetRunning(bool running)
