@@ -1,6 +1,7 @@
 <UserControl x:Class="SlopeX.Pages.PageSettings"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:SlopeX.Controls"
              FontFamily="{StaticResource UiFont}">
 
     <Grid Margin="34,26,34,0">
@@ -23,7 +24,8 @@
             </StackPanel>
         </Grid>
 
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                      controls:ScrollAssist.Smooth="True">
             <StackPanel Margin="0,0,16,26">
 
                 <!-- 主题 -->
