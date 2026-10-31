@@ -343,7 +343,7 @@ namespace SlopeX.Modules.ModAccount
         {
             var session = Current;
             if (session == null) return null;
-            if (session.HasToken && !session.Expired) return session;
+            if (session.HasToken && !session.Expired) return await RepairProfileAsync(session, ct).ConfigureAwait(false);
 
             try
             {
@@ -355,6 +355,31 @@ namespace SlopeX.Modules.ModAccount
                 Log.Warn("刷新正版令牌失败：" + ex.Message);
                 return null;
             }
+        }
+
+        /// <summary>
+        /// 旧版本写进 accounts.json 的 UUID 只有 24 位（最后一段少截了 8 位）。
+        /// 游戏拿这种 UUID 查不到档案，皮肤会退回默认皮肤，且不会报错。
+        /// 这里用现成令牌重新拉一次档案自愈，用户不必重新登录。
+        /// </summary>
+        private static async Task<MsaSession> RepairProfileAsync(MsaSession session, CancellationToken ct)
+        {
+            if (IsCompleteUuid(session.Uuid)) return session;
+
+            try
+            {
+                var (uuid, name) = await MinecraftProfileAsync(session.AccessToken, ct).ConfigureAwait(false);
+                session.Uuid = uuid;
+                session.Name = name;
+                Save(session);
+                Log.Info($"已修正账号 UUID：{uuid}");
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("修正账号 UUID 失败（本次仍按原值启动）：" + ex.Message);
+            }
+
+            return session;
         }
 
         public static void Logout()
@@ -520,13 +545,16 @@ namespace SlopeX.Modules.ModAccount
             return string.IsNullOrEmpty(desc) ? $"HTTP {status}" : desc;
         }
 
-        /// <summary>Minecraft 返回的 UUID 没有连字符，补成标准格式。</summary>
+        /// <summary>Minecraft 返回的 UUID 没有连字符，补成标准格式（最后一段是 12 位）。</summary>
         private static string FormatUuid(string raw)
         {
             var s = (raw ?? "").Replace("-", "");
             if (s.Length != 32) return raw;
             return s.Substring(0, 8) + "-" + s.Substring(8, 4) + "-" + s.Substring(12, 4) +
-                   "-" + s.Substring(16, 4) + "-" + s.Substring(20, 4);
+                   "-" + s.Substring(16, 4) + "-" + s.Substring(20, 12);
         }
+
+        /// <summary>标准 UUID 必须是 8-4-4-4-12 共 36 个字符。</summary>
+        private static bool IsCompleteUuid(string uuid) => uuid != null && uuid.Length == 36;
     }
 }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using SlopeX.Modules.ModAccount;
 using SlopeX.Modules.ModMods;
 
 namespace SlopeX.Modules.ModCli
@@ -16,6 +17,9 @@ namespace SlopeX.Modules.ModCli
     ///
     /// 只做命令行入口，不进启动流程、不做定时任务：它依赖网络与对方站点的在线状态。
     /// 任一断言失败返回退出码 1，可以直接挂到发布脚本里。
+    ///
+    /// 末尾额外查一次本机账号档案：UUID 被截断时游戏**不报错**、只是皮肤退回默认，
+    /// 这种静默故障只能靠断言兜住。
     /// </summary>
     internal static class SelfTest
     {
@@ -89,7 +93,28 @@ namespace SlopeX.Modules.ModCli
 
             total.Stop();
             Cli.Out("");
-            Cli.Out($"{cases.Count} 项检查：{cases.Count - failed} 通过，{failed} 失败，共 {total.Elapsed.TotalSeconds:0.0} s");
+
+            // 第 6 项与前 5 项不同：它不查搜索链路，查本机账号档案是否完整。
+            // 起因是 2026-11-01 真机启动时发现皮肤退回默认——游戏不报错，
+            // 只是本地存的 UUID 被截成 28 位，客户端查不到档案。
+            var account = CheckAccount();
+            if (account == null)
+            {
+                Cli.Out($"[{cases.Count + 1}/{cases.Count + 1}] SKIP  未登录正版账号，跳过档案检查");
+            }
+            else if (account.Value.Ok)
+            {
+                Cli.Out($"[{cases.Count + 1}/{cases.Count + 1}] PASS  正版账号档案  {account.Value.Message}");
+            }
+            else
+            {
+                failed++;
+                Cli.Out($"[{cases.Count + 1}/{cases.Count + 1}] FAIL  正版账号档案");
+                Cli.Out("         原因：" + account.Value.Message);
+            }
+
+            var all = cases.Count + (account == null ? 0 : 1);
+            Cli.Out($"{all} 项检查：{all - failed} 通过，{failed} 失败，共 {total.Elapsed.TotalSeconds:0.0} s");
 
             if (failed > 0)
                 Cli.Out("提示：中文搜索依赖 MC百科 的页面结构（Modules/ModMods/McMod.cs 里的正则），改版后要跟着改。");
@@ -97,11 +122,33 @@ namespace SlopeX.Modules.ModCli
             return failed > 0 ? 1 : 0;
         }
 
+        /// <summary>
+        /// 账号档案检查：UUID 必须是标准 8-4-4-4-12 的 36 位。
+        /// 返回 <c>null</c> 表示没登录（跳过），否则给出结论。
+        /// </summary>
+        private static (bool Ok, string Message)? CheckAccount()
+        {
+            var stored = Msa.Current;
+            if (stored == null) return null;
+
+            var repaired = stored.Uuid == null || stored.Uuid.Length != 36;
+            var session = Msa.EnsureFreshAsync().GetAwaiter().GetResult() ?? stored;
+
+            if (session.Uuid == null || session.Uuid.Length != 36)
+                return (false, $"UUID 不是 36 位而是 {session.Uuid?.Length ?? 0} 位：{session.Uuid}（游戏拿它查不到档案，皮肤会退回默认）");
+
+            if (!Guid.TryParse(session.Uuid, out var guid) || !string.Equals(guid.ToString("D"), session.Uuid.ToLowerInvariant(), StringComparison.Ordinal))
+                return (false, $"UUID 格式不是标准 8-4-4-4-12：{session.Uuid}");
+
+            return (true, $"{session.Name}  {session.Uuid}" + (repaired ? "（已补全历史截断数据）" : ""));
+        }
+
         private static void Usage()
         {
             Cli.Out("用法：selftest [--mc 1.20.1] [--loader forge] [-v]");
             Cli.Out("  用固定样本核对中文搜索链路：机械动力 → LNytGWDc、苹果皮 → EsAfCjCV、");
             Cli.Out("  钠在 forge 下必须被滤掉、「全部」落到 CurseForge、英文直搜两源都有结果。");
+            Cli.Out("  末尾再查一次本机正版账号档案（UUID 必须 36 位；未登录则跳过）。");
             Cli.Out("  全部通过返回 0，任一失败返回 1。默认目标 1.20.1 / forge。");
         }
 

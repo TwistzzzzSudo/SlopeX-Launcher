@@ -333,7 +333,8 @@ namespace SlopeX.Modules.ModCli
 
         private static int ShowAccount()
         {
-            var session = Msa.Current;
+            // 顺带自愈：旧版本存下的 UUID 是截断的，这里会补全并写回
+            var session = Msa.EnsureFreshAsync().GetAwaiter().GetResult() ?? Msa.Current;
             if (session == null)
             {
                 Out("当前为离线登录：" + Config.Current.PlayerName);
