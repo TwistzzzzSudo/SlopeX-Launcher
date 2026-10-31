@@ -12,7 +12,7 @@ namespace SlopeX.Modules.ModMods
     /// <summary>搜索到的一个模组（来源无关的视图模型）。</summary>
     public sealed class ModSearchHit
     {
-        public string Source { get; set; } = "Modrinth";   // 目前只有 Modrinth
+        public string Source { get; set; } = "Modrinth";   // 下载来源，目前只有 Modrinth
         public string ProjectId { get; set; } = "";   // Modrinth 的项目 ID（字符串）的字符串形式
         public string Slug { get; set; } = "";
         public string Title { get; set; } = "";
@@ -20,6 +20,23 @@ namespace SlopeX.Modules.ModMods
         public string Author { get; set; } = "";
         public long Downloads { get; set; }
         public string IconUrl { get; set; } = "";
+
+        /// <summary>项目声明支持的 MC 版本（搜索结果里就有，不用再请求一次）。</summary>
+        public List<string> GameVersions { get; } = new List<string>();
+
+        /// <summary>最后更新时间（<c>date_modified</c>），取不到时是 <see cref="DateTime.MinValue"/>。</summary>
+        public DateTime Updated { get; set; }
+
+        /// <summary>「1.7.10 – 1.21.8」这种支持范围；只有一个版本时就是那个版本。</summary>
+        public string VersionSupportText => VersionRange.Text(GameVersions);
+
+        /// <summary>来自 MC百科 的那条结果才有：百科的模组 ID（class/xxxx.html 里的 xxxx）。</summary>
+        public string McModId { get; set; } = "";
+
+        public bool HasMcMod => !string.IsNullOrEmpty(McModId);
+
+        /// <summary>百科词条地址，给"百科"按钮用。</summary>
+        public string McModUrl => HasMcMod ? McModSource.Host + "/class/" + McModId + ".html" : "";
 
         public string DownloadsText => Downloads <= 0
             ? ""
@@ -29,8 +46,41 @@ namespace SlopeX.Modules.ModMods
                     ? $"{Downloads / 1000.0:0.#}K 次下载"
                     : $"{Downloads} 次下载";
 
-        public string SubText => string.Join("  ·  ",
-            new[] { Author, DownloadsText }.Where(s => !string.IsNullOrWhiteSpace(s)));
+        public string SubText => string.Join("  ·  ", new[]
+        {
+            HasMcMod ? "MC百科" : "",
+            Author,
+            DownloadsText
+        }.Where(s => !string.IsNullOrWhiteSpace(s)));
+    }
+
+    /// <summary>Modrinth 项目的基本信息（中文搜索靠它核对版本与加载器）。</summary>
+    public sealed class ModrinthProject
+    {
+        public string Id { get; set; } = "";
+        public string Slug { get; set; } = "";
+        public string Title { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string IconUrl { get; set; } = "";
+        public string ProjectType { get; set; } = "";
+        public long Downloads { get; set; }
+
+        public List<string> GameVersions { get; } = new List<string>();
+        public List<string> Loaders { get; } = new List<string>();
+
+        /// <summary>这个项目对目标版本 + 加载器有没有内容。空条件视为不限制。</summary>
+        public bool Supports(string mcVersion, string loader)
+        {
+            if (!string.IsNullOrEmpty(mcVersion) &&
+                !GameVersions.Any(v => string.Equals(v, mcVersion, StringComparison.OrdinalIgnoreCase)))
+                return false;
+
+            if (!string.IsNullOrEmpty(loader) &&
+                !Loaders.Any(l => string.Equals(l, loader, StringComparison.OrdinalIgnoreCase)))
+                return false;
+
+            return true;
+        }
     }
 
     /// <summary>一个可下载的模组文件。</summary>
@@ -46,6 +96,32 @@ namespace SlopeX.Modules.ModMods
 
         /// <summary>依赖模块用它判断是否已经装过。</summary>
         public string Key => Source + ":" + ProjectId;
+    }
+
+    /// <summary>把一组 MC 版本号压成「最低 – 最高」的展示文本。</summary>
+    public static class VersionRange
+    {
+        public static string Text(IReadOnlyList<string> versions)
+        {
+            if (versions == null || versions.Count == 0) return "";
+
+            var sorted = versions.OrderBy(v => Key(v)).ToList();
+            var low = sorted[0];
+            var high = sorted[sorted.Count - 1];
+
+            return string.Equals(low, high, StringComparison.OrdinalIgnoreCase) ? low : low + " – " + high;
+        }
+
+        /// <summary>「1.20.1」→ (1, 20, 1)，用于排序；解析不出来的排到最后。</summary>
+        private static (int, int, int) Key(string version)
+        {
+            if (string.IsNullOrWhiteSpace(version)) return (int.MaxValue, 0, 0);
+
+            var parts = version.Split(new[] { '.', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
+            int Part(int index) => index < parts.Length && int.TryParse(parts[index], out var n) ? n : 0;
+
+            return (Part(0), Part(1), Part(2));
+        }
     }
 
     /// <summary>
@@ -79,6 +155,26 @@ namespace SlopeX.Modules.ModMods
             if (!string.IsNullOrEmpty(l))
                 facets.Add($"[\"categories:{l}\"]");
 
+            return await QueryAsync(query, facets, limit, offset, ct).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 按项目类型搜索，**不带版本 / 加载器过滤**。
+        ///
+        /// 光影与材质包的版本约束比模组松得多（一个光影常常同时支持 1.7.10 到 1.21），
+        /// 硬过滤会漏掉大半结果 —— 所以这两类由用户自己在结果里挑包版本。
+        /// </summary>
+        /// <param name="projectType">Modrinth 的 <c>project_type</c>：<c>shader</c> / <c>resourcepack</c> / <c>mod</c> …</param>
+        public static async Task<List<ModSearchHit>> SearchByTypeAsync(string query, string projectType,
+            int limit = 20, int offset = 0, CancellationToken ct = default)
+        {
+            var facets = new List<string> { $"[\"project_type:{projectType}\"]" };
+            return await QueryAsync(query, facets, limit, offset, ct).ConfigureAwait(false);
+        }
+
+        private static async Task<List<ModSearchHit>> QueryAsync(string query, List<string> facets,
+            int limit, int offset, CancellationToken ct)
+        {
             var url = $"{Base}/search?query={Uri.EscapeDataString(query ?? "")}" +
                       $"&limit={limit}&offset={offset}" +
                       $"&index=relevance&facets={Uri.EscapeDataString("[" + string.Join(",", facets) + "]")}";
@@ -90,7 +186,7 @@ namespace SlopeX.Modules.ModMods
             {
                 if (h is not JsonObject o) continue;
 
-                hits.Add(new ModSearchHit
+                var hit = new ModSearchHit
                 {
                     Source = "Modrinth",
                     ProjectId = J.Str(o, "project_id") ?? "",
@@ -100,7 +196,16 @@ namespace SlopeX.Modules.ModMods
                     Author = J.Str(o, "author") ?? "",
                     Downloads = J.Long(o, "downloads"),
                     IconUrl = J.Str(o, "icon_url") ?? ""
-                });
+                };
+
+                // 支持版本与更新时间只在搜索结果里就有，不必为每一条再请求一次项目详情
+                foreach (var v in J.Arr(o, "versions") ?? new JsonArray())
+                    if (v != null) hit.GameVersions.Add(v.ToString());
+
+                if (DateTime.TryParse(J.Str(o, "date_modified"), out var updated))
+                    hit.Updated = updated;
+
+                hits.Add(hit);
             }
 
             return hits;
@@ -209,6 +314,50 @@ namespace SlopeX.Modules.ModMods
             {
                 Log.Warn($"查询 Modrinth 项目 {projectId} 失败：{ex.Message}");
                 return projectId;
+            }
+        }
+
+        /// <summary>
+        /// 按 slug / 项目 ID 取项目详情。
+        ///
+        /// 中文搜索要用它核对两件事：这个百科词条对应的 Modrinth 项目到底存不存在，
+        /// 以及它对目标 MC 版本 + 加载器有没有内容 —— 否则列表里会出现点安装必然失败的项。
+        /// </summary>
+        public static async Task<ModrinthProject> ProjectAsync(string idOrSlug, CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(idOrSlug)) return null;
+
+            try
+            {
+                var node = await Net.GetJsonRawAsync($"{Base}/project/{Uri.EscapeDataString(idOrSlug.Trim())}", ct)
+                    .ConfigureAwait(false);
+
+                if (node is not JsonObject o) return null;
+
+                var project = new ModrinthProject
+                {
+                    Id = J.Str(o, "id") ?? "",
+                    Slug = J.Str(o, "slug") ?? "",
+                    Title = J.Str(o, "title") ?? "",
+                    Description = J.Str(o, "description") ?? "",
+                    IconUrl = J.Str(o, "icon_url") ?? "",
+                    ProjectType = J.Str(o, "project_type") ?? "",
+                    Downloads = J.Long(o, "downloads")
+                };
+
+                foreach (var v in J.Arr(o, "game_versions") ?? new JsonArray())
+                    if (v != null) project.GameVersions.Add(v.ToString());
+
+                foreach (var l in J.Arr(o, "loaders") ?? new JsonArray())
+                    if (l != null) project.Loaders.Add(l.ToString());
+
+                return project;
+            }
+            catch (Exception ex)
+            {
+                // 404 很常见：百科登记的 Modrinth 项目可能已被作者删除
+                Log.Warn($"查询 Modrinth 项目 {idOrSlug} 失败：{ex.Message}");
+                return null;
             }
         }
     }

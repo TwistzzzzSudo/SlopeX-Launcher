@@ -75,6 +75,12 @@ namespace SlopeX.Windows
             {
                 NavList.SelectedIndex = 0;
                 UpdateAccount();
+
+                // 首次启动先过法律声明：没同意过就弹简版确认框。
+                // 放在任何 await 之前，弹出不用等版本扫描；后面的状态刷新在遮罩后面继续跑。
+                if (!Config.Current.LegalAccepted)
+                    ShowModal(new Controls.LegalGateDialog());
+
                 await RefreshStatusAsync();
             };
 

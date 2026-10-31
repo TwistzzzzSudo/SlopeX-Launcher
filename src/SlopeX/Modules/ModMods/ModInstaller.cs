@@ -49,6 +49,15 @@ namespace SlopeX.Modules.ModMods
         {
             if (hit == null) throw new ArgumentNullException(nameof(hit));
 
+            // 进度回调来自界面时，它自己出错（典型是跨线程写控件）不该把整个安装带崩：
+            // 下载是几十秒的事，界面文字没刷新远不如文件没落地严重。
+            void Report(string msg)
+            {
+                if (progress == null) return;
+                try { progress(msg); }
+                catch (Exception ex) { Log.Warn("安装进度回调异常（已忽略）：" + ex.Message); }
+            }
+
             var result = new ModInstallResult();
             var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -64,7 +73,7 @@ namespace SlopeX.Modules.ModMods
                 ct.ThrowIfCancellationRequested();
 
                 var (cur, depth) = queue.Dequeue();
-                progress?.Invoke($"解析 {cur.Title}…");
+                Report($"解析 {cur.Title}…");
 
                 var list = await ListFilesAsync(cur, mcVersion, loader, ct).ConfigureAwait(false);
                 if (list.Count == 0)
@@ -122,7 +131,7 @@ namespace SlopeX.Modules.ModMods
                     continue;
                 }
 
-                progress?.Invoke($"下载 {f.FileName}（{Format.Bytes(f.Size)}）");
+                Report($"下载 {f.FileName}（{Format.Bytes(f.Size)}）");
 
                 // 国内网络经代理常只有几十 KB/s，按体积给足时间（20 KB/s 估算，下限 5 分钟，上限 15 分钟）
                 var timeoutMs = f.Size > 0
@@ -148,7 +157,7 @@ namespace SlopeX.Modules.ModMods
                         if (attempt == 0)
                         {
                             Log.Warn($"模组下载失败，重试一次：{f.FileName}（{ex.Message}）");
-                            progress?.Invoke($"下载失败，重试 {f.FileName}…");
+                            Report($"下载失败，重试 {f.FileName}…");
                         }
                         else
                         {

@@ -101,6 +101,9 @@
                                             Tag="{Binding Dir}"/>
                                     <Button Style="{StaticResource BtnText}" Content="模组" Click="ModsOpen_Click"
                                             Tag="{Binding Id}" ToolTip="管理这个版本的模组（启用 / 禁用 / 删除）"/>
+                                    <Button Style="{StaticResource BtnText}" Content="资源包" Click="PacksOpen_Click"
+                                            Tag="{Binding Id}"
+                                            ToolTip="下载光影与材质包到这个版本（不按版本过滤，自己挑包版本）"/>
                                     <Button Style="{StaticResource BtnText}" Content="删除" Click="DeleteOne_Click"
                                             Tag="{Binding Id}" Foreground="{DynamicResource Muted}"/>
                                 </StackPanel>
@@ -126,6 +129,10 @@
             <!-- 视图二：模组管理 -->
             <controls:ModsPanel x:Name="ModsPanelView" Visibility="Collapsed"
                                 BackRequested="ModsBack_Click"/>
+
+            <!-- 视图三：资源包（光影 / 材质） -->
+            <controls:PackPanel x:Name="PackPanelView" Visibility="Collapsed"
+                                BackRequested="PacksBack_Click"/>
         </Grid>
     </Grid>
 </UserControl>

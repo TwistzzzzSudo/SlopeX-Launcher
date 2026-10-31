@@ -25,6 +25,18 @@
     <Resource Include="..\..\ico\SlopeX.ico" Link="Assets\SlopeX.ico" />
 
     <!--
+      法律声明：正文只有一份，放在 docs/LegalNotice.md（仓库里可 diff、可备份），
+      编译时嵌进程序集。用户拿到的单文件 exe 里不带 md，
+      但「设置 → 法律声明」照样能看到全文，不依赖任何外部文件。
+      Brief 是首次启动弹窗用的简版（不含仓库地址与联系方式）。
+    -->
+    <EmbeddedResource Include="..\..\docs\LegalNotice.md" Link="Assets\LegalNotice.md"
+                      LogicalName="SlopeX.LegalNotice.md" />
+    <EmbeddedResource Include="..\..\docs\LegalNotice-Brief.md" Link="Assets\LegalNotice-Brief.md"
+                      LogicalName="SlopeX.LegalNotice-Brief.md" />
+
+
+    <!--
       主题素材（插画 + 背景音乐）是可选的：它们是私人素材，不进仓库。
       Condition="Exists(...)" 让"没有素材的干净克隆"也能编译通过 ——
       主题会退化为纯渐变背景、无背景音乐（见 Themes/ArtSource.cs 与 ThemeMusic）。

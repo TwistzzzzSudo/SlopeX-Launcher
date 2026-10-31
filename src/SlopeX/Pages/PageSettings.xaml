@@ -313,7 +313,7 @@
                 </Border>
 
                 <!-- 关于 -->
-                <Border Style="{StaticResource Card}">
+                <Border Style="{StaticResource Card}" Margin="0,0,0,14">
                     <StackPanel>
                         <TextBlock Style="{StaticResource TSection}" Text="关于"/>
                         <Grid Margin="0,12,0,0">
@@ -344,6 +344,17 @@
                         </Grid>
                         <Button Style="{StaticResource BtnGhost}" Content="打开配置目录" Height="30"
                                 HorizontalAlignment="Left" Margin="0,14,0,0" Click="OpenConfigDir_Click"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 法律声明 -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource TSection}" Text="法律声明"/>
+                        <TextBlock Style="{StaticResource TCaption}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                   Text="与 PCL2 的关系、非商业使用限制、权利通知与联系方式。使用本启动器即视为同意全部条款。"/>
+                        <Button Style="{StaticResource BtnGhost}" Content="查看" Height="30"
+                                HorizontalAlignment="Left" Margin="0,12,0,0" Click="OpenLegal_Click"/>
                     </StackPanel>
                 </Border>
             </StackPanel>

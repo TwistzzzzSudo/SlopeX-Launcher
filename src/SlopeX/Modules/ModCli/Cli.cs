@@ -85,8 +85,11 @@ namespace SlopeX.Modules.ModCli
                     Out("  fix-libs <版本>          补齐缺失的依赖库（走镜像）");
                     Out("  msa-explain <状态码> [原文]  预览登录错误会被翻译成什么（排障用）");
                     Out("  mods-list <版本>         列出该版本 mods 目录的模组与元数据");
-                    Out("  mods-search <版本> <关键词>   搜索模组（Modrinth）");
-                    Out("  mods-install <版本> <关键词|项目ID>   搜索并安装首个结果（含必需依赖）");
+                    Out("  mods-search <版本> <关键词>   搜索模组（英文走 Modrinth，中文走 MC百科）");
+                    Out("  legal [brief]            打印内置法律声明（brief = 首次启动的简版）");
+                    Out("  packs-search <关键词> [shader|resourcepack]   搜光影 / 材质包（不做版本过滤）");
+                    Out("  packs-versions <项目ID>  列出该资源包的全部版本");
+                    Out("  packs-install <版本> <shader|resourcepack> <项目ID> [版本号]   下载到该版本目录");                    Out("  mods-install <版本> <关键词|项目ID>   搜索并安装首个结果（含必需依赖）");
                     Out("  plan <版本>              打印启动命令行（不启动）");
                     Out("  launch <版本>            启动游戏");
                     Out("  fabric-list <原版版本>   列出该原版可用的 Fabric 加载器");
@@ -127,6 +130,18 @@ namespace SlopeX.Modules.ModCli
 
                 case "mods-list":
                     return ModsList(args.FirstOrDefault());
+
+                case "legal":
+                    return LegalDump(args.FirstOrDefault());
+
+                case "packs-search":
+                    return PacksSearch(args);
+
+                case "packs-versions":
+                    return PacksVersions(args.FirstOrDefault());
+
+                case "packs-install":
+                    return PacksInstall(args);
 
                 case "msa-explain":
                     return MsaExplain(args.FirstOrDefault(), string.Join(" ", args.Skip(1)));
@@ -504,11 +519,14 @@ namespace SlopeX.Modules.ModCli
             var (mc, loader) = ModMods.ModInstaller.ResolveTarget(Config.Current.GameDir, versionId);
             Out($"目标：{versionId} → MC {mc}，加载器 {(string.IsNullOrEmpty(loader) ? "原版" : loader)}");
 
-            var hits = Search(query, mc, loader);
-            if (hits.Count == 0) { Out("（无结果）"); return 0; }
+            var result = Search(query, mc, loader);
+            Out(result.StatusText(mc, loader));
+            if (result.Hits.Count == 0) return 0;
 
-            foreach (var h in hits)
-                Out($"[{h.Source}] {h.Title}  ({h.DownloadsText})  id={h.ProjectId}");
+            foreach (var h in result.Hits)
+                Out($"[{h.Source}] {h.Title}  ({h.DownloadsText})  id={h.ProjectId}" +
+                    (h.HasMcMod ? $"  百科 {h.McModUrl}" : ""));
+
             return 0;
         }
 
@@ -523,7 +541,7 @@ namespace SlopeX.Modules.ModCli
             var (mc, loader) = ModMods.ModInstaller.ResolveTarget(Config.Current.GameDir, versionId);
             Out($"目标：{versionId} → MC {mc}，加载器 {(string.IsNullOrEmpty(loader) ? "原版" : loader)}");
 
-            var hits = Search(query, mc, loader);
+            var hits = Search(query, mc, loader).Hits;
             if (hits.Count == 0) { Out("（无结果）"); return 1; }
 
             var hit = hits[0];
@@ -546,9 +564,8 @@ namespace SlopeX.Modules.ModCli
             }
         }
 
-        private static System.Collections.Generic.List<ModMods.ModSearchHit> Search(string query,
-            string mc, string loader)
-            => ModMods.ModrinthSource.SearchAsync(query, mc, loader).GetAwaiter().GetResult();
+        private static ModMods.ModSearchResult Search(string query, string mc, string loader)
+            => ModMods.ModSearch.SearchAsync(query, mc, loader).GetAwaiter().GetResult();
 
         private static int ModsList(string versionId)
         {
@@ -562,6 +579,181 @@ namespace SlopeX.Modules.ModCli
                     $"({m.LoaderHint}  {m.SizeText})  ←  {m.FileName}");
 
             Out($"共 {list.Count} 个，启用 {list.Count(m => m.Enabled)} 个");
+            return 0;
+        }
+
+        // ---------------- 资源包（光影 / 材质）----------------
+
+        /// <summary>搜光影或材质包（不按版本过滤，与界面里同一个入口）。</summary>
+        private static int PacksSearch(System.Collections.Generic.List<string> args)
+        {
+            var query = args.FirstOrDefault();
+            if (string.IsNullOrEmpty(query))
+            {
+                Out("用法：packs-search <关键词> [shader|resourcepack]");
+                return 2;
+            }
+
+            var type = IsResourcePack(args.Skip(1).FirstOrDefault()) ? "resourcepack" : "shader";
+
+            try
+            {
+                var hits = ModMods.ModrinthSource.SearchByTypeAsync(query, type, 20, 0).GetAwaiter().GetResult();
+                Out($"{type} 搜索「{query}」：{hits.Count} 个结果");
+
+                foreach (var h in hits)
+                    Out($"  {h.Title}  [支持 {h.VersionSupportText}]  {h.DownloadsText}  " +
+                        $"更新 {(h.Updated == default ? "—" : h.Updated.ToLocalTime().ToString("yyyy-MM-dd"))}  " +
+                        $"slug={h.Slug}");
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Out("搜索失败：" + ex.Message);
+                return 1;
+            }
+        }
+
+        /// <summary>列出某个资源包的全部版本（验证"不按版本过滤"这件事）。</summary>
+        private static int PacksVersions(string projectId)
+        {
+            if (string.IsNullOrEmpty(projectId))
+            {
+                Out("用法：packs-versions <项目 ID 或 slug>");
+                return 2;
+            }
+
+            try
+            {
+                var versions = ModMods.PackInstaller.ListVersionsAsync(projectId).GetAwaiter().GetResult();
+                Out($"{projectId}：{versions.Count} 个版本（新的在前）");
+
+                foreach (var v in versions.Take(30))
+                    Out($"  {v.VersionNumber,-18} [{v.McText}] {v.SizeText,9}  {v.PublishedText}  {v.FileName}");
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Out("读取版本失败：" + ex.Message);
+                return 1;
+            }
+        }
+
+        /// <summary>
+        /// 装一个光影 / 材质包到指定版本目录。
+        /// 不给版本号时优先挑「声明支持该 MC 版本」的最新一个，没有就退回最新。
+        /// </summary>
+        private static int PacksInstall(System.Collections.Generic.List<string> args)
+        {
+            var versionId = args.ElementAtOrDefault(0);
+            var projectId = args.ElementAtOrDefault(2);
+            var wanted = args.ElementAtOrDefault(3);
+
+            if (string.IsNullOrEmpty(versionId) || string.IsNullOrEmpty(projectId))
+            {
+                Out("用法：packs-install <版本> <shader|resourcepack> <项目 ID 或 slug> [版本号]");
+                return 2;
+            }
+
+            var kind = IsResourcePack(args.ElementAtOrDefault(1)) ? ModMods.PackKind.ResourcePack : ModMods.PackKind.Shader;
+            var (mc, loader) = ModMods.ModInstaller.ResolveTarget(Config.Current.GameDir, versionId);
+
+            Out($"目标：{versionId} → MC {(string.IsNullOrEmpty(mc) ? "?" : mc)}，加载器 {(string.IsNullOrEmpty(loader) ? "原版" : loader)}");
+            Out($"类型：{ModMods.PackInstaller.FolderName(kind)}");
+
+            try
+            {
+                var versions = ModMods.PackInstaller.ListVersionsAsync(projectId).GetAwaiter().GetResult();
+
+                var pick = (!string.IsNullOrEmpty(wanted)
+                        ? versions.FirstOrDefault(v => string.Equals(v.VersionNumber, wanted, StringComparison.OrdinalIgnoreCase))
+                        : null)
+                    ?? versions.FirstOrDefault(v => v.MatchesMc(mc))
+                    ?? versions.FirstOrDefault();
+
+                if (pick == null)
+                {
+                    Out("这个项目没有可下载的文件。");
+                    return 1;
+                }
+
+                Out($"选中：{pick.VersionNumber}（{pick.FileName}，{pick.SizeText}）" +
+                    (pick.MatchesMc(mc) ? "" : $"  ⚠ 未声明支持 {mc}，仍按用户选择安装"));
+
+                var (path, skipped) = ModMods.PackInstaller.InstallAsync(
+                    Config.Current.GameDir, versionId, kind, pick, default, m => Out("  " + m)).GetAwaiter().GetResult();
+
+                Out((skipped ? "已存在，跳过：" : "已下载：") + path);
+                Out("目录：" + ModMods.PackInstaller.Dir(Config.Current.GameDir, versionId, kind));
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Out("安装失败：" + ex.Message);
+                return 1;
+            }
+        }
+
+        private static bool IsResourcePack(string arg) =>
+            !string.IsNullOrEmpty(arg) &&
+            (arg.StartsWith("r", StringComparison.OrdinalIgnoreCase) ||
+             arg.Equals("pack", StringComparison.OrdinalIgnoreCase) ||
+             arg.Equals("resourcepacks", StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>
+        /// 排障用：确认内置法律声明真的打进包里、并且能渲染出来。
+        ///
+        /// 界面上看到的是 FlowDocument，截图容易糊；这里把渲染结果再转回纯文本打印，
+        /// 逐行对照就知道有没有丢内容（标题、列表、粗体标记有没有被吃掉）。
+        /// 参数写 <c>brief</c> 时看首次启动用的简版。
+        /// </summary>
+        private static int LegalDump(string which)
+        {
+            var brief = string.Equals(which, "brief", StringComparison.OrdinalIgnoreCase);
+            var source = brief ? ModBase.Legal.BriefMarkdown : ModBase.Legal.Markdown;
+
+            Out($"内置法律声明（{(brief ? "简版" : "完整版")}）：{source.Length} 字符，" +
+                $"{source.Replace("\r\n", "\n").Split('\n').Length} 行");
+            Out($"配置状态：LegalAccepted={Config.Current.LegalAccepted}，时间={(string.IsNullOrEmpty(Config.Current.LegalAcceptedAt) ? "—" : Config.Current.LegalAcceptedAt)}");
+
+            // FlowDocument 是 DispatcherObject：不仅要在 STA 线程上建，读它的内容
+            // （TextRange / 块数量）也必须在同一个线程上，否则跨线程抛 InvalidOperationException。
+            // 所以整段工作都塞进同一个 STA 线程里做。
+            string text = null;
+            var blockCount = 0;
+            Exception error = null;
+
+            var thread = new System.Threading.Thread(() =>
+            {
+                try
+                {
+                    var doc = brief ? ModBase.Legal.BuildBriefDocument() : ModBase.Legal.BuildDocument();
+                    blockCount = doc.Blocks.Count;
+                    text = new System.Windows.Documents.TextRange(doc.ContentStart, doc.ContentEnd).Text;
+                }
+                catch (Exception ex)
+                {
+                    error = ex;
+                }
+            });
+            thread.SetApartmentState(System.Threading.ApartmentState.STA);
+            thread.Start();
+            thread.Join();
+
+            if (error != null)
+            {
+                Out($"渲染失败：{error.GetType().Name}：{error.Message}");
+                return 1;
+            }
+
+            Out($"渲染成功：{blockCount} 个块，正文 {text.Length} 字符");
+            Out("---- 界面实际显示的纯文本 ----");
+
+            foreach (var line in text.Replace("\r\n", "\n").Split('\n'))
+                Out(line);
+
             return 0;
         }
 

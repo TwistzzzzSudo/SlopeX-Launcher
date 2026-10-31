@@ -125,6 +125,31 @@ namespace SlopeX.Pages
             Reload(); // 可能在面板里删过模组，回来时让版本行的提示保持最新
         }
 
+        // ---------------- 资源包面板 ----------------
+
+        private void PacksOpen_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button b || b.Tag is not string id) return;
+
+            VersionView.Visibility = Visibility.Collapsed;
+            PackPanelView.Visibility = Visibility.Visible;
+
+            HeaderRow.Visibility = Visibility.Collapsed;
+            SearchRow.Visibility = Visibility.Collapsed;
+
+            PackPanelView.Load(id);
+            MainWindow.Current?.SetStatus($"正在管理 {id} 的资源包", null);
+        }
+
+        private void PacksBack_Click(object sender, EventArgs e)
+        {
+            PackPanelView.Visibility = Visibility.Collapsed;
+            VersionView.Visibility = Visibility.Visible;
+
+            HeaderRow.Visibility = Visibility.Visible;
+            SearchRow.Visibility = Visibility.Visible;
+        }
+
         private void OpenOne_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button b && b.Tag is string dir)

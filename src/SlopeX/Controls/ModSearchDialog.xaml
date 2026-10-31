@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              FontFamily="{StaticResource UiFont}">
 
-    <!-- 模组搜索：只有一个来源 Modrinth（免 Key），不再做多来源切换 -->
+    <!-- 模组搜索：中文关键词走 MC百科 检索再对回 Modrinth，英文直接搜 Modrinth -->
 
     <StackPanel>
         <Grid>
@@ -22,7 +22,7 @@
 
             <Grid Grid.Column="0">
                 <TextBox x:Name="QueryBox" Style="{StaticResource Input}" KeyDown="Query_KeyDown"/>
-                <TextBlock Text="搜索模组名…" Foreground="{DynamicResource Muted}" FontSize="12.5"
+                <TextBlock Text="搜中文名也行，比如「机械动力」「钠」" Foreground="{DynamicResource Muted}" FontSize="12.5"
                            Margin="11,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
@@ -37,12 +37,17 @@
                 </TextBlock>
             </Grid>
 
-            <Button Grid.Column="1" Style="{StaticResource BtnGhost}" Content="搜索" Margin="8,0,0,0"
-                    Click="Search_Click"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0">
+                <Button Style="{StaticResource BtnGhost}" Content="搜索" Click="Search_Click"/>
+                <!-- 兜底：映射不到 Modrinth 的（比如只在 CurseForge 上架的）直接在百科里看 -->
+                <Button Style="{StaticResource BtnText}" Content="去百科" Margin="6,0,0,0"
+                        ToolTip="在 MC百科 里搜索这个关键词"
+                        Click="OpenWiki_Click"/>
+            </StackPanel>
         </Grid>
 
         <TextBlock x:Name="StatusText" Style="{StaticResource TCaption}" Margin="0,10,0,0"
-                   TextWrapping="Wrap" Text="输入关键词后回车搜索。"/>
+                   TextWrapping="Wrap" Text="输入关键词后回车搜索，中文英文都行。"/>
 
         <Border Style="{StaticResource Card}" Padding="4" Margin="0,10,0,0" MaxHeight="330">
             <ListBox x:Name="ResultList" Style="{StaticResource PlainList}" MaxHeight="322">
@@ -58,14 +63,20 @@
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
                                                Foreground="{DynamicResource Ink}"
-                                               TextTrimming="CharacterEllipsis" MaxWidth="330"/>
+                                               TextTrimming="CharacterEllipsis" MaxWidth="310"/>
                                     <TextBlock Text="{Binding SubText}" FontSize="11" Margin="0,2,0,0"
                                                Foreground="{DynamicResource Muted}"
-                                               TextTrimming="CharacterEllipsis" MaxWidth="330"/>
+                                               TextTrimming="CharacterEllipsis" MaxWidth="310"/>
                                 </StackPanel>
 
-                                <Button Grid.Column="1" Style="{StaticResource BtnText}" Content="安装"
-                                        Tag="{Binding}" Click="Install_Click" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <!-- 只有来自 MC百科 的结果才有词条可看 -->
+                                    <Button Style="{StaticResource BtnText}" Content="百科" Margin="0,0,2,0"
+                                            Tag="{Binding}" Click="Wiki_Click"
+                                            Visibility="{Binding HasMcMod, Converter={StaticResource BoolToVis}}"/>
+                                    <Button Style="{StaticResource BtnText}" Content="安装"
+                                            Tag="{Binding}" Click="Install_Click"/>
+                                </StackPanel>
                             </Grid>
                         </Border>
                     </DataTemplate>

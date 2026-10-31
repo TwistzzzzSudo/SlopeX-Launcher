@@ -467,5 +467,8 @@ namespace SlopeX.Pages
                 Log.Warn("打开配置目录失败：" + ex.Message);
             }
         }
+
+        private void OpenLegal_Click(object sender, RoutedEventArgs e)
+            => MainWindow.Current?.ShowModal(new Controls.LegalNoticeDialog());
     }
 }

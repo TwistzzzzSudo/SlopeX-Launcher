@@ -430,7 +430,9 @@ namespace SlopeX.Modules.ModBase
         private string _javaRuntimeDir = "";
         private bool _dismissLegacySavesHint;
         private double _contentOpacity = 0.75;
-        private double _musicVolume = 0.20;
+        private double _musicVolume = 0.15;
+        private bool _legalAccepted;
+        private string _legalAcceptedAt = "";
 
         /// <summary>游戏目录（.minecraft 根），内存中始终是绝对路径。</summary>
         [JsonIgnore]
@@ -519,7 +521,7 @@ namespace SlopeX.Modules.ModBase
             set => Set(ref _contentOpacity, Math.Clamp(value, 0.35, 1.0));
         }
 
-        /// <summary>主题背景音乐音量（0–1），默认 20%。</summary>
+        /// <summary>主题背景音乐音量（0–1），默认 15%。</summary>
         public double MusicVolume
         {
             get => _musicVolume;
@@ -532,6 +534,15 @@ namespace SlopeX.Modules.ModBase
 
         /// <summary>上次选择的版本 ID。</summary>
         public string LastVersion { get => _lastVersion; set => Set(ref _lastVersion, value); }
+
+        /// <summary>
+        /// 是否已同意法律声明。首次启动弹一次确认框，同意后置 true 并落盘，
+        /// 之后不再打扰（旧配置没有这个键 → 默认 false，会补问一次）。
+        /// </summary>
+        public bool LegalAccepted { get => _legalAccepted; set => Set(ref _legalAccepted, value); }
+
+        /// <summary>同意时间（<c>yyyy-MM-dd HH:mm:ss</c>），只作记录，不参与判断。</summary>
+        public string LegalAcceptedAt { get => _legalAcceptedAt; set => Set(ref _legalAcceptedAt, value); }
 
         /// <summary>当前版本缺少所需 Java 时，自动下载安装（国内镜像）。</summary>
         public bool AutoInstallJava { get => _autoInstallJava; set => Set(ref _autoInstallJava, value); }

@@ -33,6 +33,12 @@
 |---|---|
 | ![缺少 Java](docs/screenshots/java-missing.png) | ![自动安装](docs/screenshots/java-autoinstall.png) |
 
+版本管理里每行都能打开「资源包」，按页签分别下载光影与材质包（不做 MC 版本过滤，版本自己挑）：
+
+| 光影包 | 材质包 |
+|---|---|
+| ![光影包](docs/screenshots/packs-search.png) | ![材质包](docs/screenshots/packs-material.png) |
+
 ---
 
 ## 技术栈
@@ -51,6 +57,7 @@ src/SlopeX/
 │  ├─ ModJava/       Java 探测（注册表 + 目录 + PATH）、版本匹配、缺失时自动下载安装
 │  ├─ ModLaunch/     规则引擎、classpath 拼装、natives 解压、参数构造、进程管理
 │  ├─ ModDownload/   版本清单、原版 / Fabric / Forge / NeoForge 安装、整合包导入、任务中心
+│  ├─ ModMods/       模组与资源包：Modrinth 搜索、MC百科 中文映射、模组安装、光影 / 材质包落盘
 │  └─ ModCli/        无界面命令行模式（自动化测试 / 排障用）
 ├─ Windows/          主窗口（无边框自绘标题栏）
 ├─ Pages/            启动 / 版本管理 / 下载 / 任务与日志 / 设置
@@ -78,8 +85,9 @@ src/SlopeX/
 - **Fabric 安装**：选最新稳定加载器自动拼 `inheritsFrom` 版本、下加载器依赖；原版缺失时先补原版
 - **启动失败诊断**：非零退出时读 `latest.log` 与最新崩溃报告，把内存不足 / Java 版本 / 缺前置模组 / 重复模组 / Mixin 冲突 / 版本不匹配 / 账号校验 / 显卡驱动等特征翻译成人话；认不出来就直说，并给出日志位置
 - **版本补全**：启动时若缺文件（外部复制进来的版本没带 `libraries`/`assets`），弹窗一键补齐——只补缺的部分，不改写版本 JSON
-- **模组管理**：按版本管理 `mods\`（列表、启用/禁用、删除、打开目录）；从 **Modrinth** 搜索并安装，自动补齐必需依赖
+- **模组管理**：按版本管理 `mods\`（列表、启用/禁用、删除、打开目录）；搜索支持**中文**——含中文的关键词先去 **MC百科** 查词条，再用词条里登记的 Modrinth 链接对回项目，下载、版本过滤、依赖补全都还是走 Modrinth；列表里可直接跳百科词条看中文说明
 - **整合包导入**：支持 `.mrpack`（Modrinth）、CurseForge 整合包 zip、MultiMC / Prism 实例包、只有 mods 的普通压缩包；自动装对应原版与加载器、下载模组、解压 overrides
+- **光影 / 材质包下载**：版本行「资源包」→ 两个页签分别搜 Modrinth 的 `shader` / `resourcepack`，每行先「选择版本」再「安装」，文件直接落到该版本的 `shaderpacks\` / `resourcepacks\`（已存在则跳过）。**不按 MC 版本过滤**——光影和材质对版本很宽松，硬过滤会漏掉大半结果，所以版本由用户自己挑，声明范围与当前版本不一致时只提示不拦；光影页常驻一条提示：Fabric 要 Iris + Sodium，Forge / NeoForge 要 Oculus（配 Embeddium）或 OptiFine
 - **Forge 安装**：取官方推荐的加载器版本，下载官方 installer 并用合适的 Java 无头执行（`--installClient`）；原版缺失时先补原版。进度以「已用时长」呈现——installer 本身不输出百分比，这是该路线的已知取舍
 - **NeoForge 安装**：按 MC 版本推导 NeoForge 版本号（1.21.1 → 21.1.x、26.3 → 26.3.0.x），installer 与其依赖全部走 BMCLAPI 镜像（官方 maven 域名在国内常被 DNS 污染）；原版缺失时先补原版
 - BMCLAPI 镜像 / Mojang 官方源可选（国内网络建议开镜像）
@@ -95,6 +103,8 @@ src/SlopeX/
 - **存档隔离（强制）**：每个版本固定使用 `versions\<版本 ID>` 作为游戏目录，存档 / 材质包 / 模组 / 设置互不影响；**没有关闭入口**（`libraries`、`assets` 仍共用）
 - 内存、JVM 参数、自定义分辨率、下载源、游戏目录均可配置（**存档隔离不在可配置之列**）
 - 配置持久化到 `<启动器目录>\SlopeXData\config.json`（目录不可写时回落 `%APPDATA%\SlopeX\config.json`）
+- **法律声明内置**：全文编译进 exe（源文件 `docs/LegalNotice.md`，仓库里可 diff/备份），设置页滑到底「法律声明 → 查看」即可阅读，不依赖任何外部文件；正文里的链接交给系统浏览器打开
+- **首次启动需确认条款**：第一次运行会弹简版声明（不含仓库地址与联系方式），必须勾选「在您使用SlopeX Launcher时，将默认您同意以上所有法律条款。」后「确认」才可点击；不同意只能「退出」结束程序。同意结果记录在 `SlopeXData\config.json`（`LegalAccepted`），之后不再弹出；想重看简版可删掉这个键
 
 ## 存档隔离（强制开启）
 
@@ -193,7 +203,8 @@ SlopeX.exe --cli fix-libs 1.21.1-neoforge-21.1.265  # 补齐缺失依赖
 SlopeX.exe --cli diagnose "Better MC [FORGE] BMC4"  # 对最近一次启动失败做诊断
 SlopeX.exe --cli repair "Better MC [FORGE] BMC4"   # 补齐缺失的库 / 客户端 jar / 资源
 SlopeX.exe --cli mods-list 1.20.1-forge-47.4.28     # 列出该版本模组
-SlopeX.exe --cli mods-search 1.20.1-forge-47.4.28 jei   # 搜索（默认 Modrinth）
+SlopeX.exe --cli mods-search 1.20.1-forge-47.4.28 jei   # 搜索（英文走 Modrinth）
+SlopeX.exe --cli mods-search 1.20.1-forge-47.4.28 机械动力  # 中文搜索（走 MC百科）
 SlopeX.exe --cli mods-install 1.20.1-forge-47.4.28 jei  # 搜索并安装首个结果（含依赖）
 SlopeX.exe --cli pack-info 包.mrpack     # 识别整合包格式与版本（不安装）
 SlopeX.exe --cli import-pack 包.mrpack   # 导入整合包
@@ -222,7 +233,11 @@ tools/make-icon.ps1  # 由矢量几何重新生成 ico；改标记形状时改�
 - **仅支持 Windows**（WPF + 注册表探测）
 - **微软登录需要 Mojang 白名单**：第三方启动器访问 Minecraft API 需要人工审核（[说明](https://help.minecraft.net/hc/en-us/articles/16254801392141)，[申请表](https://aka.ms/mce-reviewappid)）。当前 client_id 尚未在名单内，登录会停在 `403 Invalid app registration`；审核通过后无需改代码即可使用
 - 模组只补必需依赖，不检查版本区间冲突：会自动装 `dependency_type=required` 的依赖，但不会判断「这包要求 X ≥ 2.0，你装的是 1.8」这类问题，冲突仍以游戏日志为准
-- 模组搜索只支持 Modrinth：CurseForge 的搜索接口强制 API Key（无 Key 一律 403），因此**不提供** CurseForge 搜索安装；CurseForge 只支持整合包 zip 导入
+- 模组**下载来源只有 Modrinth**：CurseForge 的搜索接口强制 API Key（无 Key 一律 403），因此**不提供** CurseForge 搜索安装；CurseForge 只支持整合包 zip 导入
+- 光影 / 材质包同样**只覆盖 Modrinth 上架的项目**，且搜索**不按 MC 版本过滤**（光影对版本很宽松，硬过滤会漏掉大半结果）——装之前请看一眼「支持版本」，与当前版本不一致时界面只提示、不拦
+- 光影需要额外的加载器才生效（Fabric → Iris + Sodium；Forge / NeoForge → Oculus + Embeddium，或 OptiFine），本启动器不代装这些模组，请到模组面板装
+- 中文搜索依赖 MC百科 的词条映射：只在 CurseForge 上架（词条里没登记 Modrinth）的模组映射不到，会被过滤掉——界面会给出提示，也可以点「去百科」自己去看。百科搜索接口有限流（连搜两次可能提示"太频繁"），模组详情页不限，所以每次只读 12 条详情
+- 中文搜索结果按百科的相关度排序，不是按下载量；查不到时建议换完整名字（「机械动力」而不是「机械」）
 - CurseForge 整合包依赖 cfwidget 公开镜像反查文件名，首次导入要拉取每个模组的文件列表（大包可达数十 MB 元数据），结果缓存 30 天
 - 存档隔离为强制行为，不提供"共享材质包 / 共用存档"的混合模式；需要共用时由用户自行复制文件
 - Java 自动下载只覆盖 x64 / arm64 桌面平台，且依赖国内镜像的可达性；镜像全部不可达时需手动指定 Java
