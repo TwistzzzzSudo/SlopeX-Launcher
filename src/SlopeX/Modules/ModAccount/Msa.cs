@@ -491,7 +491,7 @@ namespace SlopeX.Modules.ModAccount
                 raw.IndexOf("AppRegInfo", StringComparison.OrdinalIgnoreCase) >= 0;
 
             if (status == 403 && isAppRegistration)
-                return "Mojang 还没有放行这个启动器（403 Invalid app registration）。\n" +
+                return "Mojang 拒绝了这个启动器的应用注册（403 Invalid app registration）。\n" +
                        "第三方启动器必须单独申请 Minecraft API 白名单。官方没有状态查询页，\n" +
                        "提交后一般等一周左右，再次登录不报这个错就是通过了。\n" +
                        "申请入口：https://aka.ms/mce-reviewappid\n" +

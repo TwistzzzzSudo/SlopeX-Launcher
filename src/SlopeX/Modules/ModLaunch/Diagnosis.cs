@@ -69,8 +69,8 @@ namespace SlopeX.Modules.ModLaunch
             (@"Failed to verify username|Invalid session|AuthenticationException|" +
              @"requires a premium account|premium account|not authenticated with Minecraft",
                 "账号验证没通过",
-                "这个整合包要求正版账号。SlopeX 的微软登录还在等 Mojang 白名单审核，" +
-                "审核通过前，只能用离线账号玩不校验正版的整合包。",
+                "这个整合包要求正版账号。到「设置 → 账号」登录微软账号后再启动；" +
+                "已经登录仍报错的话，确认这个账号本身能正常进 Minecraft（比如 Xbox 档案有没有被限制）。",
                 "account"),
 
             (@"GLFW error|Failed to create window|Pixel format not accelerated|" +

@@ -77,7 +77,7 @@ src/SlopeX/
 ## 已实现的功能
 
 **启动**
-- **微软正版登录**：OAuth 2.0 设备码流程（浏览器输入 8 位码，密码不经过启动器）→ Xbox Live → XSTS → Minecraft 档案；令牌本地保存、过期自动刷新
+- **微软正版登录**：OAuth 2.0 设备码流程（浏览器输入 8 位码，密码不经过启动器）→ Xbox Live → XSTS → Minecraft 档案；令牌本地保存，24 小时过期后静默刷新（refresh_token 同步轮换）。**Mojang 白名单已通过**（2026-11-01 实测：档案接口 200、皮肤 ACTIVE、披风正常、静默刷新可用）
 - 离线登录（玩家名 → 离线 UUID，算法与原版一致），与正版登录并存可随时切换
 - 版本选择、最近版本、启动 / 结束进程、启动后最小化
 - 启动参数完整构造：`arguments.jvm` / `arguments.game` / 旧版 `minecraftArguments` 双格式
@@ -241,7 +241,6 @@ tools/make-icon.ps1  # 由矢量几何重新生成 ico；改标记形状时改�
 ## 已知限制
 
 - **仅支持 Windows**（WPF + 注册表探测）
-- **微软登录需要 Mojang 白名单**：第三方启动器访问 Minecraft API 需要人工审核（[说明](https://help.minecraft.net/hc/en-us/articles/16254801392141)，[申请表](https://aka.ms/mce-reviewappid)）。当前 client_id 尚未在名单内，登录会停在 `403 Invalid app registration`；审核通过后无需改代码即可使用
 - 模组只补必需依赖，不检查版本区间冲突：会自动装 `dependency_type=required` 的依赖，但不会判断「这包要求 X ≥ 2.0，你装的是 1.8」这类问题，冲突仍以游戏日志为准
 - 模组**搜索有三个来源可选**：`全部`（默认，Modrinth + CurseForge 一起搜）、`Modrinth`、`CurseForge`。CurseForge 官方接口强制 API Key（无 Key 一律 403），所以**元数据全部经社区镜像 MCIM**（`mod.mcimirror.top`），文件下载仍直连作者给的 forgecdn 地址。镜像不是 CurseForge 官方授权渠道，可能被限流或停服；挂了时切到 `Modrinth` 仍可正常使用
 - 选 `Modrinth` 走官方接口（数据最新）；选 `全部` 时 Modrinth 侧也走 MCIM 镜像，两个源共用一个出口。合并顺序是 **Modrinth 在前、CurseForge 补在后**（同名去重），因为 Modrinth 的相关度排序明显更准
