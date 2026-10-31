@@ -1,12 +1,12 @@
 # SlopeX Launcher 进度报告与实施计划
 
-> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-31 23:10
+> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-31 23:40
 > 对应产物：`SlopeX.exe` 1.0.0（自包含单文件，win-x64）
-> 代码规模：68 个 C# / XAML 源文件，≈16,144 行
+> 代码规模：68 个 C# / XAML 源文件，≈16,183 行
 > 版本控制：分支 `main`，远端公开 `github.com/TwistzzzzSudo/SlopeX-Launcher`
 > 当前状态：**S3 视觉定案**（组件缺口 5/7）；四条加载器线 + 整合包导入 + 模组增删与中英文搜索 + 光影 / 材质包下载 + 法律声明（首启确认）全部可用；微软登录代码就绪，卡 Mojang 白名单
 > 下一个执行项 = **继续完善启动器**（集中补既有链路，不铺新功能面），候选待办见 §6.2
-> 本轮改动：①版本内「资源包」上线——光影 / 材质包两个页签，搜索不过滤 MC 版本、由用户挑包版本（规格与实测见 §6.1）；②模组搜索支持中文（MC百科 检索 → 词条 Modrinth 链接 → 项目核对版本与加载器），列表新增「百科」跳转与「去百科」兜底；③修掉跨线程写 UI 导致模组安装必定失败的问题；④主题背景音乐默认音量 20% → 15%；⑤法律声明内置进 exe（设置页底部可查看），源文件留在 `docs/LegalNotice.md` 作为备份；⑥首次启动的简版确认框（勾选后才能点「确认」，同意后写入配置不再弹出）；⑦文档整改：已完成项与待办分家、命令速查补全。以上改动 `dotnet build -c Debug` 通过（0 警告 0 错误）
+> 本轮改动：①版本内「资源包」上线——光影 / 材质包两个页签，每行一个「安装」、点中版本即下载，搜索不过滤 MC 版本、由用户挑包版本（规格与实测见 §6.1）；②模组搜索支持中文（MC百科 检索 → 词条 Modrinth 链接 → 项目核对版本与加载器），列表新增「百科」跳转与「去百科」兜底；③修掉跨线程写 UI 导致模组安装必定失败的问题；④主题背景音乐默认音量 20% → 15%；⑤法律声明内置进 exe（设置页底部可查看），源文件留在 `docs/LegalNotice.md` 作为备份；⑥首次启动的简版确认框（勾选后才能点「确认」，同意后写入配置不再弹出）；⑦文档整改：已完成项与待办分家、命令速查补全。以上改动 `dotnet build -c Debug` 通过（0 警告 0 错误）
 > **工作量口径**：全文一律以「产出物 / 改动范围」描述，不使用时间估算。
 
 ---
@@ -100,10 +100,10 @@ ModDownload   原版 / Fabric / Forge / NeoForge / 整合包 / 任务中心     
 ModMods       模组扫描 / 元数据 / 启停 / Modrinth 与 MC百科 搜索 / 光影材质包 1,410 行
 ModAccount    设备码登录 / XBL / XSTS / 档案 / 令牌刷新                   532 行
 ModCli        无界面模式                                                  1,250 行
-UI 层         5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeService   6,529 行
+UI 层         5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeService   6,568 行
 ```
 
-（模块层 9,615 行 + UI 层 6,529 行 = 16,144 行）
+（模块层 9,615 行 + UI 层 6,568 行 = 16,183 行）
 
 ### 3.3 三个关键设计取舍
 
@@ -133,6 +133,7 @@ UI 层         5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeS
 | 9   | **模组安装回调跨线程写 UI**（`ModInstaller` 全程 `ConfigureAwait(false)`，对话框却传 `msg => StatusText.Text = msg`） | 点「安装」秒报 `The calling thread cannot access this object because a different thread owns it`，被当成"安装失败"，实际一个文件都没下                       | 对话框新增 `SetStatus()`（`Dispatcher.CheckAccess` + `BeginInvoke`）；`ModInstaller` 增加 `Report()` 包一层 try/catch，界面文字刷不出来不再拖垮下载                            |
 | 10  | Forge 把 `${version_name}` 展开成子版本 ID，但实际加载的是父版本 jar                                                | `-DignoreList` 名字对不上，原版 jar 被 BootstrapLauncher 当成自动模块 `_1._20._1`，与 FML 的 `minecraft` 模块撞包（`java.lang.module.ResolutionException`） | 拼完参数后把**实际 jar 文件名**补进 ignoreList（幂等）                                                                                                              |
 | 11  | 资源包面板首次进入是一整张空白卡片；切换版本后仍显示上一个版本的搜索结果（UIA 截图核对时发现）                                              | 用户不知道要做什么；在 A 版本搜到的包，进 B 版本还挂在列表里，容易装错目录                                                                                     | `Load()` 先清 `ItemsSource`；`ApplyKind()` 在列表为空时亮出空状态引导                                                                                               |
+| 12  | 版本浮层里的版本点不动：主题的 `RowItem` 把 `ListBoxItem` 的 `Focusable` 设成 `False`，WPF 无焦点即不选中，`SelectionChanged` 永不触发（把两个按钮合成一个时用真实鼠标点才暴露） | 库里的版本列表**点了没反应**，只能干瞪眼；旧版靠"选中 → 再点安装"的交互因此根本走不通，只是当时没测到这一步                                                              | 浮层每一项改成 `Button`（自带 hover/pressed 模板），点中即下载；顺带删掉选中态与 `_suppressSelection` 这套补丁式状态                                                                  |
 
 ---
 
@@ -213,6 +214,7 @@ UI 层         5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeS
 
 - 版本行按钮顺序：启动 / 目录 / 模组 / **资源包** / 删除
 - 「资源包」整页替换版本列表（与模组面板一致，不是弹模态窗口），内部两个页签：**光影包** / **材质包**；每个页签一条搜索框 + 结果表（名称 / 支持版本 / 更新 / 操作）
+- 每行只留一个「安装 ⌄」：点开是包版本列表，**点中哪个版本就直接开始下载**（2026-10-31 晚按用户要求把原来的「选择版本 + 安装」两个按钮合成一个，避免"选了版本忘了点安装"的空转）
 
 **行为约定（关键：不做版本限制）**
 
@@ -221,6 +223,7 @@ UI 层         5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeS
 - 选中版本后，若该包声明的 MC 版本与当前版本不一致，给一条**非阻断**提示（允许装，只是提醒）
 - 落盘：`versions\<版本 ID>\shaderpacks\`、`versions\<版本 ID>\resourcepacks\`（`VersionEnv.Dirs` 已包含这两个目录，隔离逻辑不用改）
 - 不自动补依赖，也不许装进 `mods\`：光影 / 材质在 Modrinth 上没有 `required` 依赖
+- 状态行只显示过程消息（搜索 / 下载 / 结果），已装数量放在页头副标题——否则装完那句"已安装到 …"会被计数覆盖
 
 **光影加载器提示（常驻在光影页签顶部，不用 Toast）**
 
@@ -230,7 +233,9 @@ UI 层         5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeS
 
 - 数据源：Modrinth `project_type` = `shader` / `resourcepack`，仍是 `/v2/search`；`ModrinthSource.SearchAsync` 增加 `projectType` 参数（模组链路行为不变）
 - 版本列表：`/project/{id}/version` 取全部版本 → `PackVersionRef`（版本号 / 声明支持的 MC 范围 / 文件名 / 大小 / 日期），选择浮层贴按钮下方弹出，不弹对话框
+- 浮层里的每一项是**按钮**而不是 `ListBoxItem`：主题的 `RowItem` 把 `Focusable` 设成 `False`，WPF 的 `ListBoxItem` 没焦点就不会被鼠标选中（`SelectionChanged` 永不触发）。改成按钮后"点中即下载"，也不需要维护选中态
 - 下载：`PackInstaller.InstallAsync` 取该 version 的 primary 文件 → `Net.DownloadToFileAsync`（`.sxpart` + SHA1 + 超时），**已存在则跳过**（幂等）
+- 文件名里的 `§` 颜色码（作者故意加的，游戏里显示彩色）在状态行显示前会剥掉，盘上文件名保持原样
 - 细节：换版本、换页签都清空上一批结果（结果与版本无关，但"支不支持当前 MC"的判断依赖版本）；首次进入显示空状态引导，不留一张空白卡片
 
 **实测（2026-10-31，Debug + CLI + UIA 截图）**
@@ -240,6 +245,7 @@ UI 层         5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeS
 - `packs-install 1.20.1-forge-test shader complementary-reimagined` → `versions\1.20.1-forge-test\shaderpacks\ComplementaryReimagined_r5.9.3.zip`（553,397 字节；zip 内 `shaders\*.properties`、`block.properties` 齐全，是真包不是错误页）
 - `packs-install … resourcepack stay-true-amendments` → `resourcepacks\Stay_True_Amendment3.zip`（40.8 KB，含 `assets\minecraft\…`）；再执行一次输出「已存在，跳过」
 - UI：1100px 宽下版本行 5 个按钮不换行；光影页 20 条、材质页 11 条；版本浮层不越窗口边界；切到材质包页签后常驻提示自动隐藏
+- UI 全链路（UIA 真实鼠标点击）：点「安装」→ 浮层列出 4 个版本 → 点 `v1.4` → 开始下载 `photon_v1.4.zip`；材质页同链路点 `4` → 落盘 `resourcepacks\Stay True x §7Better§bOres§93D§0.zip`（544,122 字节），状态行显示"已安装 … 注意：这个包声明支持 1.21 – 26.2，与当前 1.20.1 不一致"（`§` 已剥成 `BetterOres3D`）
 - 截图：`docs/screenshots/packs-search.png`、`docs/screenshots/packs-material.png`
 
 **有意没做**
@@ -247,7 +253,7 @@ UI 层         5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeS
 - 不在面板里代装光影加载器：Iris / Oculus 本质是模组，走模组面板，避免两处入口互相打架（提示语已说明去哪里装）
 - 不解析 zip 里的 `pack.mcmeta` / 光影版本做二次校验，只按 Modrinth 声明提示——多一层解析带来的误判风险大于收益
 
-**工作量口径**：新增 `Controls/PackPanel.xaml`（≈205 行）+ `.xaml.cs`（≈360 行）、`Modules/ModMods/PackInstaller.cs`（178 行）；`Modrinth.cs` 参数化 1 处 + 新增全量版本查询；`PageVersions` 加按钮与整页切换 1 处；`Cli.cs` 加 3 条命令（`packs-search` / `packs-versions` / `packs-install`）；文档同步 2 份 + 截图 2 张。
+**工作量口径**：新增 `Controls/PackPanel.xaml`（239 行）+ `.xaml.cs`（366 行）、`Modules/ModMods/PackInstaller.cs`（178 行）；`Modrinth.cs` 参数化 1 处 + 新增全量版本查询；`PageVersions` 加按钮与整页切换 1 处；`Cli.cs` 加 3 条命令（`packs-search` / `packs-versions` / `packs-install`）；文档同步 2 份 + 截图 2 张。
 
 ### 美术与主题（结论，2026-10-31 精简）
 

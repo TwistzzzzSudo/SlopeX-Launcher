@@ -8,6 +8,40 @@
         与模组面板最大的区别：不按 MC 版本 / 加载器过滤，版本由用户自己挑（见 PackInstaller 的注释）。
     -->
 
+    <UserControl.Resources>
+        <!--
+            版本浮层里的一行：整行就是一个按钮，点中直接开下载。
+            不用 ListBoxItem 承接点击，是因为主题里的 RowItem 把 Focusable 设成了 False，
+            WPF 的 ListBoxItem 没焦点就不会被鼠标选中（SelectionChanged 永远不触发）。
+        -->
+        <Style x:Key="VersionPickRow" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="8,7"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="Transparent" CornerRadius="{StaticResource R8}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource Paper2}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource Paper3}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -86,7 +120,7 @@
 
         <!-- 状态行 -->
         <TextBlock x:Name="StatusText" Grid.Row="3" Style="{StaticResource TCaption}" Margin="0,0,0,8"
-                   TextWrapping="Wrap" Text="输入关键词搜索，或先看看某个作者的作品。"/>
+                   TextWrapping="Wrap" Text="输入关键词搜索；点结果行的「安装」，挑一个版本就会立刻下载。"/>
 
         <!-- 列表 -->
         <Grid Grid.Row="4">
@@ -100,7 +134,7 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="118"/>
                     <ColumnDefinition Width="92"/>
-                    <ColumnDefinition Width="196"/>
+                    <ColumnDefinition Width="112"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Style="{StaticResource DataListHeader}" Text="名称"/>
                 <TextBlock Grid.Column="1" Style="{StaticResource DataListHeader}" Text="支持版本"/>
@@ -143,18 +177,18 @@
                                                    Style="{StaticResource TCaption}"
                                                    Text="{Binding UpdatedText}"/>
 
-                                        <StackPanel Grid.Column="3" Orientation="Horizontal"
-                                                    VerticalAlignment="Center" HorizontalAlignment="Right">
-                                            <!-- 按钮文字就是选中的版本号：太长就截断，完整值放 ToolTip -->
-                                            <Button Style="{StaticResource BtnText}" Tag="{Binding}"
-                                                    Click="ChooseVersion_Click" MinWidth="96"
-                                                    ToolTip="选一个要安装的包版本">
-                                                <TextBlock Text="{Binding SelectionText}" MaxWidth="84"
-                                                           TextTrimming="CharacterEllipsis"/>
-                                            </Button>
-                                            <Button Style="{StaticResource BtnText}" Content="安装"
-                                                    Margin="6,0,0,0" Tag="{Binding}" Click="Install_Click"/>
-                                        </StackPanel>
+                                        <Button Grid.Column="3" Style="{StaticResource BtnText}" Tag="{Binding}"
+                                                Click="ChooseVersion_Click" MinWidth="78"
+                                                HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                AutomationProperties.Name="安装"
+                                                ToolTip="选一个包版本，点完立刻开始下载">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="安装"/>
+                                                <TextBlock Text="&#xE70D;" FontFamily="Segoe MDL2 Assets"
+                                                           FontSize="9" Margin="5,1,0,0"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
                                     </Grid>
                                 </Border>
                             </DataTemplate>
@@ -172,7 +206,7 @@
             </Border>
         </Grid>
 
-        <!-- 版本选择浮层：点「选择版本」时贴在该按钮下方 -->
+        <!-- 版本选择浮层：点「安装」时贴在该按钮下方，点中哪个版本就开始下载哪个 -->
         <Popup x:Name="VersionPopup" StaysOpen="False" AllowsTransparency="True"
                Placement="Bottom" VerticalOffset="4" HorizontalOffset="-40"
                PopupAnimation="Fade">
@@ -180,11 +214,12 @@
                     BorderThickness="1" BorderBrush="{DynamicResource Line}" Padding="4"
                     Width="330" MaxHeight="300">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <ListBox x:Name="VersionList" Style="{StaticResource PlainList}"
-                             SelectionChanged="VersionList_SelectionChanged">
-                        <ListBox.ItemTemplate>
+                    <ItemsControl x:Name="VersionList">
+                        <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Style="{StaticResource DataListRow}" Padding="8,7">
+                                <Button Style="{StaticResource VersionPickRow}" Tag="{Binding}"
+                                        Click="VersionPick_Click"
+                                        ToolTip="{Binding SubText}">
                                     <StackPanel>
                                         <TextBlock Text="{Binding VersionNumber}" FontSize="12.5"
                                                    Foreground="{DynamicResource Ink}"
@@ -193,10 +228,10 @@
                                                    Foreground="{DynamicResource Muted}"
                                                    TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>
-                                </Border>
+                                </Button>
                             </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </ScrollViewer>
             </Border>
         </Popup>

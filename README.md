@@ -87,7 +87,7 @@ src/SlopeX/
 - **版本补全**：启动时若缺文件（外部复制进来的版本没带 `libraries`/`assets`），弹窗一键补齐——只补缺的部分，不改写版本 JSON
 - **模组管理**：按版本管理 `mods\`（列表、启用/禁用、删除、打开目录）；搜索支持**中文**——含中文的关键词先去 **MC百科** 查词条，再用词条里登记的 Modrinth 链接对回项目，下载、版本过滤、依赖补全都还是走 Modrinth；列表里可直接跳百科词条看中文说明
 - **整合包导入**：支持 `.mrpack`（Modrinth）、CurseForge 整合包 zip、MultiMC / Prism 实例包、只有 mods 的普通压缩包；自动装对应原版与加载器、下载模组、解压 overrides
-- **光影 / 材质包下载**：版本行「资源包」→ 两个页签分别搜 Modrinth 的 `shader` / `resourcepack`，每行先「选择版本」再「安装」，文件直接落到该版本的 `shaderpacks\` / `resourcepacks\`（已存在则跳过）。**不按 MC 版本过滤**——光影和材质对版本很宽松，硬过滤会漏掉大半结果，所以版本由用户自己挑，声明范围与当前版本不一致时只提示不拦；光影页常驻一条提示：Fabric 要 Iris + Sodium，Forge / NeoForge 要 Oculus（配 Embeddium）或 OptiFine
+- **光影 / 材质包下载**：版本行「资源包」→ 两个页签分别搜 Modrinth 的 `shader` / `resourcepack`；每行只有一个「安装」，点开就是包版本列表，**选中哪个版本当场开始下载**，文件直接落到该版本的 `shaderpacks\` / `resourcepacks\`（已存在则跳过）。**不按 MC 版本过滤**——光影和材质对版本很宽松，硬过滤会漏掉大半结果，所以版本由用户自己挑，声明范围与当前版本不一致时只提示不拦；光影页常驻一条提示：Fabric 要 Iris + Sodium，Forge / NeoForge 要 Oculus（配 Embeddium）或 OptiFine
 - **Forge 安装**：取官方推荐的加载器版本，下载官方 installer 并用合适的 Java 无头执行（`--installClient`）；原版缺失时先补原版。进度以「已用时长」呈现——installer 本身不输出百分比，这是该路线的已知取舍
 - **NeoForge 安装**：按 MC 版本推导 NeoForge 版本号（1.21.1 → 21.1.x、26.3 → 26.3.0.x），installer 与其依赖全部走 BMCLAPI 镜像（官方 maven 域名在国内常被 DNS 污染）；原版缺失时先补原版
 - BMCLAPI 镜像 / Mojang 官方源可选（国内网络建议开镜像）

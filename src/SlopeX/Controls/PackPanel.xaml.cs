@@ -23,12 +23,13 @@ namespace SlopeX.Controls
     {
         private string _versionId = "";
         private string _mcVersion = "";
+        private string _subBase = "";        // 页头副标题的固定部分（版本 + MC + 加载器）
 
         private PackKind _kind = PackKind.Shader;
         private CancellationTokenSource _cts;
 
         private PackRow _activeRow;          // 正在选版本的那一行
-        private bool _suppressSelection;     // 打开浮层时重置选中项，别当成用户选择
+        private Button _activeButton;        // 那一行的「安装」按钮，下载期间禁用
 
         /// <summary>返回版本列表。</summary>
         public event EventHandler BackRequested;
@@ -48,9 +49,9 @@ namespace SlopeX.Controls
             var (mc, loader) = ModInstaller.ResolveTarget(Config.Current.GameDir, versionId);
             _mcVersion = mc;
 
-            SubText.Text = $"{versionId}  ·  " +
-                           (string.IsNullOrEmpty(mc) ? "读不出 MC 版本" : "Minecraft " + mc) +
-                           (!string.IsNullOrEmpty(loader) ? " / " + loader : "");
+            _subBase = $"{versionId}  ·  " +
+                       (string.IsNullOrEmpty(mc) ? "读不出 MC 版本" : "Minecraft " + mc) +
+                       (!string.IsNullOrEmpty(loader) ? " / " + loader : "");
 
             ApplyKind();
             RefreshCounts();
@@ -85,13 +86,16 @@ namespace SlopeX.Controls
             if (PackList.Items.Count == 0) EmptyPanel.Visibility = Visibility.Visible;
         }
 
+        /// <summary>
+        /// 已装数量放进页头副标题，不占状态行——状态行要留给搜索与下载的过程消息，
+        /// 装完一句「已安装到 …」不该被计数覆盖掉。
+        /// </summary>
         private void RefreshCounts()
         {
             var shaders = PackInstaller.Count(Config.Current.GameDir, _versionId, PackKind.Shader);
             var packs = PackInstaller.Count(Config.Current.GameDir, _versionId, PackKind.ResourcePack);
 
-            var dir = Path.GetFileName(PackInstaller.Dir(Config.Current.GameDir, _versionId, _kind));
-            StatusText.Text = $"当前目录 {dir}\\：光影 {shaders} 个，材质包 {packs} 个。";
+            SubText.Text = $"{_subBase}  ·  已装光影 {shaders} / 材质 {packs}";
         }
 
         // ---------------- 搜索 ----------------
@@ -128,13 +132,13 @@ namespace SlopeX.Controls
 
                 if (_cts.IsCancellationRequested) return;
 
-                var rows = hits.Select(h => new PackRow(h, _mcVersion)).ToList();
+                var rows = hits.Select(h => new PackRow(h)).ToList();
                 PackList.ItemsSource = rows;
 
                 var kindText = _kind == PackKind.Shader ? "光影" : "材质包";
                 SetStatus(rows.Count == 0
                     ? $"没有找到「{query}」相关的{kindText}。换个关键词，或确认识别方式是英文名。"
-                    : $"找到 {rows.Count} 个{kindText}。点每行的「选择版本」挑要装的那个，再点「安装」。");
+                    : $"找到 {rows.Count} 个{kindText}。点每行的「安装」，挑一个包版本就开始下载。");
 
                 EmptyPanel.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
                 Log.Info($"资源包搜索「{query}」（{projectType}）：{rows.Count} 个结果");
@@ -150,13 +154,18 @@ namespace SlopeX.Controls
             }
         }
 
-        // ---------------- 选版本 ----------------
+        // ---------------- 选版本 = 安装 ----------------
 
+        /// <summary>
+        /// 点「安装」先挑版本：挑完这一下就直接开始下载，不再要求第二次点按钮。
+        /// 只留一个按钮，是为了避免"选了版本忘了点安装"的空转。
+        /// </summary>
         private async void ChooseVersion_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not Button button || button.Tag is not PackRow row) return;
 
             _activeRow = row;
+            _activeButton = button;
 
             if (row.Versions.Count == 0)
             {
@@ -186,63 +195,58 @@ namespace SlopeX.Controls
                 return;
             }
 
-            // 每次打开都清掉上次的选中，免得点同一个版本不触发 SelectionChanged
-            _suppressSelection = true;
             VersionList.ItemsSource = row.Versions;
-            VersionList.SelectedIndex = -1;
-            _suppressSelection = false;
 
             VersionPopup.PlacementTarget = button;
             VersionPopup.IsOpen = true;
 
             var match = row.Versions.Count(v => v.MatchesMc(_mcVersion));
             SetStatus(match > 0
-                ? $"共 {row.Versions.Count} 个版本，其中 {match} 个声明支持 {_mcVersion}。"
-                : $"共 {row.Versions.Count} 个版本，都没有声明支持 {_mcVersion} —— 仍然可以装，只是不一定生效。");
+                ? $"共 {row.Versions.Count} 个版本，其中 {match} 个声明支持 {_mcVersion}。点一个版本就开始下载。"
+                : $"共 {row.Versions.Count} 个版本，都没有声明支持 {_mcVersion} —— 仍然能装，只是不一定生效。");
         }
 
-        private void VersionList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private async void VersionPick_Click(object sender, RoutedEventArgs e)
         {
-            if (_suppressSelection || _activeRow == null) return;
-            if (VersionList.SelectedItem is not PackVersionRef version) return;
+            if (sender is not Button button || button.Tag is not PackVersionRef version) return;
+            if (_activeRow == null || _activeButton == null) return;
 
-            _activeRow.Selected = version;
+            var row = _activeRow;
+            var installButton = _activeButton;
+
             VersionPopup.IsOpen = false;
-
-            SetStatus(version.MatchesMc(_mcVersion)
-                ? $"已选「{_activeRow.Title}」{version.VersionNumber}，可以点「安装」了。"
-                : $"已选 {version.VersionNumber}。注意：它声明支持 {version.McText}，与当前 {_mcVersion} 不一致。");
+            await InstallAsync(row, installButton, version);
         }
 
         // ---------------- 安装 ----------------
 
-        private async void Install_Click(object sender, RoutedEventArgs e)
+        /// <summary>
+        /// 装哪个版本、落到哪个目录，全部在进入时定下来：下载途中切页签或换版本也不会串。
+        /// </summary>
+        private async Task InstallAsync(PackRow row, Button button, PackVersionRef version)
         {
-            if (sender is not Button button || button.Tag is not PackRow row) return;
+            var kind = _kind;
+            var versionId = _versionId;
+            var folder = Path.GetFileName(PackInstaller.Dir(Config.Current.GameDir, versionId, kind));
 
-            if (row.Selected == null)
-            {
-                SetStatus("先在右侧「选择版本」里挑一个要装的包版本。");
-                return;
-            }
-
-            var version = row.Selected;
             button.IsEnabled = false;
+            SetStatus($"正在下载「{row.Title}」{version.VersionNumber}（{version.SizeText}）…");
 
             try
             {
                 var (path, skipped) = await PackInstaller.InstallAsync(
-                    Config.Current.GameDir, _versionId, _kind, version, CancellationToken.None,
+                    Config.Current.GameDir, versionId, kind, version, CancellationToken.None,
                     msg => SetStatus(msg));
 
-                var folder = Path.GetFileName(PackInstaller.Dir(Config.Current.GameDir, _versionId, _kind));
-                SetStatus(skipped
-                    ? $"{folder}\\{Path.GetFileName(path)} 已存在，跳过。"
-                    : $"已安装到 {folder}\\{Path.GetFileName(path)}");
+                var name = PrettyName(Path.GetFileName(path));
 
-                if (!version.MatchesMc(_mcVersion))
-                    SetStatus($"已安装 {Path.GetFileName(path)}。注意：这个包声明支持 {version.McText}，" +
+                if (skipped)
+                    SetStatus($"{folder}\\{name} 已存在，跳过。");
+                else if (!version.MatchesMc(_mcVersion))
+                    SetStatus($"已安装 {name}。注意：这个包声明支持 {version.McText}，" +
                               $"与当前 {_mcVersion} 不一致，进游戏后不一定生效。");
+                else
+                    SetStatus($"已安装到 {folder}\\{name}");
 
                 MainWindow.Current?.ShowToast(skipped ? "文件已存在，跳过" : $"已安装 {row.Title}");
                 RefreshCounts();
@@ -259,6 +263,23 @@ namespace SlopeX.Controls
         }
 
         // ---------------- 目录 / 返回 ----------------
+
+        /// <summary>
+        /// 材质包文件名里常带 § 颜色码（作者故意的，游戏里会显示成彩色），
+        /// 但摆到启动器状态行就是乱码，显示前先剥掉。
+        /// </summary>
+        private static string PrettyName(string name)
+        {
+            if (string.IsNullOrEmpty(name) || name.IndexOf('§') < 0) return name;
+
+            var sb = new System.Text.StringBuilder(name.Length);
+            for (var i = 0; i < name.Length; i++)
+            {
+                if (name[i] == '§') { i++; continue; }
+                sb.Append(name[i]);
+            }
+            return sb.ToString();
+        }
 
         private void OpenDir_Click(object sender, RoutedEventArgs e)
         {
@@ -309,21 +330,18 @@ namespace SlopeX.Controls
         }
     }
 
-    /// <summary>资源包列表的一行（含它自己的版本列表与当前选中项）。</summary>
+    /// <summary>
+    /// 资源包列表的一行。只缓存自己的版本列表——选版本不落状态，
+    /// 点中就直接下载（见 PackPanel.InstallAsync），免得界面上出现"选中但没装"的中间态。
+    /// </summary>
     internal sealed class PackRow : ObservableObject
     {
-        private PackVersionRef _selected;
-
-        public PackRow(ModSearchHit hit, string mcVersion)
+        public PackRow(ModSearchHit hit)
         {
             Hit = hit;
-            McVersion = mcVersion ?? "";
         }
 
         public ModSearchHit Hit { get; }
-
-        /// <summary>当前版本的 MC 号，用于判断选中包版本是否匹配。</summary>
-        public string McVersion { get; set; } = "";
 
         public ObservableCollection<PackVersionRef> Versions { get; } = new ObservableCollection<PackVersionRef>();
 
@@ -344,17 +362,5 @@ namespace SlopeX.Controls
         public string UpdatedText => Hit.Updated == DateTime.MinValue
             ? "—"
             : Hit.Updated.ToLocalTime().ToString("yyyy-MM-dd");
-
-        public PackVersionRef Selected
-        {
-            get => _selected;
-            set
-            {
-                if (!Set(ref _selected, value)) return;
-                OnPropertyChanged(nameof(SelectionText));
-            }
-        }
-
-        public string SelectionText => _selected == null ? "选择版本" : _selected.VersionNumber;
     }
 }
