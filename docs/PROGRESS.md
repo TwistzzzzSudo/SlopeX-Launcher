@@ -315,7 +315,7 @@ UI 层         5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeS
 
 结论：瓶颈不在源站，在**每条连接 35 KB/s** 这一层，换镜像、加缓存都没用，只能把并发连接开出来。PCL2 也是直接连 `cdn.modrinth.com` / `mediafilez.forgecdn.net`（日志里 411 次 CF、37 次 Modrinth），它快的原因是 `ModNet.vb` 里的分段引擎：`IsNoSplit` 阈值 1 MB、`FilePieceLimit = 256 KB`、线程上限 = 设置项 + 1（默认 63 + 1 = 64）、速度低于 256 KB/s 才继续加线程。
 
-**实现**（新增 `Modules/ModNet/Downloader.cs`，约 380 行）
+**实现**（新增 `Modules/ModNet/Downloader.cs`，465 行）
 
 | 环节 | 做法 |
 | --- | --- |
@@ -340,7 +340,7 @@ UI 层         5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeS
 - 线程数开太大（64）会压路由器 NAT 表，个别家用网络会出现"下到一半网络异常"，这也是做成可调而不是写死的原因
 - 服务端若不支持 Range 或对 Range 请求返回 200/403/404，会自动退回单流，不会比原来更慢
 
-**工作量口径**：新增 `Modules/ModNet/Downloader.cs`（约 380 行，含 `DownloadProgress` 类型与分段引擎）；`Net.cs` 的 `DownloadToFileAsync` 收口到新引擎并加 `progress` 参数；`Config` 加 `DownloadThreads`（1–64，默认 16）；`PackInstaller` / `ModInstaller` 透传进度回调（模组状态行顺带显示 `2/3`）；`PackPanel`、`ModSearchDialog` 各加一行进度区（文字 + `Bar` 进度条）；设置页加「下载线程」卡片（4 档 Chip）；README 与本文档同步。
+**工作量口径**：新增 `Modules/ModNet/Downloader.cs`（465 行，含 `DownloadProgress` 类型与分段引擎）；`Net.cs` 的 `DownloadToFileAsync` 收口到新引擎并加 `progress` 参数；`Config` 加 `DownloadThreads`（1–64，默认 16）；`PackInstaller` / `ModInstaller` 透传进度回调（模组状态行顺带显示 `2/3`）；`PackPanel`、`ModSearchDialog` 各加一行进度区（文字 + `Bar` 进度条）；设置页加「下载线程」卡片（4 档 Chip）；README 与本文档同步。
 
 ### 美术与主题（结论，2026-10-31 精简）
 
