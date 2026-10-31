@@ -22,6 +22,16 @@ namespace SlopeX.Pages
     {
         private bool _loading;
 
+        /// <summary>
+        /// 界面上当前选中的线程档位（8 / 16 / 32 / 64）。
+        /// 单独存一份是因为 ToggleButton 会在 Click 之前先把自己的 IsChecked 翻过来，
+        /// 想"取消后回到原来的档"就必须知道原来选的是哪个。
+        /// </summary>
+        private int _threads = 16;
+
+        /// <summary>≥ 这个档位就要先弹警告：连接数足以压满家用路由器的 NAT 表。</summary>
+        private const int WarnThreadThreshold = 32;
+
         public PageSettings()
         {
             InitializeComponent();
@@ -60,6 +70,7 @@ namespace SlopeX.Pages
                 ChipOfficial.IsChecked = !c.UseMirror;
 
                 UpdateThreadChips(c.DownloadThreads);
+                _threads = SelectedThreads;
 
                 UpdateThemeChips();
 
@@ -474,14 +485,88 @@ namespace SlopeX.Pages
         private void Thread_Click(object sender, RoutedEventArgs e)
         {
             if (_loading) return;
-            if (sender is ToggleButton chip)
+            if (!(sender is ToggleButton chip)) return;
+
+            var target = ThreadsOf(chip);
+
+            // 点的是已经选中的那一档：ToggleButton 已经把它反选掉了，按原值重画即可
+            if (target == _threads)
             {
-                ChipThread8.IsChecked = ReferenceEquals(chip, ChipThread8);
-                ChipThread16.IsChecked = ReferenceEquals(chip, ChipThread16);
-                ChipThread32.IsChecked = ReferenceEquals(chip, ChipThread32);
-                ChipThread64.IsChecked = ReferenceEquals(chip, ChipThread64);
+                UpdateThreadChips(_threads);
+                return;
             }
+
+            // 32 / 64 的连接数足以压满家用路由器的 NAT 表：先讲清代价，确认后才生效。
+            // 8 / 16 在安全区内，直接切换，不打断操作。
+            if (target >= WarnThreadThreshold)
+            {
+                ShowThreadWarning(target);
+                return;
+            }
+
+            _threads = target;
+            UpdateThreadChips(_threads);
         }
+
+        /// <summary>
+        /// 高并发档位的风险提示。取消时把界面退回原来的档，
+        /// 避免出现"看起来选了 64、实际保存下去还是 16"的错觉。
+        /// </summary>
+        private void ShowThreadWarning(int target)
+        {
+            // ToggleButton 在 Click 之前就把自己点亮了，先按原值重画：
+            // 确认之前界面保持旧档，不会出现"新旧两档同时高亮"。
+            UpdateThreadChips(_threads);
+
+            var isMax = target >= 64;
+
+            string[] risks = isMax
+                ? new[]
+                {
+                    "老旧或低端路由器可能出现整屋断网，要重启路由器才能恢复",
+                    "Wi-Fi 下容易占满无线信道，同网络其它设备明显卡顿",
+                    "部分 CDN 限制单 IP 并发，分段请求被拒后会退回单连接，反而更慢"
+                }
+                : new[]
+                {
+                    "路由器和光猫的连接数压力明显上升，访问其它网站可能变慢",
+                    "同网络看视频、打游戏时更容易卡顿或跳 ping",
+                    "个别网络会触发运营商限频，实际速度不一定比 16 更快"
+                };
+
+            var dialog = new ConfirmDialog(
+                title: isMax ? "确定要开 64 条连接？" : "确定要开 32 条连接？",
+                message: isMax
+                    ? "下载单个文件时最多同时开 64 条连接，这是本启动器的上限，也是 PCL2 的默认值。速度通常还能再涨一截，但对路由器的要求也最高。"
+                    : "下载单个文件时最多同时开 32 条连接。多数家用网络没问题，但路由器 NAT 表偏小的型号可能会出状况。",
+                confirmText: isMax ? "仍然使用 64" : "确认使用 32",
+                risks: risks,
+                footnote: isMax
+                    ? "如果出现断网或下载反复重试，先降回 32，再不行就回 16。"
+                    : "出问题时降回 16 即可，从下一次下载开始恢复。");
+
+            dialog.Closed += ok =>
+            {
+                MainWindow.Current?.HideModal();
+
+                if (!ok)
+                {
+                    UpdateThreadChips(_threads);
+                    return;
+                }
+
+                _threads = target;
+                UpdateThreadChips(_threads);
+                MainWindow.Current?.ShowToast($"{target} 线程已选中，点「保存设置」后生效");
+            };
+
+            MainWindow.Current?.ShowModal(dialog);
+            dialog.FocusInitial();
+        }
+
+        /// <summary>档位数字就直接写在 Chip 的 Content 上，不必再为每个 chip 写一遍比较。</summary>
+        private static int ThreadsOf(ToggleButton chip) =>
+            int.TryParse(chip?.Content?.ToString(), out var n) ? n : 16;
 
         private int SelectedThreads =>
             ChipThread8.IsChecked == true ? 8

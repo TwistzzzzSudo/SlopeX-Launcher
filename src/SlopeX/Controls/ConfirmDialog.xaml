@@ -1,0 +1,38 @@
+<UserControl x:Class="SlopeX.Controls.ConfirmDialog"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FontFamily="{StaticResource UiFont}"
+             Focusable="True" PreviewKeyDown="Root_PreviewKeyDown">
+
+    <!--
+        通用确认框：标题 + 一句说明 + 若干风险条目 + 可选备注。
+        只收集"是 / 否"，具体动作交给调用方的 Closed 事件。
+    -->
+
+    <StackPanel>
+        <StackPanel Orientation="Horizontal">
+            <Border Width="3" Height="16" CornerRadius="2" VerticalAlignment="Center"
+                    Background="{DynamicResource Warn}"/>
+            <TextBlock x:Name="TitleText" Style="{StaticResource TSection}" Margin="10,0,0,0"
+                       Text="确认操作"/>
+        </StackPanel>
+
+        <TextBlock x:Name="MessageText" Style="{StaticResource TBody}" Margin="0,12,0,0"
+                   TextWrapping="Wrap" Text=""/>
+
+        <Border x:Name="RiskCard" Style="{StaticResource Card}" Background="{DynamicResource Paper2}"
+                Padding="14,12" Margin="0,14,0,0">
+            <StackPanel x:Name="RiskList"/>
+        </Border>
+
+        <TextBlock x:Name="FootnoteText" Style="{StaticResource TCaption}" Margin="0,12,0,0"
+                   TextWrapping="Wrap" Text=""/>
+
+        <Grid Margin="0,18,0,0">
+            <Button x:Name="CancelBtn" Style="{StaticResource BtnGhost}" Content="取消" Height="36"
+                    MinWidth="96" HorizontalAlignment="Left" Click="Cancel_Click"/>
+            <Button x:Name="OkBtn" Style="{StaticResource BtnPrimary}" Content="确认" Height="36"
+                    Padding="18,0" HorizontalAlignment="Right" Click="Ok_Click"/>
+        </Grid>
+    </StackPanel>
+</UserControl>
