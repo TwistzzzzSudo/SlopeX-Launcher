@@ -85,6 +85,7 @@ namespace SlopeX.Modules.ModCli
                     Out("  fix-libs <版本>          补齐缺失的依赖库（走镜像）");
                     Out("  msa-explain <状态码> [原文]  预览登录错误会被翻译成什么（排障用）");
                     Out("  mods-list <版本>         列出该版本 mods 目录的模组与元数据");
+                    Out("  selftest [--mc 版本] [--loader 加载器] [-v]   用固定样本自检中文搜索链路（需联网，失败返回 1）");
                     Out("  mods-search <版本> <关键词> [all|modrinth|curseforge]   搜索模组（英文按来源搜，中文走 MC百科）");
                     Out("  legal [brief]            打印内置法律声明（brief = 首次启动的简版）");
                     Out("  packs-search <关键词> [shader|resourcepack]   搜光影 / 材质包（不做版本过滤）");
@@ -130,6 +131,9 @@ namespace SlopeX.Modules.ModCli
 
                 case "mods-list":
                     return ModsList(args.FirstOrDefault());
+
+                case "selftest":
+                    return SelfTest.Run(args);
 
                 case "legal":
                     return LegalDump(args.FirstOrDefault());
@@ -1209,7 +1213,7 @@ namespace SlopeX.Modules.ModCli
             return exitCode;
         }
 
-        private static void Out(string line)
+        internal static void Out(string line)
         {
             lock (WriteGate)
             {

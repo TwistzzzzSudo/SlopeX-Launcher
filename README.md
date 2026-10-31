@@ -95,6 +95,7 @@ src/SlopeX/
 - **整合包导入**：支持 `.mrpack`（Modrinth）、CurseForge 整合包 zip、MultiMC / Prism 实例包、只有 mods 的普通压缩包；自动装对应原版与加载器、下载模组、解压 overrides
 - **光影 / 材质包下载**：版本行「资源包」→ 两个页签分别搜 Modrinth 的 `shader` / `resourcepack`；每行只有一个「安装」，点开就是包版本列表，**选中哪个版本当场开始下载**，文件直接落到该版本的 `shaderpacks\` / `resourcepacks\`（已存在则跳过）。**不按 MC 版本过滤**——光影和材质对版本很宽松，硬过滤会漏掉大半结果，所以版本由用户自己挑，声明范围与当前版本不一致时只提示不拦；光影页常驻一条提示：Fabric 要 Iris + Sodium，Forge / NeoForge 要 Oculus（配 Embeddium）或 OptiFine
 - **多线程分段下载**：模组 / 光影 / 材质包这类单文件，只要源支持 Range 且大于 1 MB，就切成 256 KB–8 MB 的分片并发拉取（默认 16 条连接，设置里可选 8 / 16 / 32 / 64）；分片失败从断点续传，整体失败自动回退单流。下载时有进度条与**实时速度**。实测 `cdn.modrinth.com` 单连接只有 ~35 KB/s，16 线程下 7.9 MB 的光影包 8 秒下完（原来要 4 分钟）。选 32 / 64 会先弹一次风险提示（说明路由器可能的反应），确认后才切换
+- **命令行自检**：`--cli selftest` 用 5 条固定样本断言中文搜索链路——机械动力 → `LNytGWDc`、苹果皮 → `EsAfCjCV`、钠在 forge 下必须被滤掉、「全部」落到 CurseForge、英文直搜两源都存活；任一失败返回退出码 1。模组中文搜索是抓 MC百科 的 HTML，站点改版只会安静地返回空列表，这条自检就是防它悄无声息地坏掉
 - **Forge 安装**：取官方推荐的加载器版本，下载官方 installer 并用合适的 Java 无头执行（`--installClient`）；原版缺失时先补原版。进度以「已用时长」呈现——installer 本身不输出百分比，这是该路线的已知取舍
 - **NeoForge 安装**：按 MC 版本推导 NeoForge 版本号（1.21.1 → 21.1.x、26.3 → 26.3.0.x），installer 与其依赖全部走 BMCLAPI 镜像（官方 maven 域名在国内常被 DNS 污染）；原版缺失时先补原版
 - BMCLAPI 镜像 / Mojang 官方源可选（国内网络建议开镜像）
@@ -214,6 +215,7 @@ SlopeX.exe --cli mods-list 1.20.1-forge-47.4.28     # 列出该版本模组
 SlopeX.exe --cli mods-search 1.20.1-forge-47.4.28 jei   # 搜索（英文走 Modrinth）
 SlopeX.exe --cli mods-search 1.20.1-forge-47.4.28 机械动力  # 中文搜索（走 MC百科）
 SlopeX.exe --cli mods-install 1.20.1-forge-47.4.28 jei  # 搜索并安装首个结果（含依赖）
+SlopeX.exe --cli selftest                 # 自检中文搜索链路（5 条固定样本，失败退出码 1）
 SlopeX.exe --cli pack-info 包.mrpack     # 识别整合包格式与版本（不安装）
 SlopeX.exe --cli import-pack 包.mrpack   # 导入整合包
 ```
