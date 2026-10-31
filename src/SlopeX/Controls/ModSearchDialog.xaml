@@ -62,6 +62,14 @@
         <TextBlock x:Name="StatusText" Style="{StaticResource TCaption}" Margin="0,10,0,0"
                    TextWrapping="Wrap" Text="输入关键词后回车搜索，中文英文都行。"/>
 
+        <!-- 下载进度：只在安装期间出现。文字单独一行右对齐，窄对话框里也不会被进度条挤掉 -->
+        <StackPanel x:Name="ProgressRow" Margin="0,6,0,0" Visibility="Collapsed">
+            <TextBlock x:Name="ProgressText" Style="{StaticResource TCaption}"
+                       HorizontalAlignment="Right" Text=""/>
+            <ProgressBar x:Name="DownloadBar" Style="{StaticResource Bar}" Height="4"
+                         Margin="0,4,0,0" Minimum="0" Maximum="100" Value="0"/>
+        </StackPanel>
+
         <Border Style="{StaticResource Card}" Padding="4" Margin="0,10,0,0" MaxHeight="330">
             <ListBox x:Name="ResultList" Style="{StaticResource PlainList}" MaxHeight="322">
                 <ListBox.ItemTemplate>

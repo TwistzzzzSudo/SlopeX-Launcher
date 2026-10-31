@@ -419,6 +419,7 @@ namespace SlopeX.Modules.ModBase
         private int _minMemoryMb = 1024;
         private string _jvmArgs = "";
         private bool _useMirror = true;
+        private int _downloadThreads = 16;
         private bool _closeOnLaunch = false;
         private int _windowWidth = 854;
         private int _windowHeight = 480;
@@ -506,6 +507,18 @@ namespace SlopeX.Modules.ModBase
 
         /// <summary>使用 BMCLAPI 镜像下载（国内网络推荐）。</summary>
         public bool UseMirror { get => _useMirror; set => Set(ref _useMirror, value); }
+
+        /// <summary>
+        /// 单个文件的最大并发连接数（1–64），默认 16。
+        ///
+        /// 国内网络下单条连接常被限速到几十 KB/s，分段并发是唯一有效的提速手段；
+        /// 但连接开太多会压垮路由器 NAT 表，进而出现"下到一半网络异常"，所以做成可调。
+        /// </summary>
+        public int DownloadThreads
+        {
+            get => _downloadThreads;
+            set => Set(ref _downloadThreads, Math.Clamp(value, 1, 64));
+        }
 
         /// <summary>启动游戏后自动隐藏启动器。</summary>
         public bool CloseOnLaunch { get => _closeOnLaunch; set => Set(ref _closeOnLaunch, value); }

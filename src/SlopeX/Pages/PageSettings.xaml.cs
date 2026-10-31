@@ -59,6 +59,8 @@ namespace SlopeX.Pages
                 ChipMirror.IsChecked = c.UseMirror;
                 ChipOfficial.IsChecked = !c.UseMirror;
 
+                UpdateThreadChips(c.DownloadThreads);
+
                 UpdateThemeChips();
 
                 UpdateAccountUi();
@@ -311,6 +313,7 @@ namespace SlopeX.Pages
                 c.CloseOnLaunch = ChkMinimize.IsChecked == true;
                 c.AutoInstallJava = ChkAutoJava.IsChecked == true;
                 c.UseMirror = ChipMirror.IsChecked == true;
+                c.DownloadThreads = SelectedThreads;
 
                 c.JavaRuntimeDir = (InputRuntimeDir.Text ?? "").Trim();
 
@@ -454,6 +457,37 @@ namespace SlopeX.Pages
                 ChipOfficial.IsChecked = ReferenceEquals(chip, ChipOfficial);
             }
         }
+
+        // ---------------- 下载线程 ----------------
+
+        /// <summary>
+        /// 配置里存的是 1–64 的任意值，界面上只有 4 个档；落在档与档之间时高亮最近的那一档。
+        /// </summary>
+        private void UpdateThreadChips(int threads)
+        {
+            ChipThread8.IsChecked = threads <= 12;
+            ChipThread16.IsChecked = threads > 12 && threads <= 24;
+            ChipThread32.IsChecked = threads > 24 && threads <= 48;
+            ChipThread64.IsChecked = threads > 48;
+        }
+
+        private void Thread_Click(object sender, RoutedEventArgs e)
+        {
+            if (_loading) return;
+            if (sender is ToggleButton chip)
+            {
+                ChipThread8.IsChecked = ReferenceEquals(chip, ChipThread8);
+                ChipThread16.IsChecked = ReferenceEquals(chip, ChipThread16);
+                ChipThread32.IsChecked = ReferenceEquals(chip, ChipThread32);
+                ChipThread64.IsChecked = ReferenceEquals(chip, ChipThread64);
+            }
+        }
+
+        private int SelectedThreads =>
+            ChipThread8.IsChecked == true ? 8
+            : ChipThread32.IsChecked == true ? 32
+            : ChipThread64.IsChecked == true ? 64
+            : 16;
 
         private void OpenConfigDir_Click(object sender, RoutedEventArgs e)
         {

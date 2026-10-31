@@ -9,6 +9,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using SlopeX.Modules.ModBase;
 using SlopeX.Modules.ModMods;
+using SlopeX.Modules.ModNet;
 using SlopeX.Windows;
 
 namespace SlopeX.Controls
@@ -231,12 +232,13 @@ namespace SlopeX.Controls
 
             button.IsEnabled = false;
             SetStatus($"正在下载「{row.Title}」{version.VersionNumber}（{version.SizeText}）…");
+            BeginProgress();
 
             try
             {
                 var (path, skipped) = await PackInstaller.InstallAsync(
                     Config.Current.GameDir, versionId, kind, version, CancellationToken.None,
-                    msg => SetStatus(msg));
+                    msg => SetStatus(msg), p => UpdateProgress(p));
 
                 var name = PrettyName(Path.GetFileName(path));
 
@@ -259,6 +261,7 @@ namespace SlopeX.Controls
             finally
             {
                 button.IsEnabled = true;
+                EndProgress();
             }
         }
 
@@ -327,6 +330,51 @@ namespace SlopeX.Controls
             }
 
             StatusText.Text = text;
+        }
+
+        // ---------------- 下载进度 ----------------
+
+        /// <summary>
+        /// 进度条只在下载期间出现，平时不占位置。
+        /// 回调同样来自线程池，统一走 Dispatcher，否则会撞"另一个线程拥有该对象"。
+        /// </summary>
+        private void BeginProgress()
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(new Action(BeginProgress));
+                return;
+            }
+
+            ProgressRow.Visibility = Visibility.Visible;
+            DownloadBar.Value = 0;
+            ProgressText.Text = "连接中…";
+        }
+
+        private void UpdateProgress(DownloadProgress p)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(new Action(() => UpdateProgress(p)));
+                return;
+            }
+
+            ProgressRow.Visibility = Visibility.Visible;
+            DownloadBar.Value = p.Total > 0 ? p.Percent : 0;
+            ProgressText.Text = p.DetailText;
+        }
+
+        private void EndProgress()
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(new Action(EndProgress));
+                return;
+            }
+
+            ProgressRow.Visibility = Visibility.Collapsed;
+            DownloadBar.Value = 0;
+            ProgressText.Text = "";
         }
     }
 

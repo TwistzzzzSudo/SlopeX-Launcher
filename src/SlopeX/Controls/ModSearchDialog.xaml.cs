@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using SlopeX.Modules.ModBase;
 using SlopeX.Modules.ModMods;
+using SlopeX.Modules.ModNet;
 using SlopeX.Windows;
 
 namespace SlopeX.Controls
@@ -167,11 +168,12 @@ namespace SlopeX.Controls
 
             b.IsEnabled = false;
             StatusText.Text = $"正在安装「{hit.Title}」…";
+            BeginProgress();
 
             try
             {
                 var result = await ModInstaller.InstallAsync(Config.Current.GameDir, _versionId,
-                    _mcVersion, _loader, hit, CancellationToken.None, SetStatus);
+                    _mcVersion, _loader, hit, CancellationToken.None, SetStatus, p => UpdateProgress(p));
 
                 StatusText.Text = result.Summary();
                 Installed?.Invoke(this, EventArgs.Empty);
@@ -192,7 +194,49 @@ namespace SlopeX.Controls
             finally
             {
                 b.IsEnabled = true;
+                EndProgress();
             }
+        }
+
+        // ---------------- 下载进度 ----------------
+
+        private void BeginProgress()
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(new Action(BeginProgress));
+                return;
+            }
+
+            ProgressRow.Visibility = Visibility.Visible;
+            DownloadBar.Value = 0;
+            ProgressText.Text = "连接中…";
+        }
+
+        private void UpdateProgress(DownloadProgress p)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(new Action(() => UpdateProgress(p)));
+                return;
+            }
+
+            ProgressRow.Visibility = Visibility.Visible;
+            DownloadBar.Value = p.Total > 0 ? p.Percent : 0;
+            ProgressText.Text = p.DetailText;
+        }
+
+        private void EndProgress()
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(new Action(EndProgress));
+                return;
+            }
+
+            ProgressRow.Visibility = Visibility.Collapsed;
+            DownloadBar.Value = 0;
+            ProgressText.Text = "";
         }
 
         /// <summary>打开百科词条——看中文介绍、合成配方、支持的版本，比英文 README 好读。</summary>

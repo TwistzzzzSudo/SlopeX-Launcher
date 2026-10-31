@@ -94,6 +94,7 @@ src/SlopeX/
 - **模组管理**：按版本管理 `mods\`（列表、启用/禁用、删除、打开目录）；搜索支持**中文**——含中文的关键词先去 **MC百科** 查词条，再用词条里登记的链接对回项目；列表里可直接跳百科词条看中文说明。搜索来源三选一：`全部`（Modrinth + CurseForge 一起搜，同名去重）、`Modrinth`（官方接口）、`CurseForge`（经 MCIM 镜像），每行结果带来源标签；依赖补全按来源各自解析（CF 用数字 modId、Modrinth 用 base62 项目 ID，两套不互通）
 - **整合包导入**：支持 `.mrpack`（Modrinth）、CurseForge 整合包 zip、MultiMC / Prism 实例包、只有 mods 的普通压缩包；自动装对应原版与加载器、下载模组、解压 overrides
 - **光影 / 材质包下载**：版本行「资源包」→ 两个页签分别搜 Modrinth 的 `shader` / `resourcepack`；每行只有一个「安装」，点开就是包版本列表，**选中哪个版本当场开始下载**，文件直接落到该版本的 `shaderpacks\` / `resourcepacks\`（已存在则跳过）。**不按 MC 版本过滤**——光影和材质对版本很宽松，硬过滤会漏掉大半结果，所以版本由用户自己挑，声明范围与当前版本不一致时只提示不拦；光影页常驻一条提示：Fabric 要 Iris + Sodium，Forge / NeoForge 要 Oculus（配 Embeddium）或 OptiFine
+- **多线程分段下载**：模组 / 光影 / 材质包这类单文件，只要源支持 Range 且大于 1 MB，就切成 256 KB–8 MB 的分片并发拉取（默认 16 条连接，设置里可选 8 / 16 / 32 / 64）；分片失败从断点续传，整体失败自动回退单流。下载时有进度条与**实时速度**。实测 `cdn.modrinth.com` 单连接只有 ~35 KB/s，16 线程下 7.9 MB 的光影包 8 秒下完（原来要 4 分钟）
 - **Forge 安装**：取官方推荐的加载器版本，下载官方 installer 并用合适的 Java 无头执行（`--installClient`）；原版缺失时先补原版。进度以「已用时长」呈现——installer 本身不输出百分比，这是该路线的已知取舍
 - **NeoForge 安装**：按 MC 版本推导 NeoForge 版本号（1.21.1 → 21.1.x、26.3 → 26.3.0.x），installer 与其依赖全部走 BMCLAPI 镜像（官方 maven 域名在国内常被 DNS 污染）；原版缺失时先补原版
 - BMCLAPI 镜像 / Mojang 官方源可选（国内网络建议开镜像）

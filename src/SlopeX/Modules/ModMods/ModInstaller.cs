@@ -45,7 +45,7 @@ namespace SlopeX.Modules.ModMods
     {
         public static async Task<ModInstallResult> InstallAsync(string gameDir, string versionId,
             string mcVersion, string loader, ModSearchHit hit, CancellationToken ct = default,
-            Action<string> progress = null)
+            Action<string> progress = null, Action<DownloadProgress> download = null)
         {
             if (hit == null) throw new ArgumentNullException(nameof(hit));
 
@@ -121,10 +121,11 @@ namespace SlopeX.Modules.ModMods
             var modsDir = ModManager.ModsDir(gameDir, versionId);
             Directory.CreateDirectory(modsDir);
 
-            foreach (var f in files)
+            for (var index = 0; index < files.Count; index++)
             {
                 ct.ThrowIfCancellationRequested();
 
+                var f = files[index];
                 var target = Path.Combine(modsDir, f.FileName);
 
                 if (File.Exists(target))
@@ -133,7 +134,7 @@ namespace SlopeX.Modules.ModMods
                     continue;
                 }
 
-                Report($"下载 {f.FileName}（{Format.Bytes(f.Size)}）");
+                Report($"下载 {index + 1}/{files.Count}  {f.FileName}（{Format.Bytes(f.Size)}）");
 
                 // 国内网络经代理常只有几十 KB/s，按体积给足时间（20 KB/s 估算，下限 5 分钟，上限 15 分钟）
                 var timeoutMs = f.Size > 0
@@ -146,7 +147,7 @@ namespace SlopeX.Modules.ModMods
                     ct.ThrowIfCancellationRequested();
                     try
                     {
-                        await Net.DownloadToFileAsync(f.Url, target, f.Sha1, f.Size, ct, timeoutMs)
+                        await Net.DownloadToFileAsync(f.Url, target, f.Sha1, f.Size, ct, timeoutMs, download)
                             .ConfigureAwait(false);
                         ok = true;
                     }

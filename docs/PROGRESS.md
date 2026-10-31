@@ -1,12 +1,12 @@
 # SlopeX Launcher 进度报告与实施计划
 
-> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-11-01 00:40
+> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-11-01 01:20
 > 对应产物：`SlopeX.exe` 1.0.0（自包含单文件，win-x64）
-> 代码规模：69 个 C# / XAML 源文件，≈16,840 行
+> 代码规模：70 个 C# / XAML 源文件，≈17,449 行
 > 版本控制：分支 `main`，远端公开 `github.com/TwistzzzzSudo/SlopeX-Launcher`
 > 当前状态：**S3 视觉定案**（组件缺口 5/7）；四条加载器线 + 整合包导入 + 模组增删与中英文搜索（Modrinth / CurseForge / 双源三选一）+ 光影 / 材质包下载 + 法律声明（首启确认）全部可用；微软登录代码就绪，卡 Mojang 白名单
 > 下一个执行项 = **继续完善启动器**（集中补既有链路，不铺新功能面），候选待办见 §6.2
-> 本轮改动：①模组搜索加来源筛选——`全部` / `Modrinth` / `CurseForge` 三选一；CurseForge 元数据经社区镜像 MCIM（官方接口要 API Key），文件仍直连 forgecdn；`Modrinth` 单选走官方接口，`全部` 时两源统一走镜像；中文搜索按词条里登记的链接同时支持两个平台（详见 §6.3）；②版本内「资源包」上线——光影 / 材质包两个页签，每行一个「安装」、点中版本即下载，搜索不过滤 MC 版本（规格与实测见 §6.1）；③模组搜索支持中文（MC百科 检索 → 词条链接 → 项目核对版本与加载器）；④修掉跨线程写 UI 导致模组安装必定失败的问题；⑤主题背景音乐默认音量 20% → 15%；⑥法律声明内置进 exe（设置页底部可查看），源文件留在 `docs/LegalNotice.md` 作为备份；⑦首次启动的简版确认框（勾选后才能点「确认」，同意后写入配置不再弹出）；⑧文档整改：已完成项与待办分家、命令速查补全。以上改动 `dotnet build -c Debug` 通过（0 警告 0 错误）
+> 本轮改动：①新增分段下载引擎（`Modules/ModNet/Downloader.cs`）——单文件按 256 KB–8 MB 切片、默认 16 线程并发（可调 8/16/32/64），失败断点续传、整体失败回退单流；接入模组 / 光影 / 材质三条下载链路，主因是 `cdn.modrinth.com` 单连接实测只有 35 KB/s（详见 §6「分段下载与下载进度」）；②模组安装与资源包安装加进度条：百分比 + 已下载/总大小 + 实时速度，装完自动收起；③模组搜索加来源筛选——`全部` / `Modrinth` / `CurseForge` 三选一；CurseForge 元数据经社区镜像 MCIM（官方接口要 API Key），文件仍直连 forgecdn；`Modrinth` 单选走官方接口，`全部` 时两源统一走镜像；中文搜索按词条里登记的链接同时支持两个平台（详见 §6.3）；④版本内「资源包」上线——光影 / 材质包两个页签，每行一个「安装」、点中版本即下载，搜索不过滤 MC 版本（规格与实测见 §6.1）；⑤模组搜索支持中文（MC百科 检索 → 词条链接 → 项目核对版本与加载器）；⑥修掉跨线程写 UI 导致模组安装必定失败的问题；⑦主题背景音乐默认音量 20% → 15%；⑧法律声明内置进 exe（设置页底部可查看），源文件留在 `docs/LegalNotice.md` 作为备份；⑨首次启动的简版确认框（勾选后才能点「确认」，同意后写入配置不再弹出）；⑩文档整改：已完成项与待办分家、命令速查补全。以上改动 `dotnet build -c Debug` 通过（0 警告 0 错误）
 > **工作量口径**：全文一律以「产出物 / 改动范围」描述，不使用时间估算。
 
 ---
@@ -301,6 +301,46 @@ UI 层         5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeS
 - 不做双源结果混排：理由见上，相关度质量差距太大
 
 **工作量口径**：新增 `Modules/ModMods/CurseForge.cs`（约 380 行）；`Modrinth.cs` 加官方/镜像双基址 + `SourceText` / `DedupeKey` / `Mirror` 三处模型字段 + `ModFileRef.RequiredDepIds`；`ModSearch.cs` 重写为来源路由（新增 `ModSourceFilter`）；`ModInstaller.cs` 按来源分派文件与依赖；`Net.cs` 加 `PostJsonAsync`；`ModSearchDialog` 加三个 Chip 与来源胶囊；`Cli.cs` 三条命令加来源参数；文档同步 2 份。
+
+### 分段下载与下载进度（✅ 2026-11-01 落地）
+
+**问题**：光影 / 材质包 / 模组走的都是 `Net.DownloadToFileAsync` 的单条连接 `CopyToAsync`，而 `cdn.modrinth.com` 对单连接限速很低。本机实测同一个 7.9 MB 文件：
+
+| 连接数 | 聚合速度 | 7.9 MB 耗时 |
+| --- | --- | --- |
+| 1 | 35 KB/s（1 MB 分段实测 29.9 s） | ~4 分钟 |
+| 8 | 322 KB/s | ~26 s |
+| 16 | 1.24 MB/s | ~7 s |
+| 32 | 2.83 MB/s | ~3 s |
+
+结论：瓶颈不在源站，在**每条连接 35 KB/s** 这一层，换镜像、加缓存都没用，只能把并发连接开出来。PCL2 也是直接连 `cdn.modrinth.com` / `mediafilez.forgecdn.net`（日志里 411 次 CF、37 次 Modrinth），它快的原因是 `ModNet.vb` 里的分段引擎：`IsNoSplit` 阈值 1 MB、`FilePieceLimit = 256 KB`、线程上限 = 设置项 + 1（默认 63 + 1 = 64）、速度低于 256 KB/s 才继续加线程。
+
+**实现**（新增 `Modules/ModNet/Downloader.cs`，约 380 行）
+
+| 环节 | 做法 |
+| --- | --- |
+| 探测 | 先 HEAD 取 `Content-Length` + `Accept-Ranges`；HEAD 被拒或没有该头时，用 `Range: bytes=0-0` 实探 |
+| 跳转 | 用 `resp.RequestMessage.RequestUri` 拿**跳转后的真实地址**再切分片。CF 的 `edge.forgecdn.net` 带 Range 会直接 404，只有它跳到 `mediafilez.forgecdn.net` 才正常支持分段——这是接入 CF 后踩到的坑 |
+| 切片 | 目标约 `2 × 线程数` 段，单片 256 KB–8 MB；小于 1 MB 或大小未知走单流 |
+| 并发 | `File.OpenHandle` + `RandomAccess.WriteAsync` 直接写目标文件的绝对偏移，**不产生一堆临时分片、也不需要合并**；线程数取 `Config.DownloadThreads`（1–64，默认 16） |
+| 重试 | 单段三次重试（从已写到的 `pos` 续传，进度不倒退），三次仍失败或返回 200 则整体回退单流 |
+| 校验 | 落位前照旧校验总长度 + SHA1，失败删 `.sxpart` |
+| 进度 | 250 ms 采样一次，`DownloadProgress` 带 done / total / 速度；界面按 `42% · 3.3 MB / 7.9 MB · 1.2 MB/s` 显示 |
+
+**实测**
+
+- `packs-install … rethinking-voxels`（7.9 MB）：16 线程 / 32 段，**日志间隔 8.1 s**，SHA1 通过；改动前同一文件 120 s 只下到 4.0 MB
+- `mods-install … create modrinth`（18.2 MB）：32 线程 65 段 15.8 s；64 线程 73 段 9.8 s
+- `mods-install … jei curseforge`（4.6 MB）：解析跳转后 19 段，0.7 s（CF 单连接本来就快，分段只是不拖后腿）
+- UI（UIA 真实点击 + PrintWindow 截图）：`8/16/32/64` 档位默认 16 高亮；模组对话框与资源包面板都能看到进度条、百分比、已下载/总大小与实时速度；下载结束自动收起
+
+**限制**
+
+- 单连接被限速的链路收益最大；本来就快的源（forgecdn、BMCLAPI）分段只增加连接开销，所以 < 1 MB 不拆
+- 线程数开太大（64）会压路由器 NAT 表，个别家用网络会出现"下到一半网络异常"，这也是做成可调而不是写死的原因
+- 服务端若不支持 Range 或对 Range 请求返回 200/403/404，会自动退回单流，不会比原来更慢
+
+**工作量口径**：新增 `Modules/ModNet/Downloader.cs`（约 380 行，含 `DownloadProgress` 类型与分段引擎）；`Net.cs` 的 `DownloadToFileAsync` 收口到新引擎并加 `progress` 参数；`Config` 加 `DownloadThreads`（1–64，默认 16）；`PackInstaller` / `ModInstaller` 透传进度回调（模组状态行顺带显示 `2/3`）；`PackPanel`、`ModSearchDialog` 各加一行进度区（文字 + `Bar` 进度条）；设置页加「下载线程」卡片（4 档 Chip）；README 与本文档同步。
 
 ### 美术与主题（结论，2026-10-31 精简）
 

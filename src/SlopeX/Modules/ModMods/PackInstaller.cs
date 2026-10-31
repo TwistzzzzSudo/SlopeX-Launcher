@@ -126,7 +126,8 @@ namespace SlopeX.Modules.ModMods
         /// 下载一个资源包版本到目标目录。返回落地的完整路径；已存在同名文件时直接返回该路径并标记跳过。
         /// </summary>
         public static async Task<(string Path, bool Skipped)> InstallAsync(string gameDir, string versionId,
-            PackKind kind, PackVersionRef version, CancellationToken ct = default, Action<string> progress = null)
+            PackKind kind, PackVersionRef version, CancellationToken ct = default, Action<string> progress = null,
+            Action<DownloadProgress> download = null)
         {
             if (version == null) throw new ArgumentNullException(nameof(version));
 
@@ -144,7 +145,7 @@ namespace SlopeX.Modules.ModMods
             try
             {
                 progress?.Invoke($"下载 {version.FileName}（{version.SizeText}）");
-                await Net.DownloadToFileAsync(version.Url, target, version.Sha1, version.Size, ct, timeoutMs)
+                await Net.DownloadToFileAsync(version.Url, target, version.Sha1, version.Size, ct, timeoutMs, download)
                     .ConfigureAwait(false);
             }
             catch (OperationCanceledException)

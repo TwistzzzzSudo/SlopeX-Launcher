@@ -118,9 +118,20 @@
             </StackPanel>
         </Border>
 
-        <!-- 状态行 -->
-        <TextBlock x:Name="StatusText" Grid.Row="3" Style="{StaticResource TCaption}" Margin="0,0,0,8"
-                   TextWrapping="Wrap" Text="输入关键词搜索；点结果行的「安装」，挑一个版本就会立刻下载。"/>
+        <!-- 状态行 + 下载进度 -->
+        <StackPanel Grid.Row="3" Margin="0,0,0,8">
+            <TextBlock x:Name="StatusText" Style="{StaticResource TCaption}"
+                       TextWrapping="Wrap" Text="输入关键词搜索；点结果行的「安装」，挑一个版本就会立刻下载。"/>
+
+            <!-- 只在下载期间出现：平时不占视觉重量。
+                 文字单独一行右对齐，不和进度条抢宽度（窄窗口下进度条会把文字挤出边界）。 -->
+            <StackPanel x:Name="ProgressRow" Margin="0,6,0,0" Visibility="Collapsed">
+                <TextBlock x:Name="ProgressText" Style="{StaticResource TCaption}"
+                           HorizontalAlignment="Right" Text=""/>
+                <ProgressBar x:Name="DownloadBar" Style="{StaticResource Bar}" Height="4"
+                             Margin="0,4,0,0" Minimum="0" Maximum="100" Value="0"/>
+            </StackPanel>
+        </StackPanel>
 
         <!-- 列表 -->
         <Grid Grid.Row="4">

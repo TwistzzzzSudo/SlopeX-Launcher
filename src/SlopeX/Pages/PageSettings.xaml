@@ -312,6 +312,25 @@
                     </StackPanel>
                 </Border>
 
+                <!-- 下载线程 -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,14">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource TSection}" Text="下载线程"/>
+                        <TextBlock Style="{StaticResource TCaption}" Margin="0,4,0,12" TextWrapping="Wrap"
+                                   Text="单个文件的最大并发连接数，默认 16。国内单条连接常被限速到几十 KB/s，调高能明显提速；网络不稳或路由器容易掉线时调低。"/>
+                        <StackPanel Orientation="Horizontal">
+                            <ToggleButton x:Name="ChipThread8" Style="{StaticResource Chip}" Content="8"
+                                          Click="Thread_Click" ToolTip="保守：对路由器压力最小"/>
+                            <ToggleButton x:Name="ChipThread16" Style="{StaticResource Chip}" Content="16"
+                                          Margin="8,0,0,0" Click="Thread_Click" ToolTip="默认：速度与稳定兼顾"/>
+                            <ToggleButton x:Name="ChipThread32" Style="{StaticResource Chip}" Content="32"
+                                          Margin="8,0,0,0" Click="Thread_Click" ToolTip="单连接限速严重时更快"/>
+                            <ToggleButton x:Name="ChipThread64" Style="{StaticResource Chip}" Content="64"
+                                          Margin="8,0,0,0" Click="Thread_Click" ToolTip="最快，也最容易触发路由器连接数上限"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
                 <!-- 关于 -->
                 <Border Style="{StaticResource Card}" Margin="0,0,0,14">
                     <StackPanel>

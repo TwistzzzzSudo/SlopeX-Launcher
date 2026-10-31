@@ -105,53 +105,18 @@ namespace SlopeX.Modules.ModNet
 
         /// <summary>
         /// 下载单个文件到指定路径（带 SHA1 校验）。
-        /// 用于模组这种"一次几个、不想起下载队列"的场景；先写 .sxpart 再落位，
+        /// 用于模组 / 资源包这种"一次几个、不想起下载队列"的场景；先写 .sxpart 再落位，
         /// 中断不会留下半个 jar 被加载器当成有效模组。
+        ///
+        /// 大于 1 MB 且源支持 Range 时走 <see cref="Downloader"/> 的分段并发下载——
+        /// 单连接在 cdn.modrinth.com 上只有几十 KB/s，分成多段能到 MB/s 级。
         /// </summary>
         public static async Task DownloadToFileAsync(string url, string targetPath, string sha1 = null,
-            long size = 0, CancellationToken ct = default, int timeoutMs = 300000)
+            long size = 0, CancellationToken ct = default, int timeoutMs = 300000,
+            Action<DownloadProgress> progress = null)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(targetPath) ?? ".");
-
-            var tmp = targetPath + ".sxpart";
-
-            try
-            {
-                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                timeoutCts.CancelAfter(timeoutMs);
-
-                using (var resp = await Client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token)
-                           .ConfigureAwait(false))
-                {
-                    resp.EnsureSuccessStatusCode();
-
-                    using var src = await resp.Content.ReadAsStreamAsync(timeoutCts.Token).ConfigureAwait(false);
-                    using var dst = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true);
-                    await src.CopyToAsync(dst, 81920, timeoutCts.Token).ConfigureAwait(false);
-                }
-
-                if (size > 0)
-                {
-                    var got = new FileInfo(tmp).Length;
-                    if (got != size)
-                        throw new IOException($"文件大小不符：期望 {Format.Bytes(size)}，实际 {Format.Bytes(got)}");
-                }
-
-                if (!string.IsNullOrEmpty(sha1))
-                {
-                    var actual = Sha1OfFile(tmp);
-                    if (!string.Equals(actual, sha1, StringComparison.OrdinalIgnoreCase))
-                        throw new IOException($"SHA1 校验失败（期望 {sha1}，实际 {actual}）");
-                }
-
-                if (File.Exists(targetPath)) File.Delete(targetPath);
-                File.Move(tmp, targetPath);
-            }
-            catch
-            {
-                try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
-                throw;
-            }
+            await Downloader.DownloadAsync(url, targetPath, sha1, size, ct, timeoutMs, progress)
+                .ConfigureAwait(false);
         }
 
         public static string Sha1OfFile(string path)
