@@ -342,10 +342,12 @@ namespace SlopeX.Modules.ModCli
                 return 0;
             }
 
-            var state = session.Expired ? "已过期，启动时自动刷新" : "有效";
+            var when = session.ExpiresAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
             Out($"正版账号：{session.Name}");
             Out($"  UUID：{session.Uuid}");
-            Out($"  令牌：{state}（到期 {session.ExpiresAt.ToLocalTime():yyyy-MM-dd HH:mm}）");
+            Out(session.Expired
+                ? $"  令牌：已过期（{when} 到期），启动游戏时自动续期"
+                : $"  令牌：有效（{when} 到期，自动续期，无需重新登录）");
             return 0;
         }
 
