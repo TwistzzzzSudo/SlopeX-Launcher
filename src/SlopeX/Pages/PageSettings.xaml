@@ -363,8 +363,12 @@
                             <TextBlock Grid.Column="1" Style="{StaticResource TSub}" TextWrapping="Wrap"
                                        Text="模块分层参考 PCL2（ModBase / ModNet / ModMinecraft / ModJava / ModLaunch / ModDownload），代码为独立实现。"/>
                         </Grid>
-                        <Button Style="{StaticResource BtnGhost}" Content="打开配置目录" Height="30"
-                                HorizontalAlignment="Left" Margin="0,14,0,0" Click="OpenConfigDir_Click"/>
+                        <Grid Margin="0,14,0,0">
+                            <Button Style="{StaticResource BtnGhost}" Content="打开配置目录" Height="30"
+                                    HorizontalAlignment="Left" Click="OpenConfigDir_Click"/>
+                            <TextBlock Style="{StaticResource TCaption}" Text="Program By ShakableCat · DeepSeek"
+                                       HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                        </Grid>
                     </StackPanel>
                 </Border>
 
