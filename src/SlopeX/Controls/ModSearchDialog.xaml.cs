@@ -12,18 +12,24 @@ namespace SlopeX.Controls
     /// <summary>
     /// 模组搜索对话框。
     ///
-    /// 下载来源只有 Modrinth（免 Key、有公开搜索接口）。
-    /// CurseForge 的搜索被移除了 —— 官方接口强制 x-api-key，没有 Key 一律 403，
-    /// 而保留一个"填了 Key 才能用"的入口，实际价值不抵它带来的复杂度。
+    /// 三个来源可选（界面上是三个 Chip）：
+    /// <list type="bullet">
+    /// <item><b>全部</b>（默认）：Modrinth + CurseForge 一起搜，同名去重后合并；这一模式下
+    ///       Modrinth 侧也走 MCIM 镜像，和 CurseForge 共用同一个出口。</item>
+    /// <item><b>Modrinth</b>：只搜 Modrinth 官方接口，数据最新。</item>
+    /// <item><b>CurseForge</b>：只搜 CurseForge；官方接口强制 x-api-key，所以必须经 MCIM 镜像。</item>
+    /// </list>
     ///
-    /// 关键词含中文时改走 MC百科：那边能按中文名搜到模组，再用词条里的 Modrinth 链接
-    /// 把结果对回 Modrinth 项目（详见 <see cref="Modules.ModMods.ModSearch"/>）。
+    /// 关键词含中文时三条路都先问 MC百科（那边能按中文名搜到模组），
+    /// 再用词条里的链接把结果对回对应平台（详见 <see cref="Modules.ModMods.ModSearch"/>）。
     /// </summary>
     public partial class ModSearchDialog : UserControl
     {
         private readonly string _versionId;
         private readonly string _mcVersion;
         private readonly string _loader;
+
+        private ModSourceFilter _filter = ModSourceFilter.All;
 
         private CancellationTokenSource _cts;
 
@@ -43,6 +49,8 @@ namespace SlopeX.Controls
 
             if (string.IsNullOrEmpty(loader))
                 StatusText.Text = "这个版本没有安装加载器，模组装进去也不会被加载。建议先安装 Fabric / Forge / NeoForge。";
+            else
+                StatusText.Text = "输入关键词后回车搜索；默认两个平台一起搜，点上方 Chip 可以只搜其中一个。";
         }
 
         public void FocusQuery()
@@ -58,6 +66,27 @@ namespace SlopeX.Controls
         }
 
         private void Search_Click(object sender, RoutedEventArgs e) => _ = SearchAsync();
+
+        /// <summary>三个 Chip 互为单选；换源时清掉上一次的结果，免得把 A 源的结果当成 B 源的。</summary>
+        private void Source_Click(object sender, RoutedEventArgs e)
+        {
+            _filter = ReferenceEquals(sender, ChipModrinth) ? ModSourceFilter.Modrinth
+                : ReferenceEquals(sender, ChipCurseForge) ? ModSourceFilter.CurseForge
+                : ModSourceFilter.All;
+
+            ChipAll.IsChecked = _filter == ModSourceFilter.All;
+            ChipModrinth.IsChecked = _filter == ModSourceFilter.Modrinth;
+            ChipCurseForge.IsChecked = _filter == ModSourceFilter.CurseForge;
+
+            ResultList.ItemsSource = null;
+
+            StatusText.Text = _filter switch
+            {
+                ModSourceFilter.Modrinth => "只搜 Modrinth（官方接口）。输入关键词后回车。",
+                ModSourceFilter.CurseForge => "只搜 CurseForge（经 MCIM 镜像）。输入关键词后回车。",
+                _ => "两个平台一起搜，结果去重后合并。输入关键词后回车。"
+            };
+        }
 
         private async System.Threading.Tasks.Task SearchAsync()
         {
@@ -77,15 +106,17 @@ namespace SlopeX.Controls
             var chinese = ModSearch.HasChinese(query);
 
             StatusText.Text = chinese
-                ? $"正在 MC百科 检索「{query}」…（要把词条对上 Modrinth，可能慢几秒）"
-                : $"正在搜索「{query}」…";
+                ? $"正在 MC百科 检索「{query}」…（要把词条对上平台项目，可能慢几秒）"
+                : _filter == ModSourceFilter.All
+                    ? $"正在 Modrinth 与 CurseForge 搜索「{query}」…"
+                    : $"正在 {(_filter == ModSourceFilter.CurseForge ? "CurseForge" : "Modrinth")} 搜索「{query}」…";
 
             ResultList.ItemsSource = null;
 
             try
             {
-                var result = await ModSearch.SearchAsync(query, _mcVersion, _loader, ModSearch.CheckLimit,
-                    _cts.Token);
+                var result = await ModSearch.SearchAsync(query, _mcVersion, _loader, _filter,
+                    ModSearch.CheckLimit, _cts.Token);
 
                 if (_cts.IsCancellationRequested) return;
 
@@ -93,8 +124,9 @@ namespace SlopeX.Controls
                 StatusText.Text = result.StatusText(_mcVersion, _loader);
 
                 if (chinese)
-                    Log.Info($"MC百科 搜索「{query}」：命中 {result.Total}，核对 {result.Checked}，" +
-                             $"可安装 {result.Hits.Count}");
+                    Log.Info($"MC百科 搜索「{query}」（{_filter}）：命中 {result.Total}，核对 {result.Checked}，" +
+                             $"可安装 {result.Hits.Count}（Modrinth {result.ModrinthCount} / " +
+                             $"CurseForge {result.CurseForgeCount}）");
             }
             catch (OperationCanceledException)
             {
@@ -173,7 +205,7 @@ namespace SlopeX.Controls
 
         /// <summary>
         /// 在 MC百科 里搜当前关键词。
-        /// 只在 CurseForge 上架的模组映射不到 Modrinth，这时让用户自己去站上下载。
+        /// 两个平台都没登记的模组（比如只在自己的发布页维护的）只能让用户自己去站上看。
         /// </summary>
         private void OpenWiki_Click(object sender, RoutedEventArgs e)
         {

@@ -14,6 +14,19 @@
 
         <TextBlock x:Name="TargetText" Style="{StaticResource TCaption}" Margin="0,4,0,14" TextWrapping="Wrap"/>
 
+        <!-- 来源筛选：单选 Modrinth 走官方接口，全部模式两个平台一起搜（都经 MCIM 镜像） -->
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+            <ToggleButton x:Name="ChipAll" Style="{StaticResource Chip}" Content="全部"
+                          IsChecked="True" Click="Source_Click"
+                          ToolTip="Modrinth 与 CurseForge 一起搜，结果去重后合并"/>
+            <ToggleButton x:Name="ChipModrinth" Style="{StaticResource Chip}" Content="Modrinth"
+                          Click="Source_Click"
+                          ToolTip="只搜 Modrinth，走官方接口（数据最新）"/>
+            <ToggleButton x:Name="ChipCurseForge" Style="{StaticResource Chip}" Content="CurseForge"
+                          Click="Source_Click"
+                          ToolTip="只搜 CurseForge（经 MCIM 镜像）"/>
+        </StackPanel>
+
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -61,12 +74,27 @@
                                 </Grid.ColumnDefinitions>
 
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource Ink}"
-                                               TextTrimming="CharacterEllipsis" MaxWidth="310"/>
+                                    <!-- 来源做成小胶囊：两个平台混排时，靠小字里的一个词分不清 -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <Border Grid.Column="0" Background="{DynamicResource Paper3}"
+                                                CornerRadius="3" Padding="5,1,5,1" Margin="0,0,6,0"
+                                                VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding SourceText}" FontSize="10"
+                                                       Foreground="{DynamicResource Sub}"/>
+                                        </Border>
+
+                                        <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="13"
+                                                   FontWeight="SemiBold" Foreground="{DynamicResource Ink}"
+                                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                    </Grid>
                                     <TextBlock Text="{Binding SubText}" FontSize="11" Margin="0,2,0,0"
                                                Foreground="{DynamicResource Muted}"
-                                               TextTrimming="CharacterEllipsis" MaxWidth="310"/>
+                                               TextTrimming="CharacterEllipsis"/>
                                 </StackPanel>
 
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">

@@ -7,6 +7,19 @@ using SlopeX.Modules.ModBase;
 
 namespace SlopeX.Modules.ModMods
 {
+    /// <summary>搜索来源筛选。</summary>
+    public enum ModSourceFilter
+    {
+        /// <summary>两个源一起搜；Modrinth 侧走 MCIM 镜像，与 CurseForge 保持同一个出口。</summary>
+        All,
+
+        /// <summary>只搜 Modrinth，并且走**官方**接口（数据最新，中文经 MC百科 映射）。</summary>
+        Modrinth,
+
+        /// <summary>只搜 CurseForge（必须经 MCIM 镜像，官方接口要 Key）。</summary>
+        CurseForge
+    }
+
     /// <summary>一次搜索的完整结果，兼带给界面拼状态文字的信息。</summary>
     public sealed class ModSearchResult
     {
@@ -15,25 +28,49 @@ namespace SlopeX.Modules.ModMods
         /// <summary>是否走了 MC百科。</summary>
         public bool FromMcMod { get; set; }
 
-        /// <summary>来源命中的总条数（百科一页 32 条；英文搜索时等于 Hits 数）。</summary>
+        /// <summary>本次用的来源筛选。</summary>
+        public ModSourceFilter Filter { get; set; }
+
+        /// <summary>来源命中的总条数（百科一页 32 条；英文搜索时等于两源条数之和）。</summary>
         public int Total { get; set; }
 
         /// <summary>实际核对过的条数（只核对前若干条，每条要读一次百科页）。</summary>
         public int Checked { get; set; }
 
-        /// <summary>百科有、Modrinth 上没有（或者作者已删除）的条数。</summary>
-        public int NotOnModrinth { get; set; }
+        /// <summary>百科有、但两个平台都没有（或者作者已删除）的条数。</summary>
+        public int NotOnPlatform { get; set; }
 
-        /// <summary>Modrinth 有，但没有目标 MC 版本 / 加载器版本的条数。</summary>
+        /// <summary>平台上有，但没有目标 MC 版本 / 加载器版本的条数。</summary>
         public int Incompatible { get; set; }
+
+        /// <summary>合并前各自命中多少（英文多源搜索用）。</summary>
+        public int ModrinthCount { get; set; }
+        public int CurseForgeCount { get; set; }
 
         public string StatusText(string mcVersion, string loader)
         {
+            var target = TargetLabel(mcVersion, loader);
+
             if (!FromMcMod)
             {
-                return Hits.Count == 0
-                    ? "没有找到结果。"
-                    : $"找到 {Hits.Count} 个结果（已按 Minecraft {mcVersion} / {loader} 过滤）。";
+                if (Hits.Count == 0)
+                {
+                    return Filter == ModSourceFilter.All
+                        ? "两个平台都没有找到结果。试试英文原名，或者换个关键词。"
+                        : $"{(Filter == ModSourceFilter.CurseForge ? "CurseForge" : "Modrinth")} 上没有找到结果。" +
+                          "可以切到「全部」看看另一个平台有没有。";
+                }
+
+                var detail = Filter switch
+                {
+                    ModSourceFilter.All =>
+                        $"Modrinth {ModrinthCount} 个、CurseForge {CurseForgeCount} 个，去重后 {Hits.Count} 个" +
+                        "（Modrinth 在前，CurseForge 补充在后）",
+                    ModSourceFilter.CurseForge => $"CurseForge 共 {Hits.Count} 个",
+                    _ => $"Modrinth 共 {Hits.Count} 个"
+                };
+
+                return $"找到 {detail}。已按 {target} 过滤。";
             }
 
             if (Total == 0)
@@ -42,16 +79,19 @@ namespace SlopeX.Modules.ModMods
             if (Hits.Count == 0)
             {
                 return Checked == 0
-                    ? $"MC百科 命中 {Total} 个，但没有能对应到 Modrinth 的条目。"
-                    : $"MC百科 命中 {Total} 个；核对前 {Checked} 个，都不在 Modrinth 上，或者不支持 {TargetLabel(mcVersion, loader)}。";
+                    ? $"MC百科 命中 {Total} 个，但没有能对应到{(Filter == ModSourceFilter.CurseForge ? " CurseForge" : " Modrinth")} 的条目。"
+                    : $"MC百科 命中 {Total} 个；核对前 {Checked} 个，平台上都找不到，或者不支持 {target}。";
             }
 
             var tail = new List<string>();
-            if (NotOnModrinth > 0) tail.Add($"{NotOnModrinth} 个 Modrinth 上没有");
-            if (Incompatible > 0) tail.Add($"{Incompatible} 个没有 {TargetLabel(mcVersion, loader)} 版本");
+            if (NotOnPlatform > 0) tail.Add($"{NotOnPlatform} 个平台上没有");
+            if (Incompatible > 0) tail.Add($"{Incompatible} 个没有 {target} 版本");
 
             var text = $"MC百科 命中 {Total} 个，核对前 {Checked} 个，其中 {Hits.Count} 个可安装" +
                        (tail.Count > 0 ? "（" + string.Join("，", tail) + "）" : "") + "。";
+
+            if (Filter == ModSourceFilter.All && CurseForgeCount > 0)
+                text += " 同一个模组两边都有时优先取 CurseForge。";
 
             // 版本号读不出来时等于没过滤，装上去很可能是别的版本的 jar，得说清楚
             if (string.IsNullOrEmpty(mcVersion))
@@ -72,11 +112,19 @@ namespace SlopeX.Modules.ModMods
     /// <summary>
     /// 搜索入口：决定这次查询该问谁。
     ///
-    /// 含中文就交给 MC百科（用户搜的就是中文名），纯英文仍然直接问 Modrinth
-    /// —— 那边元数据更全、没有限流，没必要绕一圈。
+    /// 三条路（对应界面上的三选一）：
+    /// <list type="bullet">
+    /// <item><b>Modrinth</b>：走官方 <c>api.modrinth.com</c>，数据最新；中文经 MC百科 映射到 Modrinth 项目。</item>
+    /// <item><b>CurseForge</b>：只能走 MCIM 镜像（官方要 <c>x-api-key</c>）；中文经 MC百科 映射到 CF 的 slug。</item>
+    /// <item><b>全部</b>：两源一起搜，Modrinth 侧也改走 MCIM 镜像 —— 既然已经依赖镜像取 CF，
+    ///       就让两边共用同一个出口，少一次跨境请求。</item>
+    /// </list>
     ///
-    /// 百科只负责"这个名字叫什么、对应哪个 Modrinth 项目"，
-    /// 文件列表、依赖、下载全部还走 Modrinth，所以安装链路一行都没变。
+    /// 合并顺序是「Modrinth 在前、CurseForge 补在后面（同名去重）」：
+    /// Modrinth 的相关度排序质量明显更好，CF 的搜索只能按热度排；
+    /// 这样既保留了 Modrinth 的排序，又能让只在 CF 上架的模组出现在列表里。
+    ///
+    /// 百科只负责"这个名字对应哪个项目"，文件列表、依赖、下载仍然全部由各自的平台接口完成。
     /// </summary>
     public static class ModSearch
     {
@@ -100,27 +148,83 @@ namespace SlopeX.Modules.ModMods
         }
 
         public static async Task<ModSearchResult> SearchAsync(string query, string mcVersion, string loader,
-            int limit = CheckLimit, CancellationToken ct = default)
+            ModSourceFilter filter, int limit = CheckLimit, CancellationToken ct = default)
         {
             if (!HasChinese(query))
-            {
-                var hits = await ModrinthSource.SearchAsync(query, mcVersion, loader, limit, 0, ct)
-                    .ConfigureAwait(false);
+                return await SearchDirectAsync(query, mcVersion, loader, filter, limit, ct).ConfigureAwait(false);
 
-                var direct = new ModSearchResult { Total = hits.Count, Checked = hits.Count };
-                direct.Hits.AddRange(hits);
-                return direct;
-            }
-
-            return await SearchChineseAsync(query, mcVersion, loader, limit, ct).ConfigureAwait(false);
+            return await SearchChineseAsync(query, mcVersion, loader, filter, limit, ct).ConfigureAwait(false);
         }
 
+        // ---------------- 英文：直接问平台 ----------------
+
+        private static async Task<ModSearchResult> SearchDirectAsync(string query, string mcVersion, string loader,
+            ModSourceFilter filter, int limit, CancellationToken ct)
+        {
+            // 全部模式下 Modrinth 也走镜像：两个源同一个出口，行为一致
+            var mirror = filter == ModSourceFilter.All;
+
+            var modrinthTask = filter != ModSourceFilter.CurseForge
+                ? ModrinthSource.SearchAsync(query, mcVersion, loader, limit, 0, ct, mirror)
+                : Task.FromResult(new List<ModSearchHit>());
+
+            var curseforgeTask = filter != ModSourceFilter.Modrinth
+                ? CurseForgeSource.SearchAsync(query, mcVersion, loader, limit, ct)
+                : Task.FromResult(new List<ModSearchHit>());
+
+            // 一个源挂了不该让整次搜索失败：另一个的结果照样能用
+            var modrinth = await SafeAsync(modrinthTask, "Modrinth").ConfigureAwait(false);
+            var curseforge = await SafeAsync(curseforgeTask, "CurseForge").ConfigureAwait(false);
+
+            var result = new ModSearchResult
+            {
+                Filter = filter,
+                ModrinthCount = modrinth.Count,
+                CurseForgeCount = curseforge.Count,
+                Total = modrinth.Count + curseforge.Count,
+                Checked = modrinth.Count + curseforge.Count
+            };
+
+            // Modrinth 的顺序更可信，先放；CF 只补它没有的（按标题归一化去重）
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var hit in modrinth)
+            {
+                if (seen.Add(hit.DedupeKey)) result.Hits.Add(hit);
+            }
+
+            foreach (var hit in curseforge)
+            {
+                if (seen.Add(hit.DedupeKey)) result.Hits.Add(hit);
+            }
+
+            return result;
+        }
+
+        private static async Task<List<ModSearchHit>> SafeAsync(Task<List<ModSearchHit>> task, string name)
+        {
+            try
+            {
+                return await task.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"{name} 搜索失败：{ex.Message}");
+                return new List<ModSearchHit>();
+            }
+        }
+
+        // ---------------- 中文：经 MC百科 映射 ----------------
+
         private static async Task<ModSearchResult> SearchChineseAsync(string query, string mcVersion, string loader,
-            int limit, CancellationToken ct)
+            ModSourceFilter filter, int limit, CancellationToken ct)
         {
             var entries = await McModSource.SearchAsync(query, ct).ConfigureAwait(false);
 
-            var result = new ModSearchResult { FromMcMod = true, Total = entries.Count };
+            var result = new ModSearchResult { FromMcMod = true, Filter = filter, Total = entries.Count };
             if (entries.Count == 0) return result;
 
             var batch = entries.Take(Math.Max(1, limit > 0 ? limit : CheckLimit)).ToList();
@@ -129,7 +233,7 @@ namespace SlopeX.Modules.ModMods
             var slots = new ModSearchHit[batch.Count];
             var reasons = new string[batch.Count];
 
-            // 详情页基本不限流，四条并发能把 16 条压到两秒左右；
+            // 详情页基本不限流，六条并发能把 12 条压到两秒左右；
             // 再高意义不大，反而容易被站点当成爬虫。
             using var gate = new SemaphoreSlim(ParallelPages);
 
@@ -138,14 +242,49 @@ namespace SlopeX.Modules.ModMods
                 await gate.WaitAsync(ct).ConfigureAwait(false);
                 try
                 {
-                    var slug = await McModSource.ModrinthSlugAsync(entry.ClassId, ct).ConfigureAwait(false);
-                    if (string.IsNullOrEmpty(slug))
+                    var (modrinthSlug, curseforgeSlug) = await McModSource.LinksAsync(entry.ClassId, ct)
+                        .ConfigureAwait(false);
+
+                    // 「全部」优先试 CurseForge：这次要捞回来的主要就是只在 CF 上架的模组。
+                    // 单选 Modrinth 时完全不碰 CF，保证那条链路和以前一致。
+                    if (filter != ModSourceFilter.Modrinth && !string.IsNullOrEmpty(curseforgeSlug))
+                    {
+                        var cf = await CurseForgeSource.SearchBySlugAsync(curseforgeSlug, ct).ConfigureAwait(false);
+                        if (cf != null)
+                        {
+                            var files = await CurseForgeSource.ListFilesAsync(cf.ProjectId, mcVersion, loader, ct)
+                                .ConfigureAwait(false);
+
+                            if (files.Count == 0)
+                            {
+                                reasons[index] = "ver";
+                                return;
+                            }
+
+                            cf.Title = entry.Name;      // 百科的中文名比 CF 的英文名好认
+                            if (!string.IsNullOrEmpty(entry.Intro)) cf.Description = entry.Intro;
+                            cf.McModId = entry.ClassId;
+                            cf.GameVersions.Clear();
+
+                            slots[index] = cf;
+                            return;
+                        }
+                    }
+
+                    if (filter == ModSourceFilter.CurseForge)
                     {
                         reasons[index] = "no";
                         return;
                     }
 
-                    var project = await ModrinthSource.ProjectAsync(slug, ct).ConfigureAwait(false);
+                    if (string.IsNullOrEmpty(modrinthSlug))
+                    {
+                        reasons[index] = "no";
+                        return;
+                    }
+
+                    var project = await ModrinthSource.ProjectAsync(modrinthSlug, ct,
+                        filter == ModSourceFilter.All).ConfigureAwait(false);
                     if (project == null)
                     {
                         reasons[index] = "no";
@@ -169,13 +308,14 @@ namespace SlopeX.Modules.ModMods
                     slots[index] = new ModSearchHit
                     {
                         Source = "Modrinth",
-                        ProjectId = string.IsNullOrEmpty(project.Id) ? slug : project.Id,
-                        Slug = string.IsNullOrEmpty(project.Slug) ? slug : project.Slug,
+                        ProjectId = string.IsNullOrEmpty(project.Id) ? modrinthSlug : project.Id,
+                        Slug = string.IsNullOrEmpty(project.Slug) ? modrinthSlug : project.Slug,
                         Title = entry.Name,
                         Description = string.IsNullOrEmpty(entry.Intro) ? project.Description : entry.Intro,
                         Downloads = project.Downloads,
                         IconUrl = project.IconUrl,
-                        McModId = entry.ClassId
+                        McModId = entry.ClassId,
+                        Mirror = filter == ModSourceFilter.All
                     };
                 }
                 catch (OperationCanceledException)
@@ -200,13 +340,17 @@ namespace SlopeX.Modules.ModMods
                 if (slots[i] == null)
                 {
                     if (reasons[i] == "ver") result.Incompatible++;
-                    else result.NotOnModrinth++;
+                    else result.NotOnPlatform++;
                     continue;
                 }
 
-                if (!used.Add(slots[i].ProjectId)) continue;
+                if (!used.Add(slots[i].Source + ":" + slots[i].ProjectId)) continue;
                 result.Hits.Add(slots[i]);
             }
+
+            result.ModrinthCount = result.Hits.Count(h => !string.Equals(h.Source, "CurseForge",
+                StringComparison.OrdinalIgnoreCase));
+            result.CurseForgeCount = result.Hits.Count - result.ModrinthCount;
 
             return result;
         }

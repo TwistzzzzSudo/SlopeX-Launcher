@@ -64,6 +64,10 @@ namespace SlopeX.Modules.ModMods
             new Regex(@"modrinth\.com/(?:mod|project|datapack|shader|resourcepack|plugin)/([A-Za-z0-9_\-.]+)",
                 RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+        private static readonly Regex CurseForgeSlugRx =
+            new Regex(@"curseforge\.com/minecraft/(?:mc-mods|texture-packs|shaders|worlds)/([A-Za-z0-9_\-.]+)",
+                RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
         /// <summary>
         /// 按关键词搜模组（中英文都行，中文才是它的主场）。
         /// 返回站点顺序，也就是它的相关度排序。
@@ -146,8 +150,18 @@ namespace SlopeX.Modules.ModMods
         /// （data-original-title 在 href 前后都出现过），按整页扫不受影响。
         /// </summary>
         public static async Task<string> ModrinthSlugAsync(string classId, CancellationToken ct = default)
+            => (await LinksAsync(classId, ct).ConfigureAwait(false)).Modrinth;
+
+        /// <summary>
+        /// 一次读完词条页，同时给出 Modrinth 与 CurseForge 的 slug。
+        ///
+        /// 只读一次页面就把两个平台都解析出来：中文搜索在「全部」模式下要优先试 CurseForge，
+        /// 如果分两次读同一页，等于把详情页的请求量翻倍（百科详情页虽然不限流，但没必要）。
+        /// </summary>
+        public static async Task<(string Modrinth, string CurseForge)> LinksAsync(string classId,
+            CancellationToken ct = default)
         {
-            if (string.IsNullOrEmpty(classId)) return "";
+            if (string.IsNullOrEmpty(classId)) return ("", "");
 
             string html;
             try
@@ -161,19 +175,33 @@ namespace SlopeX.Modules.ModMods
             catch (Exception ex)
             {
                 Log.Warn($"读取 MC百科 模组页 {classId} 失败：{ex.Message}");
-                return "";
+                return ("", "");
             }
+
+            var modrinth = "";
+            var curseforge = "";
 
             foreach (Match m in TargetRx.Matches(html))
             {
                 var target = DecodeTarget(m.Groups[1].Value);
                 if (target.Length == 0) continue;
 
-                var slug = ModrinthSlugRx.Match(target);
-                if (slug.Success) return Uri.UnescapeDataString(slug.Groups[1].Value);
+                if (modrinth.Length == 0)
+                {
+                    var slug = ModrinthSlugRx.Match(target);
+                    if (slug.Success) modrinth = Uri.UnescapeDataString(slug.Groups[1].Value);
+                }
+
+                if (curseforge.Length == 0)
+                {
+                    var slug = CurseForgeSlugRx.Match(target);
+                    if (slug.Success) curseforge = Uri.UnescapeDataString(slug.Groups[1].Value);
+                }
+
+                if (modrinth.Length > 0 && curseforge.Length > 0) break;
             }
 
-            return "";
+            return (modrinth, curseforge);
         }
 
         /// <summary>把 link.mcmod.cn 的 base64 跳转还原成真实地址。</summary>

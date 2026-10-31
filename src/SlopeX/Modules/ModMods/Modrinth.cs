@@ -12,8 +12,14 @@ namespace SlopeX.Modules.ModMods
     /// <summary>搜索到的一个模组（来源无关的视图模型）。</summary>
     public sealed class ModSearchHit
     {
-        public string Source { get; set; } = "Modrinth";   // 下载来源，目前只有 Modrinth
-        public string ProjectId { get; set; } = "";   // Modrinth 的项目 ID（字符串）的字符串形式
+        /// <summary>下载来源：<c>Modrinth</c> 或 <c>CurseForge</c>。安装时靠它分派接口。</summary>
+        public string Source { get; set; } = "Modrinth";
+
+        /// <summary>
+        /// 来源侧的数值 ID。Modrinth 是 base62 的项目 ID，CurseForge 是数字 modId
+        /// —— **两边不能互认**，跨源时不要拿一个去查另一个。
+        /// </summary>
+        public string ProjectId { get; set; } = "";
         public string Slug { get; set; } = "";
         public string Title { get; set; } = "";
         public string Description { get; set; } = "";
@@ -45,6 +51,20 @@ namespace SlopeX.Modules.ModMods
                 : Downloads >= 1000
                     ? $"{Downloads / 1000.0:0.#}K 次下载"
                     : $"{Downloads} 次下载";
+
+        /// <summary>结果行上的来源标签——两个源混在一起时必须能一眼分出来。</summary>
+        public string SourceText => string.Equals(Source, "CurseForge", StringComparison.OrdinalIgnoreCase)
+            ? "CurseForge"
+            : "Modrinth";
+
+        /// <summary>「全部」模式下同一个模组两边都有，靠这个去重。</summary>
+        public string DedupeKey => (Title ?? "").Replace(" ", "").ToLowerInvariant();
+
+        /// <summary>
+        /// 这条结果是从 MCIM 镜像查到的。安装 / 取依赖要沿用同一个出口，
+        /// 否则会出现"搜得到、装不上"（官方接口在部分网络下不通）。
+        /// </summary>
+        public bool Mirror { get; set; }
 
         public string SubText => string.Join("  ·  ", new[]
         {
@@ -94,6 +114,12 @@ namespace SlopeX.Modules.ModMods
         public string Sha1 { get; set; } = "";
         public long Size { get; set; }
 
+        /// <summary>
+        /// CurseForge 在文件里直接给出的必需依赖（数字 modId）。Modrinth 用不到，留空，
+        /// 装的时候还按版本号反查（见 <c>ModrinthSource.RequiredDepsAsync</c>）。
+        /// </summary>
+        public List<string> RequiredDepIds { get; } = new List<string>();
+
         /// <summary>依赖模块用它判断是否已经装过。</summary>
         public string Key => Source + ":" + ProjectId;
     }
@@ -132,7 +158,14 @@ namespace SlopeX.Modules.ModMods
     /// </summary>
     public static class ModrinthSource
     {
-        private const string Base = "https://api.modrinth.com/v2";
+        /// <summary>官方地址：数据最新，模组搜索单选 Modrinth 时走这里。</summary>
+        private const string Official = "https://api.modrinth.com/v2";
+
+        /// <summary>MCIM 镜像地址：与官方路径一致，选「全部」时两源统一走镜像。</summary>
+        private const string MirrorApi = "https://mod.mcimirror.top/modrinth/v2";
+
+        /// <summary>按模式选接口根地址。<paramref name="mirror"/> = true 走 MCIM 镜像。</summary>
+        private static string BaseUrl(bool mirror) => mirror ? MirrorApi : Official;
 
         /// <summary>加载器名映射到 Modrinth 的 categories facet。</summary>
         public static string LoaderFacet(string loader) => (loader ?? "").ToLowerInvariant() switch
@@ -145,7 +178,7 @@ namespace SlopeX.Modules.ModMods
         };
 
         public static async Task<List<ModSearchHit>> SearchAsync(string query, string mcVersion, string loader,
-            int limit = 20, int offset = 0, CancellationToken ct = default)
+            int limit = 20, int offset = 0, CancellationToken ct = default, bool mirror = false)
         {
             var facets = new List<string> { "[\"project_type:mod\"]" };
             if (!string.IsNullOrWhiteSpace(mcVersion))
@@ -155,7 +188,7 @@ namespace SlopeX.Modules.ModMods
             if (!string.IsNullOrEmpty(l))
                 facets.Add($"[\"categories:{l}\"]");
 
-            return await QueryAsync(query, facets, limit, offset, ct).ConfigureAwait(false);
+            return await QueryAsync(query, facets, limit, offset, mirror, ct).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -169,13 +202,13 @@ namespace SlopeX.Modules.ModMods
             int limit = 20, int offset = 0, CancellationToken ct = default)
         {
             var facets = new List<string> { $"[\"project_type:{projectType}\"]" };
-            return await QueryAsync(query, facets, limit, offset, ct).ConfigureAwait(false);
+            return await QueryAsync(query, facets, limit, offset, false, ct).ConfigureAwait(false);
         }
 
         private static async Task<List<ModSearchHit>> QueryAsync(string query, List<string> facets,
-            int limit, int offset, CancellationToken ct)
+            int limit, int offset, bool mirror, CancellationToken ct)
         {
-            var url = $"{Base}/search?query={Uri.EscapeDataString(query ?? "")}" +
+            var url = $"{BaseUrl(mirror)}/search?query={Uri.EscapeDataString(query ?? "")}" +
                       $"&limit={limit}&offset={offset}" +
                       $"&index=relevance&facets={Uri.EscapeDataString("[" + string.Join(",", facets) + "]")}";
 
@@ -195,7 +228,8 @@ namespace SlopeX.Modules.ModMods
                     Description = J.Str(o, "description") ?? "",
                     Author = J.Str(o, "author") ?? "",
                     Downloads = J.Long(o, "downloads"),
-                    IconUrl = J.Str(o, "icon_url") ?? ""
+                    IconUrl = J.Str(o, "icon_url") ?? "",
+                    Mirror = mirror
                 };
 
                 // 支持版本与更新时间只在搜索结果里就有，不必为每一条再请求一次项目详情
@@ -213,10 +247,10 @@ namespace SlopeX.Modules.ModMods
 
         /// <summary>列出该项目适用于指定 MC 版本 + 加载器的文件（新的在前）。</summary>
         public static async Task<List<ModFileRef>> ListFilesAsync(string projectId, string mcVersion, string loader,
-            CancellationToken ct = default)
+            CancellationToken ct = default, bool mirror = false)
         {
             var l = LoaderFacet(loader);
-            var url = $"{Base}/project/{Uri.EscapeDataString(projectId)}/version";
+            var url = $"{BaseUrl(mirror)}/project/{Uri.EscapeDataString(projectId)}/version";
             var q = new List<string>();
             if (!string.IsNullOrWhiteSpace(mcVersion))
                 q.Add("game_versions=" + Uri.EscapeDataString($"[\"{mcVersion}\"]"));
@@ -266,10 +300,11 @@ namespace SlopeX.Modules.ModMods
         /// 依赖的具体文件在安装阶段再按 MC 版本 + 加载器解析。
         /// </summary>
         public static async Task<List<(string ProjectId, string Name)>> RequiredDepsAsync(string projectId,
-            string versionLabel, string mcVersion, string loader, CancellationToken ct = default)
+            string versionLabel, string mcVersion, string loader, CancellationToken ct = default,
+            bool mirror = false)
         {
             var l = LoaderFacet(loader);
-            var url = $"{Base}/project/{Uri.EscapeDataString(projectId)}/version";
+            var url = $"{BaseUrl(mirror)}/project/{Uri.EscapeDataString(projectId)}/version";
             if (!string.IsNullOrWhiteSpace(mcVersion))
                 url += "?game_versions=" + Uri.EscapeDataString($"[\"{mcVersion}\"]");
             if (!string.IsNullOrEmpty(l))
@@ -302,11 +337,13 @@ namespace SlopeX.Modules.ModMods
         }
 
         /// <summary>取项目标题（用于依赖列表里显示人话）。</summary>
-        public static async Task<string> ProjectTitleAsync(string projectId, CancellationToken ct = default)
+        public static async Task<string> ProjectTitleAsync(string projectId, CancellationToken ct = default,
+            bool mirror = false)
         {
             try
             {
-                var node = await Net.GetJsonRawAsync($"{Base}/project/{Uri.EscapeDataString(projectId)}", ct)
+                var node = await Net.GetJsonRawAsync(
+                        $"{BaseUrl(mirror)}/project/{Uri.EscapeDataString(projectId)}", ct)
                     .ConfigureAwait(false);
                 return J.Str(node, "title") ?? projectId;
             }
@@ -323,13 +360,15 @@ namespace SlopeX.Modules.ModMods
         /// 中文搜索要用它核对两件事：这个百科词条对应的 Modrinth 项目到底存不存在，
         /// 以及它对目标 MC 版本 + 加载器有没有内容 —— 否则列表里会出现点安装必然失败的项。
         /// </summary>
-        public static async Task<ModrinthProject> ProjectAsync(string idOrSlug, CancellationToken ct = default)
+        public static async Task<ModrinthProject> ProjectAsync(string idOrSlug, CancellationToken ct = default,
+            bool mirror = false)
         {
             if (string.IsNullOrWhiteSpace(idOrSlug)) return null;
 
             try
             {
-                var node = await Net.GetJsonRawAsync($"{Base}/project/{Uri.EscapeDataString(idOrSlug.Trim())}", ct)
+                var node = await Net.GetJsonRawAsync(
+                        $"{BaseUrl(mirror)}/project/{Uri.EscapeDataString(idOrSlug.Trim())}", ct)
                     .ConfigureAwait(false);
 
                 if (node is not JsonObject o) return null;

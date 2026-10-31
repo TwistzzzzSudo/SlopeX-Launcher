@@ -94,6 +94,15 @@ namespace SlopeX.Modules.ModNet
             return JsonNode.Parse(text);
         }
 
+        /// <summary>POST 一个 JSON 请求体，返回解析后的响应（批量查依赖这类接口要用）。</summary>
+        public static async Task<JsonNode> PostJsonAsync(string url, JsonNode body, CancellationToken ct = default)
+        {
+            using var content = new StringContent(body?.ToJsonString() ?? "{}", Encoding.UTF8, "application/json");
+            using var resp = await Client.PostAsync(url, content, ct).ConfigureAwait(false);
+            resp.EnsureSuccessStatusCode();
+            return JsonNode.Parse(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+        }
+
         /// <summary>
         /// 下载单个文件到指定路径（带 SHA1 校验）。
         /// 用于模组这种"一次几个、不想起下载队列"的场景；先写 .sxpart 再落位，

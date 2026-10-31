@@ -94,23 +94,25 @@ namespace SlopeX.Modules.ModMods
                 // 再深就容易把整包依赖链一次拖下来。
                 if (depth >= 2) continue;
 
-                var deps = await ModrinthSource.RequiredDepsAsync(cur.ProjectId, list[0].VersionLabel,
-                    mcVersion, loader, ct).ConfigureAwait(false);
+                var deps = await RequiredDepsAsync(cur, list[0], mcVersion, loader, ct).ConfigureAwait(false);
 
                 foreach (var (depId, depName) in deps)
                 {
-                    var key = "Modrinth:" + depId;
+                    // 依赖跟着主模组走同一个平台：CF 的依赖是数字 modId，Modrinth 的是 base62，
+                    // 两套 ID 不能互认，所以 Source 必须一起带上
+                    var key = cur.Source + ":" + depId;
                     if (!visited.Add(key)) continue;
 
-                    var title = string.IsNullOrWhiteSpace(depName)
-                        ? await ModrinthSource.ProjectTitleAsync(depId, ct).ConfigureAwait(false)
-                        : depName;
+                    var title = depName;
+                    if (string.IsNullOrWhiteSpace(title))
+                        title = await TitleAsync(cur, depId, ct).ConfigureAwait(false);
 
                     queue.Enqueue((new ModSearchHit
                     {
-                        Source = "Modrinth",
+                        Source = cur.Source,
                         ProjectId = depId,
-                        Title = title
+                        Title = title,
+                        Mirror = cur.Mirror
                     }, depth + 1));
                 }
             }
@@ -177,9 +179,34 @@ namespace SlopeX.Modules.ModMods
             return result;
         }
 
+        private static bool IsCurseForge(ModSearchHit hit) =>
+            string.Equals(hit.Source, CurseForgeSource.SourceName, StringComparison.OrdinalIgnoreCase);
+
         private static Task<List<ModFileRef>> ListFilesAsync(ModSearchHit hit, string mc, string loader,
             CancellationToken ct)
-            => ModrinthSource.ListFilesAsync(hit.ProjectId, mc, loader, ct);
+            => IsCurseForge(hit)
+                ? CurseForgeSource.ListFilesAsync(hit.ProjectId, mc, loader, ct)
+                : ModrinthSource.ListFilesAsync(hit.ProjectId, mc, loader, ct, hit.Mirror);
+
+        /// <summary>
+        /// 取必需依赖。两个平台拿依赖的方式不同：
+        /// Modrinth 要按版本号反查 version 的 <c>dependencies</c>；
+        /// CurseForge 在文件对象里就直接给了 <c>relationType = 3</c> 的列表。
+        /// </summary>
+        private static async Task<List<(string Id, string Name)>> RequiredDepsAsync(ModSearchHit hit,
+            ModFileRef file, string mc, string loader, CancellationToken ct)
+        {
+            if (IsCurseForge(hit))
+                return await CurseForgeSource.RequiredDepsAsync(file, ct).ConfigureAwait(false);
+
+            return await ModrinthSource.RequiredDepsAsync(hit.ProjectId, file.VersionLabel, mc, loader, ct,
+                hit.Mirror).ConfigureAwait(false);
+        }
+
+        private static Task<string> TitleAsync(ModSearchHit hit, string projectId, CancellationToken ct)
+            => IsCurseForge(hit)
+                ? CurseForgeSource.ProjectTitleAsync(projectId, ct)
+                : ModrinthSource.ProjectTitleAsync(projectId, ct, hit.Mirror);
 
         /// <summary>由版本 ID 推断 MC 版本与加载器（用于界面自动带出过滤条件）。</summary>
         public static (string McVersion, string Loader) ResolveTarget(string gameDir, string versionId)

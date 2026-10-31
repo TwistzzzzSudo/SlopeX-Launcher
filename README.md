@@ -33,6 +33,12 @@
 |---|---|
 | ![缺少 Java](docs/screenshots/java-missing.png) | ![自动安装](docs/screenshots/java-autoinstall.png) |
 
+模组搜索可以选来源：`全部` 同时搜 Modrinth 与 CurseForge（同名去重、每行带来源标签），也可以只搜其中一个；中文关键词仍然先过 MC百科 映射：
+
+| 双源搜索（默认） | 中文搜索（词条映射到 CurseForge） |
+|---|---|
+| ![双源搜索](docs/screenshots/mods-all.png) | ![中文搜索](docs/screenshots/mods-sources.png) |
+
 版本管理里每行都能打开「资源包」，按页签分别下载光影与材质包（不做 MC 版本过滤，版本自己挑）：
 
 | 光影包 | 材质包 |
@@ -85,7 +91,7 @@ src/SlopeX/
 - **Fabric 安装**：选最新稳定加载器自动拼 `inheritsFrom` 版本、下加载器依赖；原版缺失时先补原版
 - **启动失败诊断**：非零退出时读 `latest.log` 与最新崩溃报告，把内存不足 / Java 版本 / 缺前置模组 / 重复模组 / Mixin 冲突 / 版本不匹配 / 账号校验 / 显卡驱动等特征翻译成人话；认不出来就直说，并给出日志位置
 - **版本补全**：启动时若缺文件（外部复制进来的版本没带 `libraries`/`assets`），弹窗一键补齐——只补缺的部分，不改写版本 JSON
-- **模组管理**：按版本管理 `mods\`（列表、启用/禁用、删除、打开目录）；搜索支持**中文**——含中文的关键词先去 **MC百科** 查词条，再用词条里登记的 Modrinth 链接对回项目，下载、版本过滤、依赖补全都还是走 Modrinth；列表里可直接跳百科词条看中文说明
+- **模组管理**：按版本管理 `mods\`（列表、启用/禁用、删除、打开目录）；搜索支持**中文**——含中文的关键词先去 **MC百科** 查词条，再用词条里登记的链接对回项目；列表里可直接跳百科词条看中文说明。搜索来源三选一：`全部`（Modrinth + CurseForge 一起搜，同名去重）、`Modrinth`（官方接口）、`CurseForge`（经 MCIM 镜像），每行结果带来源标签；依赖补全按来源各自解析（CF 用数字 modId、Modrinth 用 base62 项目 ID，两套不互通）
 - **整合包导入**：支持 `.mrpack`（Modrinth）、CurseForge 整合包 zip、MultiMC / Prism 实例包、只有 mods 的普通压缩包；自动装对应原版与加载器、下载模组、解压 overrides
 - **光影 / 材质包下载**：版本行「资源包」→ 两个页签分别搜 Modrinth 的 `shader` / `resourcepack`；每行只有一个「安装」，点开就是包版本列表，**选中哪个版本当场开始下载**，文件直接落到该版本的 `shaderpacks\` / `resourcepacks\`（已存在则跳过）。**不按 MC 版本过滤**——光影和材质对版本很宽松，硬过滤会漏掉大半结果，所以版本由用户自己挑，声明范围与当前版本不一致时只提示不拦；光影页常驻一条提示：Fabric 要 Iris + Sodium，Forge / NeoForge 要 Oculus（配 Embeddium）或 OptiFine
 - **Forge 安装**：取官方推荐的加载器版本，下载官方 installer 并用合适的 Java 无头执行（`--installClient`）；原版缺失时先补原版。进度以「已用时长」呈现——installer 本身不输出百分比，这是该路线的已知取舍
@@ -233,10 +239,13 @@ tools/make-icon.ps1  # 由矢量几何重新生成 ico；改标记形状时改�
 - **仅支持 Windows**（WPF + 注册表探测）
 - **微软登录需要 Mojang 白名单**：第三方启动器访问 Minecraft API 需要人工审核（[说明](https://help.minecraft.net/hc/en-us/articles/16254801392141)，[申请表](https://aka.ms/mce-reviewappid)）。当前 client_id 尚未在名单内，登录会停在 `403 Invalid app registration`；审核通过后无需改代码即可使用
 - 模组只补必需依赖，不检查版本区间冲突：会自动装 `dependency_type=required` 的依赖，但不会判断「这包要求 X ≥ 2.0，你装的是 1.8」这类问题，冲突仍以游戏日志为准
-- 模组**下载来源只有 Modrinth**：CurseForge 的搜索接口强制 API Key（无 Key 一律 403），因此**不提供** CurseForge 搜索安装；CurseForge 只支持整合包 zip 导入
+- 模组**搜索有三个来源可选**：`全部`（默认，Modrinth + CurseForge 一起搜）、`Modrinth`、`CurseForge`。CurseForge 官方接口强制 API Key（无 Key 一律 403），所以**元数据全部经社区镜像 MCIM**（`mod.mcimirror.top`），文件下载仍直连作者给的 forgecdn 地址。镜像不是 CurseForge 官方授权渠道，可能被限流或停服；挂了时切到 `Modrinth` 仍可正常使用
+- 选 `Modrinth` 走官方接口（数据最新）；选 `全部` 时 Modrinth 侧也走 MCIM 镜像，两个源共用一个出口。合并顺序是 **Modrinth 在前、CurseForge 补在后**（同名去重），因为 Modrinth 的相关度排序明显更准
 - 光影 / 材质包同样**只覆盖 Modrinth 上架的项目**，且搜索**不按 MC 版本过滤**（光影对版本很宽松，硬过滤会漏掉大半结果）——装之前请看一眼「支持版本」，与当前版本不一致时界面只提示、不拦
 - 光影需要额外的加载器才生效（Fabric → Iris + Sodium；Forge / NeoForge → Oculus + Embeddium，或 OptiFine），本启动器不代装这些模组，请到模组面板装
-- 中文搜索依赖 MC百科 的词条映射：只在 CurseForge 上架（词条里没登记 Modrinth）的模组映射不到，会被过滤掉——界面会给出提示，也可以点「去百科」自己去看。百科搜索接口有限流（连搜两次可能提示"太频繁"），模组详情页不限，所以每次只读 12 条详情
+- 中文搜索依赖 MC百科 的词条映射：先读词条页里登记的 Modrinth / CurseForge 链接，再对回项目。**两个平台都没登记的模组仍会漏掉**——界面会给出提示，也可以点「去百科」自己去看。百科搜索接口有限流（连搜两次可能提示"太频繁"），模组详情页不限，所以每次只读 12 条详情
+- CurseForge 的搜索接口没有相关度排序，只能按热度排；实测默认排序会返回完全无关的结果，所以代码里强制 `sortField=Popularity`，并把名字精确命中的提到最前
+- CurseForge 上**同一个 slug 可能对应多个项目**（例如 `create` 同时是 Create 本体和 Create+），映射时取下载量最高的那个
 - 中文搜索结果按百科的相关度排序，不是按下载量；查不到时建议换完整名字（「机械动力」而不是「机械」）
 - CurseForge 整合包依赖 cfwidget 公开镜像反查文件名，首次导入要拉取每个模组的文件列表（大包可达数十 MB 元数据），结果缓存 30 天
 - 存档隔离为强制行为，不提供"共享材质包 / 共用存档"的混合模式；需要共用时由用户自行复制文件

@@ -1,12 +1,12 @@
 # SlopeX Launcher 进度报告与实施计划
 
-> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-10-31 23:40
+> 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-11-01 00:40
 > 对应产物：`SlopeX.exe` 1.0.0（自包含单文件，win-x64）
-> 代码规模：68 个 C# / XAML 源文件，≈16,183 行
+> 代码规模：69 个 C# / XAML 源文件，≈16,840 行
 > 版本控制：分支 `main`，远端公开 `github.com/TwistzzzzSudo/SlopeX-Launcher`
-> 当前状态：**S3 视觉定案**（组件缺口 5/7）；四条加载器线 + 整合包导入 + 模组增删与中英文搜索 + 光影 / 材质包下载 + 法律声明（首启确认）全部可用；微软登录代码就绪，卡 Mojang 白名单
+> 当前状态：**S3 视觉定案**（组件缺口 5/7）；四条加载器线 + 整合包导入 + 模组增删与中英文搜索（Modrinth / CurseForge / 双源三选一）+ 光影 / 材质包下载 + 法律声明（首启确认）全部可用；微软登录代码就绪，卡 Mojang 白名单
 > 下一个执行项 = **继续完善启动器**（集中补既有链路，不铺新功能面），候选待办见 §6.2
-> 本轮改动：①版本内「资源包」上线——光影 / 材质包两个页签，每行一个「安装」、点中版本即下载，搜索不过滤 MC 版本、由用户挑包版本（规格与实测见 §6.1）；②模组搜索支持中文（MC百科 检索 → 词条 Modrinth 链接 → 项目核对版本与加载器），列表新增「百科」跳转与「去百科」兜底；③修掉跨线程写 UI 导致模组安装必定失败的问题；④主题背景音乐默认音量 20% → 15%；⑤法律声明内置进 exe（设置页底部可查看），源文件留在 `docs/LegalNotice.md` 作为备份；⑥首次启动的简版确认框（勾选后才能点「确认」，同意后写入配置不再弹出）；⑦文档整改：已完成项与待办分家、命令速查补全。以上改动 `dotnet build -c Debug` 通过（0 警告 0 错误）
+> 本轮改动：①模组搜索加来源筛选——`全部` / `Modrinth` / `CurseForge` 三选一；CurseForge 元数据经社区镜像 MCIM（官方接口要 API Key），文件仍直连 forgecdn；`Modrinth` 单选走官方接口，`全部` 时两源统一走镜像；中文搜索按词条里登记的链接同时支持两个平台（详见 §6.3）；②版本内「资源包」上线——光影 / 材质包两个页签，每行一个「安装」、点中版本即下载，搜索不过滤 MC 版本（规格与实测见 §6.1）；③模组搜索支持中文（MC百科 检索 → 词条链接 → 项目核对版本与加载器）；④修掉跨线程写 UI 导致模组安装必定失败的问题；⑤主题背景音乐默认音量 20% → 15%；⑥法律声明内置进 exe（设置页底部可查看），源文件留在 `docs/LegalNotice.md` 作为备份；⑦首次启动的简版确认框（勾选后才能点「确认」，同意后写入配置不再弹出）；⑧文档整改：已完成项与待办分家、命令速查补全。以上改动 `dotnet build -c Debug` 通过（0 警告 0 错误）
 > **工作量口径**：全文一律以「产出物 / 改动范围」描述，不使用时间估算。
 
 ---
@@ -68,7 +68,7 @@
 | **圆角窗口**              | ✅           | 四角 14px 圆角，最大化归零；Win10 走分层窗口 + 几何裁剪，新增 `WindowBg` 令牌保证窗口底始终不透明                                                                                                                                                                                       |
 | **启动失败诊断**            | ✅           | 9 条规则（内存 / Java / 缺依赖 / 重复模组 / Mixin / 版本不匹配 / 账号 / 驱动 / 端口）+ 未命中时给日志位置；`diagnose` CLI 可复现                                                                                                                                                           |
 | **版本补全**              | ✅           | `VersionRepair.Check/RepairAsync`：库 / 客户端 jar / 资源索引 / 资源对象；启动失败自动提示一键补全并重试；CLI `repair`                                                                                                                                                             |
-| **模组管理**              | ✅           | 本地：列表（jar 元数据）/ 启停 / 删除 / 打开目录；在线：Modrinth 搜索安装 + 必需依赖自动补齐（CurseForge 搜索已移除）；**中文搜索**走 MC百科 词条映射（`modlist.html?key=` 检索 → 词条里 base64 的 Modrinth 链接 → 项目核对版本/加载器）；UIA 与 CLI 双向实测                                                                      |
+| **模组管理**              | ✅           | 本地：列表（jar 元数据）/ 启停 / 删除 / 打开目录；在线：**三个来源可选**——`全部`（Modrinth + CurseForge，同名去重）/ `Modrinth`（官方接口）/ `CurseForge`（经 MCIM 镜像，官方接口要 API Key）；必需依赖按来源各自补齐；**中文搜索**走 MC百科 词条映射（`modlist.html?key=` 检索 → 词条里 base64 的 Modrinth / CurseForge 链接 → 项目核对版本/加载器）；UIA 与 CLI 双向实测 |
 | **整合包导入**             | ✅           | `.mrpack` / CurseForge zip / MultiMC 实例 / 普通 zip；自动补原版与加载器、下载模组、解压 overrides；已导入 Fabulously Optimized（149 模组）实测                                                                                                                                      |
 | **光影 / 材质包下载**        | ✅           | 版本行「资源包」→ 光影包 / 材质包两页签；`project_type` 参数化走 `/v2/search`，**不做版本过滤**、由用户挑包版本；落 `shaderpacks\` / `resourcepacks\` 且已存在跳过；实测 Complementary Reimagined r5.9.3（553 KB）与 Stay True Amendment3（40.8 KB）|
 | **安装类型选择**            | ✅           | 点「安装」弹出类型选择：原版 / Fabric / Forge / NeoForge 四选一；已安装版本仍可点（用于加装加载器或补齐文件）                                                                                                                                                                                |
@@ -97,13 +97,13 @@ ModMinecraft  版本扫描 / inheritsFrom 合并 / 强制存档隔离           
 ModJava       运行时探测 / 版本匹配 / 自动下载安装                        789 行
 ModLaunch     规则引擎 / classpath / natives / 命令行 / 进程              786 行
 ModDownload   原版 / Fabric / Forge / NeoForge / 整合包 / 任务中心        2,631 行
-ModMods       模组扫描 / 元数据 / 启停 / Modrinth 与 MC百科 搜索 / 光影材质包 1,410 行
+ModMods       模组扫描 / 元数据 / 启停 / Modrinth·CurseForge·MC百科 搜索 / 光影材质包 1,999 行
 ModAccount    设备码登录 / XBL / XSTS / 档案 / 令牌刷新                   532 行
-ModCli        无界面模式                                                  1,250 行
-UI 层         5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeService   6,568 行
+ModCli        无界面模式                                                  1,249 行
+UI 层         5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeService   6,628 行
 ```
 
-（模块层 9,615 行 + UI 层 6,568 行 = 16,183 行）
+（模块层 10,212 行 + UI 层 6,628 行 = 16,840 行）
 
 ### 3.3 三个关键设计取舍
 
@@ -134,6 +134,7 @@ UI 层         5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeS
 | 10  | Forge 把 `${version_name}` 展开成子版本 ID，但实际加载的是父版本 jar                                                | `-DignoreList` 名字对不上，原版 jar 被 BootstrapLauncher 当成自动模块 `_1._20._1`，与 FML 的 `minecraft` 模块撞包（`java.lang.module.ResolutionException`） | 拼完参数后把**实际 jar 文件名**补进 ignoreList（幂等）                                                                                                              |
 | 11  | 资源包面板首次进入是一整张空白卡片；切换版本后仍显示上一个版本的搜索结果（UIA 截图核对时发现）                                              | 用户不知道要做什么；在 A 版本搜到的包，进 B 版本还挂在列表里，容易装错目录                                                                                     | `Load()` 先清 `ItemsSource`；`ApplyKind()` 在列表为空时亮出空状态引导                                                                                               |
 | 12  | 版本浮层里的版本点不动：主题的 `RowItem` 把 `ListBoxItem` 的 `Focusable` 设成 `False`，WPF 无焦点即不选中，`SelectionChanged` 永不触发（把两个按钮合成一个时用真实鼠标点才暴露） | 库里的版本列表**点了没反应**，只能干瞪眼；旧版靠"选中 → 再点安装"的交互因此根本走不通，只是当时没测到这一步                                                              | 浮层每一项改成 `Button`（自带 hover/pressed 模板），点中即下载；顺带删掉选中态与 `_suppressSelection` 这套补丁式状态                                                                  |
+| 13  | CurseForge 的 `slug` 不唯一：查 `create` 会同时返回 Create+（id 372026）和 Create 本体（id 328085），按顺序取第一条拿到的是 Create+（CLI 实测中文搜「机械动力」时本体消失）              | 中文搜「机械动力」出来的全是附属，本体不见了；用户点安装会装错项目                                                                                                | 同 slug 候选按 `downloadCount` 排序取最高，再退回第一条匹配                                                                                                        |
 
 ---
 
@@ -145,7 +146,8 @@ UI 层         5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeS
 - 模组：增删启停与搜索安装（含中文）都有，但**没有更新检查**，也**不检查依赖版本区间**——冲突仍以游戏日志为准
 - 光影 / 材质包：有搜索下载入口（见 §6.1），但**只覆盖 Modrinth 上架的项目**，只发在 CurseForge 的包搜不到；装完仍需自己装光影加载器（面板里有常驻提示）
 - 存档：**没有界面入口**，只能手动往 `versions\<id>\saves\` 放文件
-- 中文搜索受限于百科词条：词条里没登记 Modrinth 链接（只在 CurseForge 上架）的模组映射不到，会被过滤掉；百科搜索接口有限流，连搜两次可能提示"太频繁"
+- 中文搜索受限于百科词条：词条里**两个平台都没登记**的模组映射不到，会被过滤掉；百科搜索接口有限流，连搜两次可能提示"太频繁"
+- CurseForge 搜索依赖社区镜像 MCIM（`mod.mcimirror.top`）：元数据经镜像，文件下载仍直连 `edge / mediafilez.forgecdn.net`（镜像的文件端点只做 302，不代理内容）。镜像非 CurseForge 官方授权渠道，可能被限流或停服；挂掉时切到 `Modrinth` 不受影响。镜像若加 UA 白名单，需要去它的 GitHub 提交启动器信息
 - 存档隔离为强制行为，不提供“材质包共享但存档隔离”这类混合模式；需要共用只能手动复制文件
 
 ### 工程风险
@@ -181,7 +183,7 @@ UI 层         5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeS
 | Forge 安装（B 方案） | ✅ 2026-10-29 | 官方 installer `--installClient` 无头执行，不自研 processors；取舍是拿不到细粒度进度，只显示「已用时长」。顺带修的撞包问题见 §4 #10            |
 | 微软正版登录         | ✅ 代码完成       | 设备码 → XBL / XSTS / 档案；**外部阻塞**：Mojang 白名单未通过前固定 403（见 §7.2）                                          |
 | 便携（折中）         | ✅ 2026-10-29 | config + logs 进 `SlopeXData\`；Java 运行时留 `%APPDATA%` 但可改位置                                            |
-| 模组管理           | ✅            | 列表 / 启停 / 删除 / 打开目录 + Modrinth 与 MC百科 搜索安装（含中文，2026-10-31）                                           |
+| 模组管理           | ✅            | 列表 / 启停 / 删除 / 打开目录 + 三源搜索安装（Modrinth / CurseForge / 全部，含中文，2026-11-01）                        |
 | 光影 / 材质包下载     | ✅ 2026-10-31 | 版本行「资源包」→ 两页签搜索安装，落 `shaderpacks\` / `resourcepacks\`；**不按 MC 版本过滤**，版本由用户挑，不一致只提示 |
 | 整合包导入          | ✅            | `.mrpack` / CurseForge zip / MultiMC / 普通 zip                                                        |
 | 崩溃诊断           | ✅            | `diagnose` 9 条规则，未命中时给日志位置                                                                           |
@@ -254,6 +256,51 @@ UI 层         5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeS
 - 不解析 zip 里的 `pack.mcmeta` / 光影版本做二次校验，只按 Modrinth 声明提示——多一层解析带来的误判风险大于收益
 
 **工作量口径**：新增 `Controls/PackPanel.xaml`（239 行）+ `.xaml.cs`（366 行）、`Modules/ModMods/PackInstaller.cs`（178 行）；`Modrinth.cs` 参数化 1 处 + 新增全量版本查询；`PageVersions` 加按钮与整页切换 1 处；`Cli.cs` 加 3 条命令（`packs-search` / `packs-versions` / `packs-install`）；文档同步 2 份 + 截图 2 张。
+
+### 模组搜索来源：Modrinth / CurseForge / 全部（✅ 2026-11-01 落地）
+
+**背景**：早年砍掉 CurseForge 搜索的原因是官方接口强制 `x-api-key`，无 Key 一律 403。社区镜像 MCIM（`mod.mcimirror.top`）在服务端替客户端持有 Key、按官方路径缓存响应，这条路重新变得可行——代价是多了一个第三方依赖。
+
+**先决验证（都是实打实请求过的，不是文档推断）**
+
+| 端点 | 结果 |
+| --- | --- |
+| `GET /curseforge/v1/mods/search` | 200 / 89 KB；`gameId` / `classId` / `gameVersion` / `modLoaderType` / `sortField` 全部生效，**不需要 x-api-key** |
+| `GET /curseforge/v1/mods/{id}/files?gameVersion=&modLoaderType=` | 200，返回 `downloadUrl` + `hashes`（`algo=1` 即 SHA1）+ `dependencies`（`relationType=3` 是必需） |
+| `GET /curseforge/v1/mods/{id}/files/{fid}/download-url` | 200，作者禁止第三方分发时用来补下载地址 |
+| `GET /files/{a}/{b}/{name}` | **302 → `mediafilez.forgecdn.net`**（镜像不代理文件内容，只跳转） |
+| `GET /modrinth/v2/search` | 200，`facets` 与官方完全兼容 |
+| 分类 ID | `6` Mods / `12` Resource Packs / `6552` Shaders / `4471` Modpacks / `6945` Data Packs |
+
+**路由规则（对应界面三个 Chip）**
+
+| 选择 | Modrinth 侧 | CurseForge 侧 |
+| --- | --- | --- |
+| `Modrinth` | 官方 `api.modrinth.com`（数据最新） | 不搜 |
+| `CurseForge` | 不搜 | 镜像 |
+| `全部`（默认） | **镜像**（与 CF 共用一个出口） | 镜像 |
+
+**中文关键词**：三条路都先问 MC百科；词条页一次读完，同时解析出 Modrinth slug 与 CurseForge slug（原来只解 Modrinth，分两次读会把详情页请求量翻倍）。`全部` 模式优先试 CurseForge，拿不到再回落 Modrinth——这次要捞回来的主要就是只在 CF 上架的模组。
+
+**合并与去重**：Modrinth 在前、CurseForge 补充在后，按「标题去空格小写」去重。不让 CF 参与混排是因为它的搜索只能按热度排，相关度明显不如 Modrinth。
+
+**实测**
+
+- `mods-search … jei modrinth` → 12 条，第一条 `Just Enough Items (JEI)`（id `u6dRKJwZ`）
+- `mods-search … jei curseforge` → 12 条，第一条 JEI（id `238222`，下载量 642.5M）
+- `mods-search … create all` → Modrinth 12 + CurseForge 12，去重后 18
+- `mods-search … 机械动力 all` → 5 条可安装，本体 `机械动力 (Create)` 落在 CurseForge `328085`
+- `mods-install … jei curseforge` → 下载 `jei-1.20.1-forge-15.74.0.232.jar`（4.5 MB）+ 依赖 `mezz_config-1.20.1-forge-0.6.10.jar`，**CF 的依赖解析也是通的**
+- `mods-install … jei modrinth` 回归 → 15.74.0.233 + 同一个依赖，Modrinth 链路未受影响
+- UI（UIA 真实鼠标点击 + 截图）：三个 Chip 互斥、来源胶囊标签、状态行、中文结果全部核对
+
+**有意没做**
+
+- 不让光影 / 材质包走 CF 镜像：现在这条链路只锚 Modrinth 单一源，接第二个源要重做"D 版本过滤 + 版本浮层 + 目录计数"三处，而收益（CF 独占的光影/材质）远小于模组
+- 不把 CF 的文件下载也改成镜像路径：镜像该端点只做 302，多一跳没有收益，反而多一个失败点
+- 不做双源结果混排：理由见上，相关度质量差距太大
+
+**工作量口径**：新增 `Modules/ModMods/CurseForge.cs`（约 380 行）；`Modrinth.cs` 加官方/镜像双基址 + `SourceText` / `DedupeKey` / `Mirror` 三处模型字段 + `ModFileRef.RequiredDepIds`；`ModSearch.cs` 重写为来源路由（新增 `ModSourceFilter`）；`ModInstaller.cs` 按来源分派文件与依赖；`Net.cs` 加 `PostJsonAsync`；`ModSearchDialog` 加三个 Chip 与来源胶囊；`Cli.cs` 三条命令加来源参数；文档同步 2 份。
 
 ### 美术与主题（结论，2026-10-31 精简）
 
@@ -383,10 +430,11 @@ SlopeX.exe --cli install-forge 1.20.1
 SlopeX.exe --cli neoforge-list 1.21.1
 SlopeX.exe --cli install-neoforge 1.21.1
 
-# 模组：中文关键词会自动走 MC百科 检索
+# 模组：中文关键词自动走 MC百科 检索；末尾参数是来源（all|modrinth|curseforge，默认 all）
 SlopeX.exe --cli mods-list 1.20.1-forge-47.4.28
+SlopeX.exe --cli mods-search 1.20.1-forge-47.4.28 jei curseforge
 SlopeX.exe --cli mods-search 1.20.1-forge-47.4.28 机械动力
-SlopeX.exe --cli mods-install 1.20.1-forge-47.4.28 jei
+SlopeX.exe --cli mods-install 1.20.1-forge-47.4.28 jei modrinth
 
 # 资源包：search 搜项目，versions 看全部版本，install 装进版本目录（第三个参数 shader|resourcepack）
 SlopeX.exe --cli packs-search complementary shader
