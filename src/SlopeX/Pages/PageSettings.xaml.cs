@@ -193,7 +193,7 @@ namespace SlopeX.Pages
                 AccountStatus.Text = "已登录：" + session.Name;
                 AccountHint.Text = session.Expired
                     ? "令牌已过期，启动游戏时会自动续期，不用重新登录。"
-                    : $"正版账号：皮肤与正版验证服务器可用。令牌有效至 {session.ExpiresAt.ToLocalTime():yyyy-MM-dd HH:mm}，到期自动续期。";
+                    : "正版账号：皮肤与正版验证服务器可用。";
                 BtnLogin.Content = "重新登录";
                 BtnLogout.Visibility = Visibility.Visible;
             }
