@@ -537,7 +537,7 @@ UI 层         5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeS
 | 白名单通过后的验证        | 2026-11-01 放行：`--cli account` 读到 `ShakableCat`；缓存令牌调 `/minecraft/profile` → **200**（`name=ShakableCat`、皮肤 ACTIVE、2 个披风）；令牌尾号与设备码登录时那次不同，说明是 `login_with_xbox` 真签发的，不是本地伪造                                                                                          |
 | 静默刷新              | 人为把 `accounts.json` 的 `ExpiresAt` 改到 2020-01-01 → `--cli plan 1.20.1` 触发刷新：access_token 与 refresh_token **双双更换**、到期顺延 24 h，新令牌再取档案仍 200；日志出现「正版令牌已过期，正在刷新…」                                                                                                          |
 | 正版启动真机（2026-11-01） | `--cli launch 1.20.1` 实机跑通：日志第 3 行 `Setting user: ShakableCat`，进单人存档 `ShakableCat[local:E:ee884371] logged in with entity id 104`，关窗口后 CLI 打印「退出码：0」。**但人物是默认皮肤（红上衣的 Kai）**——游戏日志里没有任何 skin / error 行，单机也照常进服，只有肉眼看得见；核对启动参数发现 `--uuid xxxxxxxx-xxxx-xxxx-xxxx-xxxx` 只有 28 位（§4-14）                                                 |
-| 皮肤修复复核            | 修 `FormatUuid` 后重跑：`--uuid …-xxxxxxxxxxxx` 补齐到 36 位，同一存档第三人称截图里换成账号真实皮肤（灰白连帽衫 + 暗红领口 + 黑裤），与 `textures.minecraft.net/texture/ae252684…` 的贴图逐块一致；`--cli account` 顺手把 `accounts.json` 里存量的 28 位 UUID 自愈成 36 位。结论：**皮肤是否加载在日志里查不出来**，只能靠 UUID 断言 + 人眼核对截图 |
+| 皮肤修复复核            | 修 `FormatUuid` 后重跑：`--uuid …-xxxxxxxxxxxx` 补齐到 36 位，同一存档第三人称截图里换成账号真实皮肤（灰白连帽衫 + 暗红领口 + 黑裤），与 `textures.minecraft.net/texture/ae252684…` 的贴图逐块一致；`--cli account` 顺手把 `accounts.json` 里存量的 28 位 UUID 自愈成 36 位。结论：**皮肤是否加载在日志里查不出来**，只能靠 UUID 断言 + 人眼核对截图（第三人称视角由用户手动切换） |
 
 ### 8.2 命令速查
 
