@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using SlopeX.Modules.ModBase;
+using SlopeX.Modules.ModNet;
 
 namespace SlopeX.Modules.ModMods
 {
@@ -97,6 +99,53 @@ namespace SlopeX.Modules.ModMods
             }
 
             return result.OrderBy(u => u.FileName, StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        /// <summary>
+        /// 应用一条更新：先下到临时文件（完整性由下载引擎按 SHA1 校验），成功后再动旧文件。
+        /// 顺序是「旧文件改名 → 新文件就位 → 删旧」，任何一步失败都能回退到原状，
+        /// 不会出现「旧的删了、新的没下完」这种半成品。
+        /// </summary>
+        public static async Task ApplyAsync(ModUpdate update, string modsDir,
+            Action<DownloadProgress> progress = null, CancellationToken ct = default)
+        {
+            if (update == null) throw new ArgumentNullException(nameof(update));
+
+            var oldPath = Path.Combine(modsDir, update.FileName);
+            var newPath = Path.Combine(modsDir, update.LatestFileName);
+            var tmpPath = newPath + ".new";
+            var bakPath = oldPath + ".old";
+
+            try
+            {
+                var timeoutMs = update.Size > 0
+                    ? (int)Math.Min(900000, Math.Max(300000, update.Size / 1024 / 20 * 1000))
+                    : 600000;
+
+                await Net.DownloadToFileAsync(update.DownloadUrl, tmpPath, update.Sha1, update.Size, ct,
+                    timeoutMs, progress).ConfigureAwait(false);
+
+                if (File.Exists(bakPath)) File.Delete(bakPath);
+                if (File.Exists(oldPath)) File.Move(oldPath, bakPath);
+                File.Move(tmpPath, newPath);
+                if (File.Exists(bakPath)) File.Delete(bakPath);
+
+                Log.Info($"模组已更新：{update.FileName} → {update.LatestFileName}");
+            }
+            catch
+            {
+                try
+                {
+                    if (File.Exists(bakPath) && !File.Exists(oldPath)) File.Move(bakPath, oldPath);
+                    if (File.Exists(tmpPath)) File.Delete(tmpPath);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warn("更新回退失败：" + ex.Message);
+                }
+
+                throw;
+            }
         }
 
         private static ModUpdate Build(JarMod local, string localHash, JsonObject version)

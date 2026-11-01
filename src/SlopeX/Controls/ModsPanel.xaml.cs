@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using SlopeX.Modules.ModBase;
@@ -122,6 +123,115 @@ namespace SlopeX.Controls
             {
                 Log.Warn("体检失败：" + ex.Message);
                 MainWindow.Current?.ShowToast("检查失败：" + ex.Message);
+            }
+        }
+
+        /// <summary>更新检查 / 执行期间置位，避免重复点击叠出两次检查。</summary>
+        private bool _checkingUpdates;
+
+        /// <summary>
+        /// 检查更新：算每个 jar 的 SHA1 去问 Modrinth，确认后逐个下载替换。
+        /// 只覆盖 Modrinth 上架的模组；CurseForge 来的会安静跳过（那边要先实现它的指纹算法）。
+        /// </summary>
+        private async void CheckUpdates_Click(object sender, RoutedEventArgs e)
+        {
+            if (_checkingUpdates) return;
+
+            var dir = ModManager.ModsDir(Config.Current.GameDir, _versionId);
+            var (mc, loader) = ModInstaller.ResolveTarget(Config.Current.GameDir, _versionId);
+
+            _checkingUpdates = true;
+            var before = SubText.Text;
+
+            try
+            {
+                SubText.Text = $"{_versionId}  ·  正在检查更新…";
+
+                // 算 SHA1 是同步 IO，放到线程池，别让界面卡住
+                var updates = await Task.Run(() => ModUpdater.CheckAsync(dir, mc, loader));
+
+                if (updates.Count == 0)
+                {
+                    SubText.Text = $"{_versionId}  ·  {_mods.Count} 个模组，已是最新";
+                    MainWindow.Current?.ShowToast("没有可更新的模组（或这些模组不在 Modrinth 上架）");
+                    _checkingUpdates = false;
+                    return;
+                }
+
+                SubText.Text = before;
+
+                var risks = updates.Take(5)
+                    .Select(u => $"{u.FileName}：{u.CurrentVersion} → {u.LatestVersion}")
+                    .ToArray();
+
+                var dialog = new ConfirmDialog(
+                    title: $"发现 {updates.Count} 个可更新的模组",
+                    message: "确认后逐个下载新版本并替换旧文件。下载完成且校验通过才会删除旧文件，中途失败会保留原文件。",
+                    confirmText: $"更新 {updates.Count} 个",
+                    risks: risks,
+                    footnote: updates.Count > 5 ? $"上面只列了前 5 个，共 {updates.Count} 个。" : null);
+
+                dialog.Closed += async ok =>
+                {
+                    // ConfirmDialog 只回结果，不负责关模态层（与页设置里的用法一致）
+                    MainWindow.Current?.HideModal();
+
+                    if (!ok)
+                    {
+                        _checkingUpdates = false;
+                        return;
+                    }
+
+                    await ApplyAllAsync(updates, dir);
+                };
+
+                MainWindow.Current?.ShowModal(dialog);
+            }
+            catch (Exception ex)
+            {
+                SubText.Text = before;
+                _checkingUpdates = false;
+                Log.Warn("检查更新失败：" + ex.Message);
+                MainWindow.Current?.ShowToast("检查更新失败：" + ex.Message);
+            }
+        }
+
+        private async Task ApplyAllAsync(List<ModUpdate> updates, string dir)
+        {
+            var done = 0;
+            var failed = 0;
+
+            try
+            {
+                foreach (var u in updates)
+                {
+                    SubText.Text = $"{_versionId}  ·  更新 {done + failed + 1}/{updates.Count}  {u.FileName}";
+
+                    try
+                    {
+                        await ModUpdater.ApplyAsync(u, dir);
+                        done++;
+                    }
+                    catch (Exception ex)
+                    {
+                        failed++;
+                        Log.Warn($"更新 {u.FileName} 失败：{ex.Message}");
+                    }
+                }
+
+                Reload();
+
+                SubText.Text = failed == 0
+                    ? $"{_versionId}  ·  已更新 {done} 个模组"
+                    : $"{_versionId}  ·  更新 {done} 个，{failed} 个失败";
+
+                MainWindow.Current?.ShowToast(failed == 0
+                    ? $"已更新 {done} 个模组"
+                    : $"更新 {done} 个，{failed} 个失败（详见日志）");
+            }
+            finally
+            {
+                _checkingUpdates = false;
             }
         }
 
