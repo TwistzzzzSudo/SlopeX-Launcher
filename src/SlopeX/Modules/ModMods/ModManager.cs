@@ -22,10 +22,28 @@ namespace SlopeX.Modules.ModMods
         public string Title { get; set; } = "";
         public string Version { get; set; } = "";
 
+        /// <summary>jar 里声明的模组 ID（fabric.mod.json 的 id / mods.toml 的 modId）。</summary>
+        public string ModId { get; set; } = "";
+
         /// <summary>fabric / forge / neoforge；读不到为空。</summary>
         public string LoaderHint { get; set; } = "";
 
         public long Size { get; set; }
+
+        /// <summary>作者自带的图标（jar 里的 png）。读不到为 null，界面退回首字母占位。</summary>
+        public byte[] IconData { get; set; }
+
+        /// <summary>没有图标时显示的占位字符（取标题首字）。</summary>
+        public string Initial
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(Title)) return "?";
+
+                var t = Title.Trim();
+                return char.IsHighSurrogate(t[0]) && t.Length > 1 ? t.Substring(0, 2) : t.Substring(0, 1);
+            }
+        }
 
         public string SizeText => Size <= 0 ? "" : Format.Bytes(Size);
 
@@ -136,50 +154,22 @@ namespace SlopeX.Modules.ModMods
 
             try
             {
-                using var zip = ZipFile.OpenRead(entry.FullPath);
+                // 统一走 ModJar：displayName / version / 加载器 / 图标一处给全，
+                // 不用在这里再维护一份 TOML 正则（两边逻辑曾经就不一致）
+                var mod = ModJar.Read(entry.FullPath);
+                if (!mod.Ok) return;
 
-                // 1) Fabric：fabric.mod.json（JSON）
-                var fabricEntry = FindEntry(zip, "fabric.mod.json");
-                if (fabricEntry != null)
+                entry.ModId = mod.ModId;
+                entry.Title = string.IsNullOrWhiteSpace(mod.Name) ? mod.ModId : mod.Name;
+                entry.Version = mod.Version ?? "";
+                entry.LoaderHint = mod.Format switch
                 {
-                    using var stream = fabricEntry.Open();
-                    using var reader = new StreamReader(stream);
-                    var node = System.Text.Json.Nodes.JsonNode.Parse(reader.ReadToEnd())
-                               as System.Text.Json.Nodes.JsonObject;
-
-                    var name = J.Str(node, "name");
-                    entry.Title = string.IsNullOrWhiteSpace(name)
-                        ? J.Str(node, "id") ?? entry.Title
-                        : name;
-                    entry.Version = J.Str(node, "version") ?? "";
-                    entry.LoaderHint = "Fabric";
-                    return;
-                }
-
-                // 2) Forge / NeoForge：mods.toml（TOML 的标量用正则抽）
-                var tomlEntry = FindEntry(zip, "mods.toml", "neoforge.mods.toml");
-                if (tomlEntry != null)
-                {
-                    using var stream = tomlEntry.Open();
-                    using var reader = new StreamReader(stream);
-                    var text = reader.ReadToEnd();
-
-                    var displayName = MatchTomlString(text, "displayName");
-                    var modId = MatchTomlString(text, "modId");
-                    var version = MatchTomlString(text, "version");
-
-                    entry.Title = FirstNonEmpty(displayName, modId, entry.Title);
-                    entry.LoaderHint = tomlEntry.FullName.Contains("neoforge", StringComparison.OrdinalIgnoreCase)
-                        ? "NeoForge"
-                        : "Forge";
-
-                    // Forge/NeoForge 的 mods.toml 常写 version="${file.jarVersion}"，
-                    // 这个占位符要等运行时才被替换，TOML 里拿不到真值——改读 jar 清单。
-                    if (string.IsNullOrWhiteSpace(version) || version.Contains("${"))
-                        version = ReadManifestVersion(zip);
-
-                    entry.Version = version ?? "";
-                }
+                    "fabric" => "Fabric",
+                    "neoforge" => "NeoForge",
+                    "forge" => "Forge",
+                    _ => ""
+                };
+                entry.IconData = mod.Icon;
             }
             catch (Exception ex)
             {

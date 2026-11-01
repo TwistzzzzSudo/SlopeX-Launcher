@@ -6,6 +6,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using SlopeX.Modules.ModBase;
 
 namespace SlopeX.Modules.ModMods
@@ -40,6 +41,12 @@ namespace SlopeX.Modules.ModMods
 
         public List<JarDependency> Depends { get; } = new();
         public List<JarDependency> Breaks { get; } = new();
+
+        /// <summary>
+        /// jar 里作者自带的图标（fabric.mod.json 的 <c>icon</c> / mods.toml 的 <c>logoFile</c>）。
+        /// 拿不到就是 null——本地列表这时退回显示首字母占位。
+        /// </summary>
+        public byte[] Icon { get; set; }
 
         /// <summary>非空表示没读出来（不是有效模组、jar 损坏、元数据看不懂）。</summary>
         public string Error { get; set; } = "";
@@ -97,14 +104,14 @@ namespace SlopeX.Modules.ModMods
                 using var zip = ZipFile.OpenRead(path);
 
                 var fabric = Find(zip, "fabric.mod.json");
-                if (fabric != null) return ReadFabric(mod, fabric);
+                if (fabric != null) return ReadFabric(mod, zip, fabric);
 
                 foreach (var name in ForgeManifests)
                 {
                     var entry = Find(zip, name);
                     if (entry == null) continue;
 
-                    return ReadForge(mod, entry,
+                    return ReadForge(mod, zip, entry,
                         name.Contains("neoforge", StringComparison.OrdinalIgnoreCase) ? "neoforge" : "forge");
                 }
 
@@ -142,7 +149,7 @@ namespace SlopeX.Modules.ModMods
 
         // ---------------- Fabric ----------------
 
-        private static JarMod ReadFabric(JarMod mod, ZipArchiveEntry entry)
+        private static JarMod ReadFabric(JarMod mod, ZipArchive zip, ZipArchiveEntry entry)
         {
             mod.Format = "fabric";
 
@@ -160,9 +167,57 @@ namespace SlopeX.Modules.ModMods
             mod.Version = J.Str(node, "version") ?? "";
             mod.Name = J.Str(node, "name") ?? mod.ModId;
 
+            // icon 可以是路径字符串，也可以是 {"64": "a.png", "128": "b.png"}
+            LoadIcon(zip, mod, IconPath(node["icon"]));
+
             ReadFabricMap(mod, node, "depends", mod.Depends);
             ReadFabricMap(mod, node, "breaks", mod.Breaks);
             return mod;
+        }
+
+        /// <summary>Fabric 的 icon 字段：字符串或「尺寸 → 路径」的对象，取尺寸最大的那个。</summary>
+        private static string IconPath(JsonNode node)
+        {
+            if (node is JsonValue v && v.TryGetValue<string>(out var s)) return s;
+
+            if (node is not JsonObject o) return null;
+
+            string best = null;
+            var bestSize = -1;
+
+            foreach (var pair in o)
+            {
+                if (pair.Value is not JsonValue vv || !vv.TryGetValue<string>(out var path)) continue;
+
+                var size = int.TryParse(pair.Key, out var n) ? n : 0;
+                if (size <= bestSize) continue;
+
+                bestSize = size;
+                best = path;
+            }
+
+            return best;
+        }
+
+        /// <summary>把 jar 里的图标读成字节。路径对不上、太大、读失败都当"没有图标"。</summary>
+        private static void LoadIcon(ZipArchive zip, JarMod mod, string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return;
+
+            try
+            {
+                var entry = Find(zip, path.Trim().TrimStart('/'));
+                if (entry == null || entry.Length <= 0 || entry.Length > 512 * 1024) return;
+
+                using var s = entry.Open();
+                using var ms = new MemoryStream((int)entry.Length);
+                s.CopyTo(ms);
+                mod.Icon = ms.ToArray();
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"读图标失败 {Path.GetFileName(mod.FilePath)}：{ex.Message}");
+            }
         }
 
         /// <summary>
@@ -222,7 +277,7 @@ namespace SlopeX.Modules.ModMods
         /// 以及 <c>key = value</c> 形式的标量。模组元数据用不到嵌套表 / 数组 / 多行字符串，
         /// 所以不引第三方 TOML 库（整个项目至今零外部依赖）。
         /// </summary>
-        private static JarMod ReadForge(JarMod mod, ZipArchiveEntry entry, string format)
+        private static JarMod ReadForge(JarMod mod, ZipArchive zip, ZipArchiveEntry entry, string format)
         {
             mod.Format = format;
 
@@ -234,6 +289,7 @@ namespace SlopeX.Modules.ModMods
             var deps = new List<JarDependency>();
             var section = "";      // "mods" / "dependencies"
             var depOwner = "";     // [[dependencies.X]] 里的 X
+            var logoPath = "";
 
             foreach (var raw in text.Split('\n'))
             {
@@ -242,7 +298,13 @@ namespace SlopeX.Modules.ModMods
 
                 if (line.StartsWith("[[", StringComparison.Ordinal))
                 {
-                    var name = line.TrimStart('[').TrimEnd(']').Trim();
+                    // 表头后面常带注释：Forge 官方模板就是 `[[mods]] #mandatory`，
+                    // 不先剥掉 '#' 后半行，整段字段都会被判成未知表而跳过。
+                    var head = line;
+                    var hashAt = head.IndexOf('#');
+                    if (hashAt >= 0) head = head.Substring(0, hashAt).Trim();
+
+                    var name = head.TrimStart('[').TrimEnd(']').Trim();
 
                     if (name.StartsWith("dependencies.", StringComparison.OrdinalIgnoreCase))
                     {
@@ -281,6 +343,9 @@ namespace SlopeX.Modules.ModMods
                         case "displayName":
                             if (mod.Name.Length == 0) mod.Name = value;
                             break;
+                        case "logoFile":
+                            if (logoPath.Length == 0) logoPath = value;
+                            break;
                     }
 
                     continue;
@@ -311,10 +376,40 @@ namespace SlopeX.Modules.ModMods
             }
 
             mod.Depends.AddRange(deps);
+            LoadIcon(zip, mod, logoPath);
+
+            // mods.toml 里的 version 常写成 ${file.jarVersion}，运行时才被替换。
+            // 真值在 MANIFEST.MF，拿不到就保留原样（体检会因此判不出来，但不至于崩）。
+            if (string.IsNullOrWhiteSpace(mod.Version) || mod.Version.Contains("${"))
+                mod.Version = ManifestVersion(zip) ?? mod.Version;
+
             if (mod.ModId.Length == 0) mod.Error = "mods.toml 里没有 modId";
             else if (mod.Name.Length == 0) mod.Name = mod.ModId;
 
             return mod;
+        }
+
+        /// <summary>读 MANIFEST.MF 的 <c>Implementation-Version</c>，用来补 <c>${file.jarVersion}</c>。</summary>
+        private static string ManifestVersion(ZipArchive zip)
+        {
+            try
+            {
+                var entry = Find(zip, "META-INF/MANIFEST.MF") ?? Find(zip, "MANIFEST.MF");
+                if (entry == null) return null;
+
+                using var s = entry.Open();
+                using var reader = new StreamReader(s, Encoding.UTF8);
+                var text = reader.ReadToEnd();
+
+                var m = Regex.Match(text, @"^Implementation-Version:\s*(.+?)\s*$",
+                    RegexOptions.Multiline | RegexOptions.IgnoreCase);
+
+                return m.Success ? m.Groups[1].Value.Trim() : null;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private static bool TryParseKeyValue(string line, out string key, out string value)
