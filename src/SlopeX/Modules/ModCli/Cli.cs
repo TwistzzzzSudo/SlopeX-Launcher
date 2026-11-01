@@ -86,6 +86,7 @@ namespace SlopeX.Modules.ModCli
                     Out("  msa-explain <状态码> [原文]  预览登录错误会被翻译成什么（排障用）");
                     Out("  mods-list <版本>         列出该版本 mods 目录的模组与元数据");
                     Out("  mods-deps <版本> <项目>  打印该模组的必需依赖解析结果，标明哪些锁定了版本（排障用）");
+                    Out("  mods-scan <版本|目录> [--check]   扫描 jar 元数据、查重复装；--check 顺带校验依赖是否齐全（排障用）");
                     Out("  selftest [--mc 版本] [--loader 加载器] [-v]   用固定样本自检中文搜索链路（需联网，失败返回 1）");
                     Out("  mods-search <版本> <关键词> [all|modrinth|curseforge]   搜索模组（英文按来源搜，中文走 MC百科）");
                     Out("  legal [brief]            打印内置法律声明（brief = 首次启动的简版）");
@@ -132,6 +133,9 @@ namespace SlopeX.Modules.ModCli
 
                 case "mods-deps":
                     return ModsDeps(args.FirstOrDefault(), args.Skip(1).FirstOrDefault());
+
+                case "mods-scan":
+                    return ModsScan(args.FirstOrDefault(), args.Skip(1).FirstOrDefault());
 
                 case "mods-list":
                     return ModsList(args.FirstOrDefault());
@@ -628,6 +632,126 @@ namespace SlopeX.Modules.ModCli
                 Out("解析失败：" + ex.Message);
                 return 1;
             }
+        }
+
+        /// <summary>
+        /// 扫描 mods 目录，逐个读 jar 里的模组元数据（排障用）。
+        /// 参数可以是版本 ID，也可以直接给一个目录——后者便于对着任意模组包做核对。
+        /// 加 <c>--check</c> 时顺带做一次清单校验：缺哪些前置、哪些版本不满足区间。
+        /// 有读不出来的 jar、重复 modid 或校验不过时返回 1。
+        /// </summary>
+        private static int ModsScan(string target, string flag)
+        {
+            if (string.IsNullOrEmpty(target))
+            {
+                Out("用法：mods-scan <版本|目录> [--check]");
+                return 2;
+            }
+
+            var dir = Directory.Exists(target)
+                ? Path.GetFullPath(target)
+                : ModMods.ModManager.ModsDir(Config.Current.GameDir, target);
+
+            var check = string.Equals(flag, "--check", StringComparison.OrdinalIgnoreCase);
+
+            Out($"目录：{dir}");
+
+            var mods = ModMods.ModJar.ScanDir(dir);
+            if (mods.Count == 0)
+            {
+                Out("（没有 jar）");
+                return 0;
+            }
+
+            var ok = mods.Where(m => m.Ok).ToList();
+            Out($"共 {mods.Count} 个 jar：{ok.Count} 个可读，{mods.Count - ok.Count} 个没读出来");
+            Out("");
+
+            foreach (var m in mods)
+            {
+                if (!m.Ok)
+                {
+                    Out(m.FileName);
+                    Out($"  × {m.Error}");
+                    continue;
+                }
+
+                Out($"{m.FileName}");
+                Out($"  {m.Format}  {m.ModId}  {m.Version}  {m.Name}");
+
+                if (m.Depends.Count > 0)
+                {
+                    var head = m.Depends.Take(8).Select(d => $"{d.ModId} {d.VersionRange}");
+                    Out($"  依赖 {m.Depends.Count}：{string.Join("、", head)}" +
+                        (m.Depends.Count > 8 ? " …" : ""));
+                }
+
+                if (m.Breaks.Count > 0)
+                    Out($"  不兼容：{string.Join("、", m.Breaks.Select(b => b.ModId))}");
+            }
+
+            var dup = ok.GroupBy(m => m.ModId, StringComparer.OrdinalIgnoreCase)
+                .Where(g => g.Count() > 1)
+                .ToList();
+
+            if (dup.Count > 0)
+            {
+                Out("");
+                Out("重复 modid（同一模组装了多份，游戏侧会报 DuplicateModsFound）：");
+                foreach (var g in dup)
+                    Out($"  {g.Key}：" + string.Join("、", g.Select(x => x.FileName)));
+            }
+
+            var problems = check ? CheckInstalled(ok) : 0;
+
+            return mods.Count == ok.Count && dup.Count == 0 && problems == 0 ? 0 : 1;
+        }
+
+        /// <summary>平台 / 加载器自带的 id，不算"缺前置"。</summary>
+        private static readonly HashSet<string> PlatformIds = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "minecraft", "forge", "neoforge", "fabricloader", "fabric-api", "fabric",
+            "javafml", "lowcodefml", "quilt_loader", "quilted_fabric_api"
+        };
+
+        /// <summary>
+        /// 对着已装清单做一次体检：必需依赖是否都在、版本是否满足声明区间。
+        /// 只看 mandatory 且非平台自带的依赖——宁可少报，不要拿平台 id 刷屏。
+        /// </summary>
+        private static int CheckInstalled(List<ModMods.JarMod> mods)
+        {
+            var installed = new Dictionary<string, ModMods.JarMod>(StringComparer.OrdinalIgnoreCase);
+            foreach (var m in mods)
+                installed.TryAdd(m.ModId, m);
+
+            var problems = 0;
+
+            Out("");
+            Out($"依赖检查（{mods.Count} 个已装模组）：");
+
+            foreach (var m in mods)
+            {
+                foreach (var d in m.Depends)
+                {
+                    if (!d.Mandatory || PlatformIds.Contains(d.ModId)) continue;
+
+                    if (!installed.TryGetValue(d.ModId, out var have))
+                    {
+                        Out($"  × {m.ModId} 需要 {d.ModId} {d.VersionRange}，未安装");
+                        problems++;
+                    }
+                    else if (!ModMods.ModJar.Satisfies(have.Version, d.VersionRange, d.Syntax))
+                    {
+                        Out($"  × {m.ModId} 需要 {d.ModId} {d.VersionRange}，实际装的是 {have.Version}");
+                        problems++;
+                    }
+                }
+            }
+
+            if (problems == 0)
+                Out("  没有发现问题");
+
+            return problems;
         }
 
         /// <summary>命令行里的来源写法 → 筛选枚举；认不出来就用「全部」。</summary>
