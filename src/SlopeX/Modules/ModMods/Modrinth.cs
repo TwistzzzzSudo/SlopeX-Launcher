@@ -166,14 +166,21 @@ namespace SlopeX.Modules.ModMods
     /// </summary>
     public static class ModrinthSource
     {
-        /// <summary>官方地址：数据最新，模组搜索单选 Modrinth 时走这里。</summary>
+        /// <summary>官方地址。Modrinth 侧只走这里，镜像已废（原因见下面的 <c>BaseUrl</c>）。</summary>
         private const string Official = "https://api.modrinth.com/v2";
 
-        /// <summary>MCIM 镜像地址：与官方路径一致，选「全部」时两源统一走镜像。</summary>
-        private const string MirrorApi = "https://mod.mcimirror.top/modrinth/v2";
-
-        /// <summary>按模式选接口根地址。<paramref name="mirror"/> = true 走 MCIM 镜像。</summary>
-        private static string BaseUrl(bool mirror) => mirror ? MirrorApi : Official;
+        /// <summary>
+        /// Modrinth 一律走官方接口，<paramref name="mirror"/> 只在 CurseForge 侧生效。
+        ///
+        /// 曾经在「全部」来源下让 Modrinth 也走 MCIM 镜像统一出口，但 2026-11-01 核出
+        /// **镜像的版本数据严重滞后**：Iris 官方最新已到 1.7.6（2025-03-03），
+        /// 镜像最新只到 1.7.2（2024-06-29），差八个多月。后果是「全部」来源下
+        /// 点安装会装到旧版本，且依赖解析也跟着退化（Sodium 只到 0.5.11）。
+        ///
+        /// 镜像本来就是为绕开 CurseForge 官方 API 的 Key 限制才引入的，
+        /// Modrinth 官方接口不需要 Key、国内可达，没有走镜像的理由。
+        /// </summary>
+        private static string BaseUrl(bool mirror) => Official;
 
         /// <summary>加载器名映射到 Modrinth 的 categories facet。</summary>
         public static string LoaderFacet(string loader) => (loader ?? "").ToLowerInvariant() switch
