@@ -85,6 +85,7 @@ namespace SlopeX.Modules.ModCli
                     Out("  fix-libs <版本>          补齐缺失的依赖库（走镜像）");
                     Out("  msa-explain <状态码> [原文]  预览登录错误会被翻译成什么（排障用）");
                     Out("  mods-list <版本>         列出该版本 mods 目录的模组与元数据");
+                    Out("  mods-deps <版本> <项目>  打印该模组的必需依赖解析结果，标明哪些锁定了版本（排障用）");
                     Out("  selftest [--mc 版本] [--loader 加载器] [-v]   用固定样本自检中文搜索链路（需联网，失败返回 1）");
                     Out("  mods-search <版本> <关键词> [all|modrinth|curseforge]   搜索模组（英文按来源搜，中文走 MC百科）");
                     Out("  legal [brief]            打印内置法律声明（brief = 首次启动的简版）");
@@ -128,6 +129,9 @@ namespace SlopeX.Modules.ModCli
                 case "mods-install":
                     return ModsInstall(args.FirstOrDefault(), args.Skip(1).FirstOrDefault(),
                         args.Skip(2).FirstOrDefault());
+
+                case "mods-deps":
+                    return ModsDeps(args.FirstOrDefault(), args.Skip(1).FirstOrDefault());
 
                 case "mods-list":
                     return ModsList(args.FirstOrDefault());
@@ -564,6 +568,67 @@ namespace SlopeX.Modules.ModCli
         private static ModMods.ModSearchResult Search(string query, string mc, string loader,
             ModMods.ModSourceFilter filter)
             => ModMods.ModSearch.SearchAsync(query, mc, loader, filter).GetAwaiter().GetResult();
+
+        /// <summary>
+        /// 打印某个模组的必需依赖解析结果（排障用）。
+        /// 声明了 <c>version_id</c> 的依赖标「锁定」，并显示最终解析到的文件——
+        /// 用来确认「依赖按作者声明的版本落盘，而不是装最新版」这条逻辑有没有生效。
+        /// </summary>
+        private static int ModsDeps(string versionId, string projectId)
+        {
+            if (string.IsNullOrEmpty(versionId) || string.IsNullOrEmpty(projectId))
+            {
+                Out("用法：mods-deps <版本> <项目ID|slug>");
+                return 2;
+            }
+
+            var (mc, loader) = ModMods.ModInstaller.ResolveTarget(Config.Current.GameDir, versionId);
+            Out($"目标：{versionId} → MC {mc}，加载器 {(string.IsNullOrEmpty(loader) ? "原版" : loader)}");
+
+            try
+            {
+                var files = ModMods.ModrinthSource
+                    .ListFilesAsync(projectId, mc, loader, CancellationToken.None).GetAwaiter().GetResult();
+
+                if (files.Count == 0)
+                {
+                    Out("（该项目在当前 MC 版本 / 加载器下没有文件）");
+                    return 1;
+                }
+
+                var file = files[0];
+                Out($"项目文件：{file.VersionLabel}  {file.FileName}");
+                Out($"  versionId：{(string.IsNullOrEmpty(file.VersionId) ? "（空）" : file.VersionId)}");
+
+                var deps = ModMods.ModrinthSource
+                    .RequiredDepsAsync(file, mc, loader, CancellationToken.None).GetAwaiter().GetResult();
+
+                Out($"必需依赖：{(deps.Count == 0 ? "（无）" : deps.Count + " 个")}");
+
+                foreach (var (pid, verId, name) in deps)
+                {
+                    var tag = string.IsNullOrEmpty(verId) ? "最新适配版" : "锁定 " + verId;
+                    Out($"  {pid}  [{tag}]{(string.IsNullOrEmpty(name) ? "" : "  " + name)}");
+
+                    if (string.IsNullOrEmpty(verId)) continue;
+
+                    var pinned = ModMods.ModrinthSource
+                        .FileOfVersionAsync(verId, pid, mc, loader, CancellationToken.None)
+                        .GetAwaiter().GetResult();
+
+                    Out(pinned == null
+                        ? "      → 取不到，安装时回落到最新适配版"
+                        : $"      → {pinned.VersionLabel}  {pinned.FileName}");
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Out("解析失败：" + ex.Message);
+                return 1;
+            }
+        }
 
         /// <summary>命令行里的来源写法 → 筛选枚举；认不出来就用「全部」。</summary>
         private static ModMods.ModSourceFilter ParseFilter(string s) => (s ?? "").ToLowerInvariant() switch

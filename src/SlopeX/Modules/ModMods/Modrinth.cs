@@ -108,6 +108,14 @@ namespace SlopeX.Modules.ModMods
     {
         public string Source { get; set; } = "";
         public string ProjectId { get; set; } = "";
+
+        /// <summary>
+        /// Modrinth 的版本 ID。<c>ListFilesAsync</c> 填，CurseForge 侧留空。
+        /// 有了它就能直接 <c>/version/{id}</c> 取依赖，不必按版本号反查整个列表；
+        /// 依赖声明里带版本号时也靠它精确锁定（见 <c>ModInstaller</c>）。
+        /// </summary>
+        public string VersionId { get; set; } = "";
+
         public string VersionLabel { get; set; } = "";
         public string FileName { get; set; } = "";
         public string Url { get; set; } = "";
@@ -284,6 +292,7 @@ namespace SlopeX.Modules.ModMods
                 {
                     Source = "Modrinth",
                     ProjectId = projectId,
+                    VersionId = J.Str(o, "id") ?? "",
                     VersionLabel = J.Str(o, "version_number") ?? "",
                     FileName = J.Str(picked, "filename") ?? "",
                     Url = url2,
@@ -296,44 +305,158 @@ namespace SlopeX.Modules.ModMods
         }
 
         /// <summary>
-        /// 取某个版本声明的必需依赖（只看 required），返回 (projectId, 依赖说明)。
-        /// 依赖的具体文件在安装阶段再按 MC 版本 + 加载器解析。
+        /// 取某个版本声明的必需依赖（只看 required），返回 (projectId, versionId, 依赖说明)。
+        /// <para>
+        /// <c>versionId</c> 是依赖项里声明的<b>具体版本</b>：模组作者要求「Flywheel 0.6.10」时这里就有值，
+        /// 安装阶段据此精确落盘，而不是装该前置的最新版——后者可能已经超出作者验证过的范围。
+        /// 只标了 project 没标版本的依赖，这里为空，安装阶段回落到「最新适配版」。
+        /// </para>
+        /// 依赖的具体文件在安装阶段再解析。
         /// </summary>
-        public static async Task<List<(string ProjectId, string Name)>> RequiredDepsAsync(string projectId,
-            string versionLabel, string mcVersion, string loader, CancellationToken ct = default,
+        public static async Task<List<(string ProjectId, string VersionId, string Name)>> RequiredDepsAsync(
+            ModFileRef file, string mcVersion, string loader, CancellationToken ct = default,
             bool mirror = false)
         {
-            var l = LoaderFacet(loader);
-            var url = $"{BaseUrl(mirror)}/project/{Uri.EscapeDataString(projectId)}/version";
-            if (!string.IsNullOrWhiteSpace(mcVersion))
-                url += "?game_versions=" + Uri.EscapeDataString($"[\"{mcVersion}\"]");
-            if (!string.IsNullOrEmpty(l))
-                url += (url.Contains('?') ? "&" : "?") + "loaders=" + Uri.EscapeDataString($"[\"{l}\"]");
+            var result = new List<(string, string, string)>();
+            if (file == null) return result;
 
-            var arr = await Net.GetJsonRawAsync(url, ct).ConfigureAwait(false);
-            var result = new List<(string, string)>();
-
-            foreach (var v in arr as JsonArray ?? new JsonArray())
+            // 首选：直接按 version_id 取这一个版本（一次请求，且不会因版本号重复而认错）
+            JsonObject o = null;
+            if (!string.IsNullOrEmpty(file.VersionId))
             {
-                if (v is not JsonObject o) continue;
-                if (J.Str(o, "version_number") != versionLabel) continue;
+                o = await Net.GetJsonRawAsync(
+                        $"{BaseUrl(mirror)}/version/{Uri.EscapeDataString(file.VersionId)}", ct)
+                    .ConfigureAwait(false) as JsonObject;
+            }
 
-                foreach (var d in J.Arr(o, "dependencies") ?? new JsonArray())
+            // 兜底：没有 version_id（旧数据 / 其它来源）时，仍按版本号在项目版本列表里找
+            if (o == null)
+            {
+                var l = LoaderFacet(loader);
+                var url = $"{BaseUrl(mirror)}/project/{Uri.EscapeDataString(file.ProjectId)}/version";
+                if (!string.IsNullOrWhiteSpace(mcVersion))
+                    url += "?game_versions=" + Uri.EscapeDataString($"[\"{mcVersion}\"]");
+                if (!string.IsNullOrEmpty(l))
+                    url += (url.Contains('?') ? "&" : "?") + "loaders=" + Uri.EscapeDataString($"[\"{l}\"]");
+
+                var arr = await Net.GetJsonRawAsync(url, ct).ConfigureAwait(false);
+                foreach (var v in arr as JsonArray ?? new JsonArray())
                 {
-                    if (d is not JsonObject dep) continue;
-                    if (!string.Equals(J.Str(dep, "dependency_type"), "required", StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    var pid = J.Str(dep, "project_id");
-                    if (string.IsNullOrEmpty(pid)) continue;
-
-                    result.Add((pid, J.Str(dep, "file_name") ?? ""));
+                    if (v is not JsonObject candidate) continue;
+                    if (J.Str(candidate, "version_number") != file.VersionLabel) continue;
+                    o = candidate;
+                    break;
                 }
+            }
 
-                break;
+            if (o == null) return result;
+
+            foreach (var d in J.Arr(o, "dependencies") ?? new JsonArray())
+            {
+                if (d is not JsonObject dep) continue;
+                if (!string.Equals(J.Str(dep, "dependency_type"), "required", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var pid = J.Str(dep, "project_id");
+                if (string.IsNullOrEmpty(pid)) continue;
+
+                result.Add((pid, J.Str(dep, "version_id"), J.Str(dep, "file_name") ?? ""));
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// 按版本 ID 精确取文件。依赖声明里带了 <c>version_id</c> 时用它，把版本钉死。
+        /// <para>
+        /// 声明的版本若不适配当前 MC 版本 / 加载器，返回 null 并记一条日志，
+        /// 由调用方回落到「最新适配版」——宁可装新版，也不要装一个明确不兼容的文件。
+        /// </para>
+        /// </summary>
+        public static async Task<ModFileRef> FileOfVersionAsync(string versionId, string projectId,
+            string mcVersion, string loader, CancellationToken ct = default, bool mirror = false)
+        {
+            if (string.IsNullOrWhiteSpace(versionId)) return null;
+
+            JsonObject o;
+            try
+            {
+                o = await Net.GetJsonRawAsync(
+                        $"{BaseUrl(mirror)}/version/{Uri.EscapeDataString(versionId)}", ct)
+                    .ConfigureAwait(false) as JsonObject;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"取版本 {versionId} 失败：{ex.Message}");
+                return null;
+            }
+
+            if (o == null) return null;
+
+            var label = J.Str(o, "version_number") ?? versionId;
+
+            var games = StrArr(o, "game_versions");
+            if (!string.IsNullOrEmpty(mcVersion) && games.Count > 0 &&
+                !games.Contains(mcVersion, StringComparer.OrdinalIgnoreCase))
+            {
+                Log.Warn($"依赖声明的版本 {label} 不含 MC {mcVersion}（支持：{VersionRange.Text(games)}）");
+                return null;
+            }
+
+            var want = LoaderFacet(loader);
+            var loaders = StrArr(o, "loaders");
+            if (!string.IsNullOrEmpty(want) && loaders.Count > 0 &&
+                !loaders.Contains(want, StringComparer.OrdinalIgnoreCase))
+            {
+                Log.Warn($"依赖声明的版本 {label} 不含加载器 {loader}（支持：{string.Join("/", loaders)}）");
+                return null;
+            }
+
+            var files = J.Arr(o, "files");
+            if (files == null) return null;
+
+            JsonObject picked = null;
+            foreach (var f in files)
+            {
+                if (f is JsonObject fo && J.Bool(fo, "primary")) { picked = fo; break; }
+            }
+            picked ??= files.FirstOrDefault() as JsonObject;
+            if (picked == null) return null;
+
+            var url = J.Str(picked, "url");
+            if (string.IsNullOrEmpty(url)) return null;
+
+            return new ModFileRef
+            {
+                Source = "Modrinth",
+                ProjectId = projectId ?? J.Str(o, "project_id") ?? "",
+                VersionId = versionId,
+                VersionLabel = label,
+                FileName = J.Str(picked, "filename") ?? "",
+                Url = url,
+                Sha1 = J.Str(J.Obj(picked, "hashes"), "sha1"),
+                Size = J.Long(picked, "size")
+            };
+        }
+
+        /// <summary>把 JSON 数组里的字符串元素取出来（读 <c>game_versions</c> / <c>loaders</c> 用）。</summary>
+        private static List<string> StrArr(JsonNode node, string key)
+        {
+            var arr = J.Arr(node, key);
+            var list = new List<string>();
+            if (arr == null) return list;
+
+            foreach (var n in arr)
+            {
+                if (n is JsonValue v && v.TryGetValue<string>(out var s) && !string.IsNullOrEmpty(s))
+                    list.Add(s);
+            }
+
+            return list;
         }
 
         /// <summary>取项目标题（用于依赖列表里显示人话）。</summary>
