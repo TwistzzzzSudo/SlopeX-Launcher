@@ -627,5 +627,7 @@
     <!-- ============ 转换器 ============ -->
     <ctl:BoolToVisibilityConverter x:Key="BoolToVis"/>
     <ctl:BoolToVisibilityConverter x:Key="BoolToVisInvert"/>
+    <!-- byte[] 图标 → BitmapImage；空值返回 null，界面上会露出底层的首字母占位块 -->
+    <ctl:IconConverter x:Key="Icon"/>
 
 </ResourceDictionary>

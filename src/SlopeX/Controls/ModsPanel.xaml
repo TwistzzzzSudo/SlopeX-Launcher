@@ -85,15 +85,30 @@
                                                    Text="{Binding StateText}"/>
                                     </Border>
 
-                                    <!-- 名称 -->
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource Ink}"
-                                                   TextTrimming="CharacterEllipsis" MaxWidth="420"
-                                                   ToolTip="{Binding Title}"/>
-                                        <TextBlock FontSize="11" Foreground="{DynamicResource Muted}"
-                                                   Margin="0,1,0,0"
-                                                   Text="{Binding LoaderHint}"/>
+                                    <!-- 名称（带作者自带图标；没有图标时显示首字母占位） -->
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Grid Width="32" Height="32" Margin="0,0,10,0" VerticalAlignment="Center">
+                                            <Border CornerRadius="7" Background="{DynamicResource Paper2}"/>
+                                            <TextBlock Text="{Binding Initial}" FontSize="13"
+                                                       Foreground="{DynamicResource Muted}"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            <Border CornerRadius="7">
+                                                <Border.Background>
+                                                    <ImageBrush ImageSource="{Binding IconData, Converter={StaticResource Icon}}"
+                                                                Stretch="UniformToFill"/>
+                                                </Border.Background>
+                                            </Border>
+                                        </Grid>
+
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource Ink}"
+                                                       TextTrimming="CharacterEllipsis" MaxWidth="380"
+                                                       ToolTip="{Binding Title}"/>
+                                            <TextBlock FontSize="11" Foreground="{DynamicResource Muted}"
+                                                       Margin="0,1,0,0"
+                                                       Text="{Binding LoaderHint}"/>
+                                        </StackPanel>
                                     </StackPanel>
 
                                     <!-- 版本 -->

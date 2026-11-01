@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -123,6 +125,9 @@ namespace SlopeX.Controls
 
                 ResultList.ItemsSource = result.Hits;
                 StatusText.Text = result.StatusText(_mcVersion, _loader);
+
+                // 列表先出来，图标随后补——网络慢的时候不能让用户对着空列表等
+                _ = IconLoader.FillAsync(result.Hits, _cts.Token);
 
                 if (chinese)
                     Log.Info($"MC百科 搜索「{query}」（{_filter}）：命中 {result.Total}，核对 {result.Checked}，" +

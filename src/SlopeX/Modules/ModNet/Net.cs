@@ -82,6 +82,14 @@ namespace SlopeX.Modules.ModNet
             return await resp.Content.ReadAsStringAsync(ct);
         }
 
+        /// <summary>下载原始字节（图标这类小二进制）。失败由调用方决定怎么处理。</summary>
+        public static async Task<byte[]> GetBytesAsync(string url, CancellationToken ct = default)
+        {
+            using var resp = await Client.GetAsync(url, HttpCompletionOption.ResponseContentRead, ct);
+            resp.EnsureSuccessStatusCode();
+            return await resp.Content.ReadAsByteArrayAsync(ct);
+        }
+
         public static async Task<JsonNode> GetJsonRawAsync(string url, CancellationToken ct = default)
         {
             var text = await GetStringRawAsync(url, ct).ConfigureAwait(false);

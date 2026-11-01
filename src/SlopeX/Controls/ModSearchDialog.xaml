@@ -81,28 +81,44 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <!-- 来源做成小胶囊：两个平台混排时，靠小字里的一个词分不清 -->
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-
-                                        <Border Grid.Column="0" Background="{DynamicResource Paper3}"
-                                                CornerRadius="3" Padding="5,1,5,1" Margin="0,0,6,0"
-                                                VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding SourceText}" FontSize="10"
-                                                       Foreground="{DynamicResource Sub}"/>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <!-- 平台上的项目图标；没有时显示首字母占位 -->
+                                    <Grid Width="36" Height="36" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Border CornerRadius="8" Background="{DynamicResource Paper2}"/>
+                                        <TextBlock Text="{Binding Initial}" FontSize="14"
+                                                   Foreground="{DynamicResource Muted}"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <Border CornerRadius="8">
+                                            <Border.Background>
+                                                <ImageBrush ImageSource="{Binding IconData, Converter={StaticResource Icon}}"
+                                                            Stretch="UniformToFill"/>
+                                            </Border.Background>
                                         </Border>
-
-                                        <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="13"
-                                                   FontWeight="SemiBold" Foreground="{DynamicResource Ink}"
-                                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
                                     </Grid>
-                                    <TextBlock Text="{Binding SubText}" FontSize="11" Margin="0,2,0,0"
-                                               Foreground="{DynamicResource Muted}"
-                                               TextTrimming="CharacterEllipsis"/>
+
+                                    <StackPanel VerticalAlignment="Center">
+                                        <!-- 来源做成小胶囊：两个平台混排时，靠小字里的一个词分不清 -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <Border Grid.Column="0" Background="{DynamicResource Paper3}"
+                                                    CornerRadius="3" Padding="5,1,5,1" Margin="0,0,6,0"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding SourceText}" FontSize="10"
+                                                           Foreground="{DynamicResource Sub}"/>
+                                            </Border>
+
+                                            <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="13"
+                                                       FontWeight="SemiBold" Foreground="{DynamicResource Ink}"
+                                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <TextBlock Text="{Binding SubText}" FontSize="11" Margin="0,2,0,0"
+                                                   Foreground="{DynamicResource Muted}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
                                 </StackPanel>
 
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">

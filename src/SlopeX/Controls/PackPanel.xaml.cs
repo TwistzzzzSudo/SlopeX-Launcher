@@ -136,6 +136,9 @@ namespace SlopeX.Controls
                 var rows = hits.Select(h => new PackRow(h)).ToList();
                 PackList.ItemsSource = rows;
 
+                // 列表先出来，图标随后补
+                _ = IconLoader.FillAsync(hits, _cts.Token);
+
                 var kindText = _kind == PackKind.Shader ? "光影" : "材质包";
                 SetStatus(rows.Count == 0
                     ? $"没有找到「{query}」相关的{kindText}。换个关键词，或确认识别方式是英文名。"

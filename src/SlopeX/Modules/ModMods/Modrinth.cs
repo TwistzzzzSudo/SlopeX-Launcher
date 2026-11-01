@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading;
@@ -10,7 +11,7 @@ using SlopeX.Modules.ModNet;
 namespace SlopeX.Modules.ModMods
 {
     /// <summary>搜索到的一个模组（来源无关的视图模型）。</summary>
-    public sealed class ModSearchHit
+    public sealed class ModSearchHit : INotifyPropertyChanged
     {
         /// <summary>下载来源：<c>Modrinth</c> 或 <c>CurseForge</c>。安装时靠它分派接口。</summary>
         public string Source { get; set; } = "Modrinth";
@@ -26,6 +27,37 @@ namespace SlopeX.Modules.ModMods
         public string Author { get; set; } = "";
         public long Downloads { get; set; }
         public string IconUrl { get; set; } = "";
+
+        /// <summary>
+        /// 已经下载好的图标字节（<see cref="IconUrl"/> 的内容）。搜索结果先出列表、
+        /// 图标陆续补，补到就挂在这里；界面用 <c>IconConverter</c> 转图。
+        /// 只有这个属性会发通知——列表要的是「图标陆续出现」，不想整表重绑。
+        /// </summary>
+        public byte[] IconData
+        {
+            get => _iconData;
+            set
+            {
+                _iconData = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IconData)));
+            }
+        }
+
+        private byte[] _iconData;
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        /// <summary>没有图标时显示的占位字符（取标题首字）。</summary>
+        public string Initial
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(Title)) return "?";
+
+                var t = Title.Trim();
+                return char.IsHighSurrogate(t[0]) && t.Length > 1 ? t.Substring(0, 2) : t.Substring(0, 1);
+            }
+        }
 
         /// <summary>项目声明支持的 MC 版本（搜索结果里就有，不用再请求一次）。</summary>
         public List<string> GameVersions { get; } = new List<string>();
