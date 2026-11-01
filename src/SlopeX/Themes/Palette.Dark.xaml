@@ -51,6 +51,13 @@
 
     <SolidColorBrush x:Key="OnInk" Color="#1A1A16"/>
 
+    <!--
+        Toast：深色主题下不能再用 Ink 反色——那会是一整块白，
+        在深色界面里刺眼。改用比卡片再亮一档的 Paper3 面，靠边框浮起。
+    -->
+    <SolidColorBrush x:Key="ToastBg" Color="#34342E"/>
+    <SolidColorBrush x:Key="ToastFg" Color="#EDEBE2"/>
+
     <!-- 落在 Bad / CloseHover 上的前景色：红底用白字，两套主题一致 -->
     <SolidColorBrush x:Key="OnBad" Color="#FFFFFF"/>
 

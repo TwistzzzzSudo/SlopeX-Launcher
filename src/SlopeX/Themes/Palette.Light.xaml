@@ -50,6 +50,13 @@
 
     <SolidColorBrush x:Key="OnInk" Color="#FFFFFF"/>
 
+    <!--
+        Toast：浅色主题用反色（近黑底 + 白字）最醒目——背景本来就浅，
+        再放一块浅色面板会被淹没。
+    -->
+    <SolidColorBrush x:Key="ToastBg" Color="#1A1A18"/>
+    <SolidColorBrush x:Key="ToastFg" Color="#FFFFFF"/>
+
     <!-- 落在 Bad / CloseHover 上的前景色 -->
     <SolidColorBrush x:Key="OnBad" Color="#FFFFFF"/>
 

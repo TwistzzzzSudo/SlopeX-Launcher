@@ -49,6 +49,13 @@
     <SolidColorBrush x:Key="OnPrimary" Color="#FFFFFF"/>
 
     <SolidColorBrush x:Key="OnInk" Color="#2A0A22"/>
+
+    <!--
+        Toast：不能用 Ink 反色——那会在粉紫星空上糊一块纯白。
+        取 Paper3 的深紫，靠亮边框浮起来，和卡片同族。
+    -->
+    <SolidColorBrush x:Key="ToastBg" Color="#F53A1434"/>
+    <SolidColorBrush x:Key="ToastFg" Color="#FFF4F9"/>
     <SolidColorBrush x:Key="OnBad" Color="#FFFFFF"/>
 
     <SolidColorBrush x:Key="Scrim" Color="#B3100412"/>

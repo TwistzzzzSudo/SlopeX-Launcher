@@ -54,6 +54,13 @@
     <SolidColorBrush x:Key="OnPrimary" Color="#2B0A33"/>
 
     <SolidColorBrush x:Key="OnInk" Color="#1B0A3C"/>
+
+    <!--
+        Toast：同 ViceCity，用比卡片亮一档的紫面 + 亮边框，
+        而不是 Ink 反色的大白块。
+    -->
+    <SolidColorBrush x:Key="ToastBg" Color="#FB40205F"/>
+    <SolidColorBrush x:Key="ToastFg" Color="#FFF0FA"/>
     <SolidColorBrush x:Key="OnBad" Color="#FFFFFF"/>
 
     <!-- 遮罩：带一点紫，压暗时仍保留暮色 -->

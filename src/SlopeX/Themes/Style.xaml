@@ -545,8 +545,15 @@
         非阻断反馈（已保存、已复制、已导入）。反色底（Ink）保证在任何页面底色上都读得清，
         文字用 OnInk。由 MainWindow.ShowToast 控制显隐与时长。
     -->
+    <!--
+        Toast 的底色 / 文字由各主题的 ToastBg / ToastFg 决定：
+        浅色主题走反色（近黑底白字）最醒目，深色与插画主题走「比卡片亮一档的面 + 边框」，
+        否则会变成一大块白，压在插画上很扎眼。
+    -->
     <Style x:Key="ToastCard" TargetType="Border">
-        <Setter Property="Background" Value="{DynamicResource Ink}"/>
+        <Setter Property="Background" Value="{DynamicResource ToastBg}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource LineStrong}"/>
+        <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="{StaticResource R8}"/>
         <Setter Property="Padding" Value="16,10"/>
         <Setter Property="HorizontalAlignment" Value="Center"/>
@@ -556,7 +563,7 @@
     </Style>
 
     <Style x:Key="ToastText" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="{DynamicResource OnInk}"/>
+        <Setter Property="Foreground" Value="{DynamicResource ToastFg}"/>
         <Setter Property="FontSize" Value="12.5"/>
         <Setter Property="TextWrapping" Value="Wrap"/>
         <Setter Property="MaxWidth" Value="520"/>
