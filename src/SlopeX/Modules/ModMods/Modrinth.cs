@@ -443,6 +443,60 @@ namespace SlopeX.Modules.ModMods
             };
         }
 
+        /// <summary>
+        /// 按文件 SHA1 批量查「有没有更新的版本」。
+        /// <para>
+        /// 接口语义要小心：**已经是最新时也会把当前版本返回给你**，所以调用方必须自己比对
+        /// 「返回的主文件 sha1 是否等于请求的那个」，相等才算「已是最新」（见 <c>ModUpdater</c>）。
+        /// </para>
+        /// 返回：请求的 hash → 该项目在给定 MC 版本 / 加载器下的最新版本对象。
+        /// </summary>
+        public static async Task<Dictionary<string, JsonObject>> CheckUpdatesAsync(
+            IReadOnlyList<string> hashes, string mcVersion, string loader, CancellationToken ct = default,
+            bool mirror = false)
+        {
+            var result = new Dictionary<string, JsonObject>(StringComparer.OrdinalIgnoreCase);
+            if (hashes == null || hashes.Count == 0) return result;
+
+            var arr = new JsonArray();
+            foreach (var h in hashes)
+            {
+                if (!string.IsNullOrWhiteSpace(h)) arr.Add(JsonValue.Create(h));
+            }
+            if (arr.Count == 0) return result;
+
+            var body = new JsonObject
+            {
+                ["hashes"] = arr,
+                ["algorithm"] = "sha1"
+            };
+
+            var l = LoaderFacet(loader);
+            if (!string.IsNullOrEmpty(l))
+            {
+                var loaders = new JsonArray();
+                loaders.Add(JsonValue.Create(l));
+                body["loaders"] = loaders;
+            }
+
+            if (!string.IsNullOrWhiteSpace(mcVersion))
+            {
+                var games = new JsonArray();
+                games.Add(JsonValue.Create(mcVersion));
+                body["game_versions"] = games;
+            }
+
+            var node = await Net.PostJsonAsync($"{BaseUrl(mirror)}/version_files/update", body, ct)
+                .ConfigureAwait(false);
+
+            foreach (var pair in node as JsonObject ?? new JsonObject())
+            {
+                if (pair.Value is JsonObject v) result[pair.Key] = v;
+            }
+
+            return result;
+        }
+
         /// <summary>把 JSON 数组里的字符串元素取出来（读 <c>game_versions</c> / <c>loaders</c> 用）。</summary>
         private static List<string> StrArr(JsonNode node, string key)
         {

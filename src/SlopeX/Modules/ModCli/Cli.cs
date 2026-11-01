@@ -87,6 +87,7 @@ namespace SlopeX.Modules.ModCli
                     Out("  mods-list <版本>         列出该版本 mods 目录的模组与元数据");
                     Out("  mods-deps <版本> <项目>  打印该模组的必需依赖解析结果，标明哪些锁定了版本（排障用）");
                     Out("  mods-scan <版本|目录> [--check]   扫描 jar 元数据、查重复装；--check 顺带校验依赖是否齐全（排障用）");
+                    Out("  mods-update <版本>       检查已装模组有没有新版本（按文件 SHA1 问 Modrinth）");
                     Out("  selftest [--mc 版本] [--loader 加载器] [-v]   用固定样本自检中文搜索链路（需联网，失败返回 1）");
                     Out("  mods-search <版本> <关键词> [all|modrinth|curseforge]   搜索模组（英文按来源搜，中文走 MC百科）");
                     Out("  legal [brief]            打印内置法律声明（brief = 首次启动的简版）");
@@ -136,6 +137,9 @@ namespace SlopeX.Modules.ModCli
 
                 case "mods-scan":
                     return ModsScan(args.FirstOrDefault(), args.Skip(1).FirstOrDefault());
+
+                case "mods-update":
+                    return ModsUpdate(args.FirstOrDefault());
 
                 case "mods-list":
                     return ModsList(args.FirstOrDefault());
@@ -705,6 +709,60 @@ namespace SlopeX.Modules.ModCli
             var problems = check ? PrintHealth(mods) : 0;
 
             return mods.Count == ok.Count && dup.Count == 0 && problems == 0 ? 0 : 1;
+        }
+
+        /// <summary>
+        /// 检查已装模组有没有新版本（走 Modrinth 的文件 SHA1 查询）。
+        /// 有可更新时返回 0，没查到也算 0——「没有更新」不是错误。
+        /// </summary>
+        private static int ModsUpdate(string versionId)
+        {
+            if (string.IsNullOrEmpty(versionId))
+            {
+                Out("用法：mods-update <版本>");
+                return 2;
+            }
+
+            var (mc, loader) = ModMods.ModInstaller.ResolveTarget(Config.Current.GameDir, versionId);
+            var dir = ModMods.ModManager.ModsDir(Config.Current.GameDir, versionId);
+
+            Out($"目标：{versionId} → MC {mc}，加载器 {(string.IsNullOrEmpty(loader) ? "原版" : loader)}");
+            Out($"目录：{dir}");
+
+            try
+            {
+                var mods = ModMods.ModJar.ScanDir(dir);
+                if (mods.Count == 0)
+                {
+                    Out("（没有 jar）");
+                    return 0;
+                }
+
+                Out($"检查 {mods.Count(m => m.Ok)} 个模组…");
+                var updates = ModMods.ModUpdater
+                    .CheckAsync(dir, mc, loader, CancellationToken.None).GetAwaiter().GetResult();
+
+                if (updates.Count == 0)
+                {
+                    Out("没有可更新的（已是最新，或不在 Modrinth 上架）");
+                    return 0;
+                }
+
+                Out("");
+                Out($"可更新 {updates.Count} 个：");
+                foreach (var u in updates)
+                {
+                    Out("  " + u.Describe());
+                    Out($"      下载 {u.LatestFileName}（{Format.Bytes(u.Size)}）");
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Out("检查失败：" + ex.Message);
+                return 1;
+            }
         }
 
         /// <summary>

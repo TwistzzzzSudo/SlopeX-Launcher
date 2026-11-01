@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
 using SlopeX.Modules.ModBase;
@@ -115,6 +116,24 @@ namespace SlopeX.Modules.ModMods
             }
 
             return mod;
+        }
+
+        /// <summary>
+        /// 算整个文件的 SHA1（小写十六进制）——Modrinth 用的就是这个值做文件身份。
+        /// 流式读，几百 MB 的整合包也不会把内存吃满。失败返回空串。
+        /// </summary>
+        public static string Sha1Of(string path)
+        {
+            try
+            {
+                using var fs = File.OpenRead(path);
+                return Convert.ToHexString(SHA1.HashData(fs)).ToLowerInvariant();
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"计算 SHA1 失败 {Path.GetFileName(path)}：{ex.Message}");
+                return "";
+            }
         }
 
         /// <summary>zip 里的条目名区分大小写，但书写习惯五花八门，比较时忽略大小写。</summary>
