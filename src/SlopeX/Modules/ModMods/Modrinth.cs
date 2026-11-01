@@ -444,6 +444,50 @@ namespace SlopeX.Modules.ModMods
         }
 
         /// <summary>
+        /// 批量取项目 slug（一次请求）。slug 通常等于模组的 modid，
+        /// 用来判断「这个前置是不是已经装过」——不必下载下来读 jar。
+        /// 返回 projectId → slug；查不到的项目不出现在结果里。
+        /// </summary>
+        public static async Task<Dictionary<string, string>> SlugsAsync(IReadOnlyList<string> projectIds,
+            CancellationToken ct = default, bool mirror = false)
+        {
+            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (projectIds == null || projectIds.Count == 0) return map;
+
+            var arr = new JsonArray();
+            foreach (var id in projectIds.Where(x => !string.IsNullOrWhiteSpace(x))
+                         .Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                arr.Add(JsonValue.Create(id));
+            }
+
+            if (arr.Count == 0) return map;
+
+            try
+            {
+                var url = $"{BaseUrl(mirror)}/projects?ids=" + Uri.EscapeDataString(arr.ToJsonString());
+                var node = await Net.GetJsonRawAsync(url, ct).ConfigureAwait(false);
+
+                foreach (var o in (node as JsonArray ?? new JsonArray()).OfType<JsonObject>())
+                {
+                    var id = J.Str(o, "id");
+                    var slug = J.Str(o, "slug");
+                    if (!string.IsNullOrEmpty(id) && !string.IsNullOrEmpty(slug)) map[id] = slug;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"批量查项目 slug 失败：{ex.Message}");
+            }
+
+            return map;
+        }
+
+        /// <summary>
         /// 按文件 SHA1 批量查「有没有更新的版本」。
         /// <para>
         /// 接口语义要小心：**已经是最新时也会把当前版本返回给你**，所以调用方必须自己比对

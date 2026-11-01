@@ -75,6 +75,11 @@ namespace SlopeX.Modules.ModMods
 
             var result = new ModInstallResult();
 
+            // 已装清单（modid → jar）。依赖下载前先对照它：
+            // 只按文件名判重会漏——flywheel-0.6.10.jar 与 flywheel-0.6.13.jar 是两个文件名、
+            // 同一个模组，装下去就是两份，游戏侧直接 DuplicateModsFound。
+            var installed = ScanInstalled(gameDir, versionId);
+
             // 已排入的项目 → 它被钉住的版本（null = 不钉，取最新适配版）。
             // 两个模组要求同一个前置的不同版本时保留先到的、记一条日志：
             // 这里是"别重复下载"，真正的区间校验交给后续的元数据体检。
@@ -115,7 +120,7 @@ namespace SlopeX.Modules.ModMods
 
                 var deps = await RequiredDepsAsync(cur, list[0], mcVersion, loader, ct).ConfigureAwait(false);
 
-                foreach (var (depId, depVersion, depName) in deps)
+                foreach (var (depId, depVersion, depSlug, depName) in deps)
                 {
                     // 依赖跟着主模组走同一个平台：CF 的依赖是数字 modId，Modrinth 的是 base62，
                     // 两套 ID 不能互认，所以 Source 必须一起带上
@@ -134,6 +139,15 @@ namespace SlopeX.Modules.ModMods
                     var title = depName;
                     if (string.IsNullOrWhiteSpace(title))
                         title = await TitleAsync(cur, depId, ct).ConfigureAwait(false);
+
+                    // 盘上已经有了就不再下：这是「同一个前置被多个模组需要」时最省事也最安全的做法。
+                    // 用 modid 判断而不是 projectId——后者跨平台不通用，前者是模组自己的身份。
+                    if (!string.IsNullOrEmpty(depSlug) && installed.TryGetValue(depSlug, out var have))
+                    {
+                        result.Skipped.Add($"{title}（已装 {have.Version}）");
+                        Log.Info($"前置「{title}」已存在（{have.FileName} v{have.Version}），跳过下载");
+                        continue;
+                    }
 
                     queue.Enqueue((new ModSearchHit
                     {
@@ -259,19 +273,58 @@ namespace SlopeX.Modules.ModMods
         /// Modrinth 要按版本号反查 version 的 <c>dependencies</c>；
         /// CurseForge 在文件对象里就直接给了 <c>relationType = 3</c> 的列表。
         /// </summary>
-        private static async Task<List<(string Id, string VersionId, string Name)>> RequiredDepsAsync(
+        private static async Task<List<(string Id, string VersionId, string Slug, string Name)>> RequiredDepsAsync(
             ModSearchHit hit, ModFileRef file, string mc, string loader, CancellationToken ct)
         {
             if (IsCurseForge(hit))
             {
-                // CF 的依赖只给数字 modId（relationType = 3），没有"要求的具体版本"，VersionId 留空
+                // CF 的依赖只给数字 modId（relationType = 3），没有「要求的具体版本」，VersionId 留空
                 var cf = await CurseForgeSource.RequiredDepsAsync(file, ct).ConfigureAwait(false);
-                var mapped = new List<(string, string, string)>(cf.Count);
-                foreach (var d in cf) mapped.Add((d.Id, null, d.Name));
+                var mapped = new List<(string, string, string, string)>(cf.Count);
+                foreach (var d in cf) mapped.Add((d.Id, null, d.Slug, d.Name));
                 return mapped;
             }
 
-            return await ModrinthSource.RequiredDepsAsync(file, mc, loader, ct, hit.Mirror).ConfigureAwait(false);
+            var deps = await ModrinthSource
+                .RequiredDepsAsync(file, mc, loader, ct, hit.Mirror).ConfigureAwait(false);
+
+            // dependencies 里只有 projectId，没有 slug；批量查一次（一个请求），
+            // 用来判断这个前置是不是已经在 mods 目录里了
+            var slugs = await ModrinthSource
+                .SlugsAsync(deps.Select(d => d.ProjectId).ToList(), ct, hit.Mirror).ConfigureAwait(false);
+
+            var list = new List<(string, string, string, string)>(deps.Count);
+            foreach (var d in deps)
+            {
+                slugs.TryGetValue(d.ProjectId, out var slug);
+                list.Add((d.ProjectId, d.VersionId, slug, d.Name));
+            }
+
+            return list;
+        }
+
+        /// <summary>
+        /// 读 mods 目录，建 modid → jar 的映射。读不出来（非模组 jar、坏包）就跳过，
+        /// 扫描本身出错也只是记一条日志、返回空表——去重是优化，不该让安装失败。
+        /// </summary>
+        private static Dictionary<string, JarMod> ScanInstalled(string gameDir, string versionId)
+        {
+            var map = new Dictionary<string, JarMod>(StringComparer.OrdinalIgnoreCase);
+
+            try
+            {
+                var dir = ModManager.ModsDir(gameDir, versionId);
+                foreach (var m in ModJar.ScanDir(dir))
+                {
+                    if (m.Ok) map.TryAdd(m.ModId, m);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("扫描已装模组失败，本次不做依赖去重：" + ex.Message);
+            }
+
+            return map;
         }
 
         private static Task<string> TitleAsync(ModSearchHit hit, string projectId, CancellationToken ct)

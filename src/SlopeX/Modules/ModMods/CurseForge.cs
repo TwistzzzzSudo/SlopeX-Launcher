@@ -291,10 +291,10 @@ namespace SlopeX.Modules.ModMods
         /// 取这个文件声明的必需依赖，并一次性补齐名字（界面和日志要显示人话）。
         /// 批量接口漏掉的依赖用 ID 占位返回，至少还能装上。
         /// </summary>
-        public static async Task<List<(string Id, string Name)>> RequiredDepsAsync(ModFileRef file,
+        public static async Task<List<(string Id, string Slug, string Name)>> RequiredDepsAsync(ModFileRef file,
             CancellationToken ct = default)
         {
-            var result = new List<(string Id, string Name)>();
+            var result = new List<(string Id, string Slug, string Name)>();
             if (file == null || file.RequiredDepIds.Count == 0) return result;
 
             try
@@ -311,8 +311,8 @@ namespace SlopeX.Modules.ModMods
                     var id = J.Long(o, "id");
                     if (id <= 0) continue;
 
-                    var name = J.Str(o, "name") ?? "";
-                    result.Add((id.ToString(), name));
+                    // slug 通常等于模组的 modid，用于判断「这个前置是不是已经装过」
+                    result.Add((id.ToString(), J.Str(o, "slug") ?? "", J.Str(o, "name") ?? ""));
                 }
             }
             catch (OperationCanceledException)
@@ -326,7 +326,7 @@ namespace SlopeX.Modules.ModMods
 
             foreach (var id in file.RequiredDepIds)
             {
-                if (!result.Any(r => string.Equals(r.Id, id, StringComparison.Ordinal))) result.Add((id, ""));
+                if (!result.Any(r => string.Equals(r.Id, id, StringComparison.Ordinal))) result.Add((id, "", ""));
             }
 
             return result;
