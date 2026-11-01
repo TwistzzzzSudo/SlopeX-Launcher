@@ -702,56 +702,30 @@ namespace SlopeX.Modules.ModCli
                     Out($"  {g.Key}：" + string.Join("、", g.Select(x => x.FileName)));
             }
 
-            var problems = check ? CheckInstalled(ok) : 0;
+            var problems = check ? PrintHealth(mods) : 0;
 
             return mods.Count == ok.Count && dup.Count == 0 && problems == 0 ? 0 : 1;
         }
 
-        /// <summary>平台 / 加载器自带的 id，不算"缺前置"。</summary>
-        private static readonly HashSet<string> PlatformIds = new(StringComparer.OrdinalIgnoreCase)
-        {
-            "minecraft", "forge", "neoforge", "fabricloader", "fabric-api", "fabric",
-            "javafml", "lowcodefml", "quilt_loader", "quilted_fabric_api"
-        };
-
         /// <summary>
-        /// 对着已装清单做一次体检：必需依赖是否都在、版本是否满足声明区间。
-        /// 只看 mandatory 且非平台自带的依赖——宁可少报，不要拿平台 id 刷屏。
+        /// 体检（复用 <see cref="ModMods.ModHealth"/>）：缺前置、版本不符、冲突、重复、坏包。
+        /// 判断只看 jar 自己声明的元数据，不联网。
         /// </summary>
-        private static int CheckInstalled(List<ModMods.JarMod> mods)
+        private static int PrintHealth(List<ModMods.JarMod> mods)
         {
-            var installed = new Dictionary<string, ModMods.JarMod>(StringComparer.OrdinalIgnoreCase);
-            foreach (var m in mods)
-                installed.TryAdd(m.ModId, m);
-
-            var problems = 0;
+            var report = ModMods.ModHealth.Check(mods);
 
             Out("");
-            Out($"依赖检查（{mods.Count} 个已装模组）：");
+            Out($"依赖检查（{report.OkCount} 个已装模组）：");
 
-            foreach (var m in mods)
+            if (report.Clean)
             {
-                foreach (var d in m.Depends)
-                {
-                    if (!d.Mandatory || PlatformIds.Contains(d.ModId)) continue;
-
-                    if (!installed.TryGetValue(d.ModId, out var have))
-                    {
-                        Out($"  × {m.ModId} 需要 {d.ModId} {d.VersionRange}，未安装");
-                        problems++;
-                    }
-                    else if (!ModMods.ModJar.Satisfies(have.Version, d.VersionRange, d.Syntax))
-                    {
-                        Out($"  × {m.ModId} 需要 {d.ModId} {d.VersionRange}，实际装的是 {have.Version}");
-                        problems++;
-                    }
-                }
+                Out("  没有发现问题");
+                return 0;
             }
 
-            if (problems == 0)
-                Out("  没有发现问题");
-
-            return problems;
+            foreach (var i in report.Issues) Out("  × " + i.Message);
+            return report.Issues.Count;
         }
 
         /// <summary>命令行里的来源写法 → 筛选枚举；认不出来就用「全部」。</summary>

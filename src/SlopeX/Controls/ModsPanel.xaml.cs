@@ -85,6 +85,46 @@ namespace SlopeX.Controls
 
         private void Refresh_Click(object sender, RoutedEventArgs e) => Reload();
 
+        /// <summary>
+        /// 读每个 jar 里声明的依赖，对已装清单做一次体检。
+        /// 只报确定的：缺前置、版本不满足区间、声明的不兼容、同 modid 多份、包读不出来。
+        /// </summary>
+        private void CheckHealth_Click(object sender, RoutedEventArgs e)
+        {
+            var dir = ModManager.ModsDir(Config.Current.GameDir, _versionId);
+
+            try
+            {
+                var report = ModHealth.Check(dir);
+
+                if (report.Mods.Count == 0)
+                {
+                    MainWindow.Current?.ShowToast("mods 目录是空的，没什么可检查的");
+                    return;
+                }
+
+                if (report.Clean)
+                {
+                    SubText.Text = $"{_versionId}  ·  {report.OkCount} 个模组，依赖完整";
+                    MainWindow.Current?.ShowToast($"{report.OkCount} 个模组，没有发现问题");
+                    return;
+                }
+
+                SubText.Text = $"{_versionId}  ·  {report.Summary()}";
+
+                // 逐条写日志：界面只给摘要，细节要能查到
+                foreach (var i in report.Issues) Log.Warn($"体检（{i.Kind}）：{i.Message}");
+
+                var first = report.Issues.First().Message;
+                MainWindow.Current?.ShowToast($"{report.Summary()}；例如：{first}（详见日志）");
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("体检失败：" + ex.Message);
+                MainWindow.Current?.ShowToast("检查失败：" + ex.Message);
+            }
+        }
+
         private void Toggle_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not Button b || b.Tag is not ModEntry mod) return;

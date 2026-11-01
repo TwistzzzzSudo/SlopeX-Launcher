@@ -18,6 +18,12 @@ namespace SlopeX.Modules.ModMods
         public List<string> Skipped { get; } = new List<string>();
         public List<string> Failed { get; } = new List<string>();
 
+        /// <summary>
+        /// 装完后对 mods 目录做的体检（缺前置 / 版本不符 / 冲突 / 重复 / 坏包）。
+        /// 失败时为 null——体检不该影响安装结果本身。
+        /// </summary>
+        public HealthReport Health { get; set; }
+
         public string Summary()
         {
             if (Installed.Count == 0 && Failed.Count == 0 && Skipped.Count == 0)
@@ -30,8 +36,13 @@ namespace SlopeX.Modules.ModMods
 
             var text = string.Join("，", parts);
             if (Failed.Count > 0) text += "：" + string.Join("、", Failed.Take(3));
+            if (Health != null && !Health.Clean) text += $"；体检：{Health.Summary()}";
             return text;
         }
+
+        /// <summary>体检发现的前几条问题，给界面展开用。</summary>
+        public List<string> HealthLines(int max = 3)
+            => Health == null ? new List<string>() : Health.Issues.Take(max).Select(i => i.Message).ToList();
     }
 
     /// <summary>
@@ -192,6 +203,17 @@ namespace SlopeX.Modules.ModMods
                     result.Installed.Add(f.FileName);
                     Log.Info($"模组已安装：{f.FileName}（{f.Source} {f.ProjectId}）");
                 }
+            }
+
+            // 装完顺手体检：缺的东西（依赖下载失败、版本不符、与已装模组冲突）当场告诉用户，
+            // 不必等他启动崩了再来查。只读 zip 元数据，几十毫秒；失败也不影响安装结果。
+            try
+            {
+                result.Health = ModHealth.Check(modsDir);
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("安装后体检失败（不影响安装结果）：" + ex.Message);
             }
 
             return result;
