@@ -227,8 +227,9 @@
                     </Border>
                 </StackPanel>
 
-                <!-- ===== 右：账号与环境 ===== -->
+                <!-- ===== 右：账号与皮肤 / 游戏目录 ===== -->
                 <StackPanel Grid.Column="2">
+                    <!-- 账号与皮肤合成一张卡：上面是账号行，下面是同一个人的样子 -->
                     <Border Style="{StaticResource Card}">
                         <StackPanel>
                             <Grid>
@@ -242,14 +243,24 @@
                                     <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
                                         <TextBlock x:Name="AccountName" Style="{StaticResource TBody}"
                                                    FontWeight="SemiBold" Text="Steve"/>
-                                        <TextBlock Style="{StaticResource TCaption}" Text="离线登录 · 无需验证"
-                                                   Margin="0,2,0,0"/>
+                                        <TextBlock x:Name="AccountModeText" Style="{StaticResource TCaption}"
+                                                   Text="离线登录 · 无需验证" Margin="0,2,0,0"/>
                                     </StackPanel>
                                 </StackPanel>
                                 <Button Style="{StaticResource BtnText}" Content="编辑"
                                         HorizontalAlignment="Right" VerticalAlignment="Center"
                                         Click="EditAccount_Click"/>
                             </Grid>
+
+                            <Border Style="{StaticResource HRule}" Margin="0,14,0,12"/>
+
+                            <Border Background="{DynamicResource Paper2}" BorderBrush="{DynamicResource Line}"
+                                    BorderThickness="1" CornerRadius="{StaticResource R10}"
+                                    ClipToBounds="True" Height="300">
+                                <controls:SkinPreview x:Name="SkinView"/>
+                            </Border>
+                            <TextBlock x:Name="SkinDetail" Style="{StaticResource TCaption}"
+                                       Margin="0,10,0,0" TextWrapping="Wrap"/>
                         </StackPanel>
                     </Border>
 

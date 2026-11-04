@@ -59,6 +59,7 @@ namespace SlopeX.Pages
                 ApplySelection();
                 UpdateAccount();
                 await UpdateJavaInfoAsync();
+                await UpdateSkinAsync();
             }
             catch (Exception ex)
             {
@@ -125,10 +126,61 @@ namespace SlopeX.Pages
 
         private void UpdateAccount()
         {
-            var name = string.IsNullOrWhiteSpace(Config.Current.PlayerName) ? "Steve" : Config.Current.PlayerName;
+            // 登录正版时这张卡就该显示正版账号；只有离线时才用配置里的玩家名
+            var session = Msa.Current;
+
+            var name = session != null
+                ? session.Name
+                : string.IsNullOrWhiteSpace(Config.Current.PlayerName) ? "Steve" : Config.Current.PlayerName;
+
             AccountName.Text = name;
             AvatarText.Text = name.Substring(0, 1).ToUpperInvariant();
+            AccountModeText.Text = session != null ? "正版登录 · 皮肤自动同步" : "离线登录 · 无需验证";
             GameDirText.Text = Config.Current.GameDir;
+        }
+
+        /// <summary>
+        /// 右栏的皮肤预览：登录了正版就显示正版皮肤；没有（或没上传）退回离线皮肤；
+        /// 都没有就留白。贴图由 SkinProvider 统一取，和账号页共用同一份缓存，不会重复下载。
+        /// </summary>
+        private async Task UpdateSkinAsync()
+        {
+            var session = Msa.Current;
+            SkinLoadResult pick = null;
+            string text;
+
+            if (session != null)
+            {
+                var premium = await SkinProvider.PremiumAsync(session);
+
+                if (premium != null && premium.Ok)
+                {
+                    pick = premium;
+                    text = "正版皮肤 · " + SkinProvider.ModelText(premium.Model);
+                }
+                else
+                {
+                    text = "这个账号还没有上传皮肤，游戏里显示官方默认外观。";
+                }
+            }
+            else
+            {
+                text = "还没有选择皮肤，点「编辑」去账号页挑一张 PNG。";
+            }
+
+            if (pick == null)
+            {
+                var offline = SkinProvider.Offline();
+
+                if (offline != null && offline.Ok)
+                {
+                    pick = offline;
+                    text = "离线皮肤 · " + Config.Current.OfflineSkin;
+                }
+            }
+
+            SkinView.SetSkin(pick?.Image, pick?.Model ?? SkinModel.Classic);
+            SkinDetail.Text = text;
         }
 
         private async Task UpdateJavaInfoAsync()

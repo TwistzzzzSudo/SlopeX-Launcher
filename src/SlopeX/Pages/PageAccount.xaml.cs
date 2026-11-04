@@ -111,6 +111,7 @@ namespace SlopeX.Pages
             if (r != MessageBoxResult.OK) return;
 
             Msa.Logout();
+            SkinProvider.InvalidatePremium();
             _premium = null;
             _premiumLoadedFor = null;
             _showPremium = false;
@@ -155,34 +156,10 @@ namespace SlopeX.Pages
                 }
                 else if (_premiumLoadedFor != session.Uuid || _premium == null)
                 {
-                    SkinDetail.Text = "正在读取正版皮肤…";
+                    if (!SkinProvider.IsPremiumCached(session)) SkinDetail.Text = "正在读取正版皮肤…";
 
-                    try
-                    {
-                        var info = await Msa.FetchSkinAsync(session).ConfigureAwait(true);
-
-                        if (info.HasSkin)
-                        {
-                            _premium = await SkinTexture.FromUrlAsync(info.Url, info.Variant).ConfigureAwait(true);
-                        }
-                        else
-                        {
-                            _premium = new SkinLoadResult
-                            {
-                                Image = null,
-                                Model = SkinModel.Classic,
-                                Error = "这个账号还没有上传皮肤"
-                            };
-                        }
-
-                        _premiumLoadedFor = session.Uuid;
-                    }
-                    catch (Exception ex)
-                    {
-                        _premium = SkinLoadResult.Fail(ex.Message);
-                        _premiumLoadedFor = session.Uuid;
-                        Log.Warn("读取正版皮肤失败：" + ex.Message);
-                    }
+                    _premium = await SkinProvider.PremiumAsync(session).ConfigureAwait(true);
+                    _premiumLoadedFor = session.Uuid;
                 }
 
                 if (!_sourceChosenByUser && _premium != null && _premium.Ok && _premiumLoadedFor != null)
@@ -196,31 +173,7 @@ namespace SlopeX.Pages
             }
         }
 
-        private void LoadOfflineSkin()
-        {
-            var name = Config.Current.OfflineSkin;
-
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                _offline = null;   // 没导入过 → 预览留白
-                return;
-            }
-
-            var path = SkinStore.FullPath(name);
-            var result = SkinTexture.FromFile(path);
-
-            if (result.Ok)
-            {
-                _offline = result;
-                return;
-            }
-
-            // 文件被删了或坏了：回落到默认，并把配置清干净，免得每次进页面都失败
-            Log.Warn($"离线皮肤不可用（{name}）：{result.Error}");
-            Config.Current.OfflineSkin = "";
-            Config.Current.Save();
-            _offline = null;
-        }
+        private void LoadOfflineSkin() => _offline = SkinProvider.Offline();
 
         private void ApplyPreview()
         {
@@ -257,18 +210,15 @@ namespace SlopeX.Pages
                           "。皮肤由 minecraft.net 管理，这里只能预览。";
                 }
 
-                return $"正版皮肤 · {ModelText(_premium.Model)}";
+                return $"正版皮肤 · {SkinProvider.ModelText(_premium.Model)}";
             }
 
             var custom = Config.Current.OfflineSkin;
             if (string.IsNullOrWhiteSpace(custom) || _offline == null || !_offline.Ok)
                 return "还没有选择皮肤。点「选择皮肤文件」挑一张 64×64（或 64×32）的 PNG。";
 
-            return $"离线皮肤 · {custom}（{ModelText(_offline.Model)}）";
+            return $"离线皮肤 · {custom}（{SkinProvider.ModelText(_offline.Model)}）";
         }
-
-        private static string ModelText(SkinModel model) =>
-            model == SkinModel.Slim ? "细手臂" : "粗手臂";
 
         private void UpdateSkinChips()
         {
