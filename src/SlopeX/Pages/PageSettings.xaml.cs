@@ -59,11 +59,6 @@ namespace SlopeX.Pages
                 ChkResolution.IsChecked = c.CustomResolution;
                 ChkMinimize.IsChecked = c.CloseOnLaunch;
                 ChkAutoJava.IsChecked = c.AutoInstallJava;
-                UpdateIsolationInfo(c);
-
-                DataDirText.Text = Paths.DataDir;
-                InputRuntimeDir.Text = c.JavaRuntimeDir ?? "";
-                RuntimeDirHint.Text = "当前生效：" + c.JavaRuntimeDirHint;
 
                 ChipMirror.IsChecked = c.UseMirror;
                 ChipOfficial.IsChecked = !c.UseMirror;
@@ -88,96 +83,6 @@ namespace SlopeX.Pages
                 MemoryHint.Text = $"约 {mb / 1024.0:0.#} GB";
             else
                 MemoryHint.Text = "";
-        }
-
-        /// <summary>
-        /// 显示当前版本的存档路径。根目录若还有旧版"共用模式"留下的存档，只做提示，
-        /// 不自动搬移、不自动共享——是否共用由用户自己复制文件决定。
-        /// </summary>
-        private void UpdateIsolationInfo(Config c)
-        {
-            var root = c.GameDir;
-
-            if (string.IsNullOrWhiteSpace(c.LastVersion))
-            {
-                SavesPathText.Text = "尚未启动过任何版本；启动一次后会显示该版本的存档目录。";
-            }
-            else
-            {
-                try
-                {
-                    SavesPathText.Text = "当前版本（" + c.LastVersion + "）存档目录：" +
-                                         VersionEnv.SavesDir(root, c.LastVersion);
-                }
-                catch (Exception ex)
-                {
-                    SavesPathText.Text = "存档目录解析失败：" + ex.Message;
-                }
-            }
-
-            if (VersionEnv.HasLegacySharedSaves(root, out var legacy) && !c.DismissLegacySavesHint)
-            {
-                LegacySavesHint.Text =
-                    $"根目录 {Path.Combine(root, "saves")} 仍有 {legacy} 个旧存档（旧版共用模式遗留），不会被自动共享。" +
-                    "需要时请手动复制到目标版本的 saves 目录。";
-                LegacySavesRow.Visibility = Visibility.Visible;
-            }
-            else
-            {
-                LegacySavesRow.Visibility = Visibility.Collapsed;
-            }
-        }
-
-        /// <summary>旧存档提示是"一次性通知"，允许用户关掉，避免长期钉在页面上。</summary>
-        private void DismissLegacySaves_Click(object sender, RoutedEventArgs e)
-        {
-            Config.Current.DismissLegacySavesHint = true;
-            Config.Current.Save();
-            LegacySavesRow.Visibility = Visibility.Collapsed;
-        }
-
-        // ---------------- 数据目录与运行时 ----------------
-
-        private void OpenDataDir_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                var dir = Paths.DataDir;
-                if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-                Process.Start(new ProcessStartInfo("explorer.exe", "\"" + dir + "\"") { UseShellExecute = true });
-            }
-            catch (Exception ex)
-            {
-                Log.Warn("打开数据目录失败：" + ex.Message);
-            }
-        }
-
-        private void BrowseRuntimeDir_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                var dialog = new OpenFolderDialog
-                {
-                    Title = "选择 Java 运行时存放目录",
-                    Multiselect = false
-                };
-
-                var current = (InputRuntimeDir.Text ?? "").Trim();
-                if (string.IsNullOrEmpty(current)) current = Paths.RuntimeDir;
-                if (Directory.Exists(current)) dialog.InitialDirectory = current;
-
-                if (dialog.ShowDialog() == true) InputRuntimeDir.Text = dialog.FolderName;
-            }
-            catch (Exception ex)
-            {
-                Log.Warn("选择运行时目录失败：" + ex.Message);
-            }
-        }
-
-        private void ResetRuntimeDir_Click(object sender, RoutedEventArgs e)
-        {
-            InputRuntimeDir.Text = "";
-            RuntimeDirHint.Text = "当前生效：默认位置（%APPDATA%\\SlopeX\\runtime），点「保存设置」后生效";
         }
 
         // ---------------- 主题 ----------------
@@ -209,7 +114,7 @@ namespace SlopeX.Pages
             _ => "极简白纸"
         };
 
-        /// <summary>三选一互斥 + 说明文字。</summary>
+        /// <summary>五个 Chip 互斥高亮。</summary>
         private void UpdateThemeChips()
         {
             var mode = ThemeService.ParseMode(Config.Current.Appearance);
@@ -219,18 +124,6 @@ namespace SlopeX.Pages
             ChipThemeVice.IsChecked = mode == AppearanceMode.ViceCity;
             ChipThemeLight.IsChecked = mode == AppearanceMode.Light;
             ChipThemeDark.IsChecked = mode == AppearanceMode.Dark;
-
-            ThemeHint.Text = mode switch
-            {
-                AppearanceMode.System =>
-                    "跟随系统：Windows 当前为" + (ThemeService.IsSystemDark() ? "深色" : "浅色") +
-                    " → 使用「" + ThemeName(ThemeService.CurrentMode) + "」",
-                AppearanceMode.Light => "固定浅色：使用「极简白纸」（默认）",
-                AppearanceMode.Dark => "固定深色：使用「极简墨纸」",
-                AppearanceMode.RetroFuture => "插画主题：「复古未来」——合成波暮色位图，卡片半透明",
-                AppearanceMode.ViceCity => "插画主题：「ViceCity」——迈阿密暮色位图，卡片近乎不透明",
-                _ => "固定浅色：使用「极简白纸」（默认）"
-            };
         }
 
         private void Save_Click(object sender, RoutedEventArgs e)
@@ -260,10 +153,7 @@ namespace SlopeX.Pages
                 c.UseMirror = ChipMirror.IsChecked == true;
                 c.DownloadThreads = SelectedThreads;
 
-                c.JavaRuntimeDir = (InputRuntimeDir.Text ?? "").Trim();
-
                 c.Save();
-                RuntimeDirHint.Text = "当前生效：" + c.JavaRuntimeDirHint;
                 MainWindow.Current?.ApplyConfigChanged();
                 MainWindow.Current?.SetStatus("设置已保存", null);
                 MainWindow.Current?.ShowToast("设置已保存");
@@ -287,32 +177,6 @@ namespace SlopeX.Pages
             ThemeService.Apply(AppearanceMode.Light, force: true);   // 默认回到「极简白纸」
             LoadFromConfig();
             MainWindow.Current?.ApplyConfigChanged();
-        }
-
-        /// <summary>
-        /// 打开该版本自己的存档目录。<b>只做导航，不复制任何文件</b>——
-        /// 跨版本共用存档由用户自行复制，启动器不提供共享通道。
-        /// </summary>
-        private void OpenSaves_Click(object sender, RoutedEventArgs e)
-        {
-            var c = Config.Current;
-            if (string.IsNullOrWhiteSpace(c.LastVersion))
-            {
-                MessageBox.Show("还没有启动过任何版本，先启动一次游戏。", "SlopeX");
-                return;
-            }
-
-            try
-            {
-                var dir = VersionEnv.SavesDir(c.GameDir, c.LastVersion);
-                if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-                Process.Start(new ProcessStartInfo("explorer.exe", "\"" + dir + "\"") { UseShellExecute = true });
-            }
-            catch (Exception ex)
-            {
-                Log.Warn("打开存档目录失败：" + ex.Message);
-                MessageBox.Show("打开存档目录失败：" + ex.Message, "SlopeX");
-            }
         }
 
         // ---------------- 浏览 ----------------

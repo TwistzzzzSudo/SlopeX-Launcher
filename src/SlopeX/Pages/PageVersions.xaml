@@ -47,8 +47,6 @@
                     </TextBlock.Style>
                 </TextBlock>
             </Grid>
-            <TextBlock Style="{StaticResource TCaption}" HorizontalAlignment="Right" VerticalAlignment="Center"
-                       Text="双击版本可立即启动"/>
         </Grid>
 
         <Grid Grid.Row="2">

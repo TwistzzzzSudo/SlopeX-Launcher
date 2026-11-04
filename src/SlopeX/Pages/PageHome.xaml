@@ -257,8 +257,6 @@
                             <TextBlock Style="{StaticResource TSection}" Text="游戏目录" Margin="0,0,0,10"/>
                             <TextBlock x:Name="GameDirText" Style="{StaticResource TMono}" TextWrapping="Wrap"
                                        Text="—"/>
-                            <TextBlock x:Name="GameDirMode" Style="{StaticResource TCaption}" Margin="0,8,0,0"
-                                       TextWrapping="Wrap" Text="—"/>
                             <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
                                 <Button Style="{StaticResource BtnGhost}" Content="打开文件夹" Height="30"
                                         Padding="12,0" Click="OpenFolder_Click"/>
@@ -268,13 +266,6 @@
                         </StackPanel>
                     </Border>
 
-                    <Border Style="{StaticResource Card}" Margin="0,16,0,0">
-                        <StackPanel>
-                            <TextBlock Style="{StaticResource TSection}" Text="小提示" Margin="0,0,0,8"/>
-                            <TextBlock Style="{StaticResource TSub}" TextWrapping="Wrap" LineHeight="20"
-                                       Text="首次使用请先在「下载」页安装一个版本，启动器会自动扫描已有 .minecraft 目录。开启版本隔离后，每个版本的材质包、存档、模组都在各自目录里，互不影响。"/>
-                        </StackPanel>
-                    </Border>
                 </StackPanel>
             </Grid>
         </StackPanel>

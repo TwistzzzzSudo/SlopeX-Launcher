@@ -78,12 +78,6 @@ namespace SlopeX.Pages
             StatMemory.Text = (Config.Current.MemoryMb / 1024.0).ToString("0.#") + " GB";
             StatSource.Text = Config.Current.UseMirror ? "BMCLAPI" : "官方";
 
-            // 游戏目录卡片：版本隔离是强制行为，这里只显示该版本自己的目录
-            var root = Config.Current.GameDir;
-            GameDirMode.Text = _selected == null
-                ? "存档隔离：强制开启（每个版本独立的 mods / 资源包 / 存档）"
-                : "存档隔离：强制开启 → " + VersionEnv.Resolve(root, _selected.Id);
-
             if (_selected == null)
             {
                 CurVersionName.Text = "尚未安装版本";
