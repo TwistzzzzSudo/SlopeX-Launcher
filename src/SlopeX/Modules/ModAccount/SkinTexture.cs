@@ -124,6 +124,43 @@ namespace SlopeX.Modules.ModAccount
             }
         }
 
+        // ---------------- 披风贴图 ----------------
+
+        /// <summary>
+        /// 解一张任意尺寸的图（披风用）。披风也是 64×32 的像素画，但布局与皮肤不同，
+        /// 不能再走 <see cref="FromBytes"/> 的尺寸校验与手臂判断。
+        /// </summary>
+        public static BitmapSource BitmapFromBytes(byte[] data)
+        {
+            if (data == null || data.Length == 0) return null;
+
+            try
+            {
+                using var ms = new MemoryStream(data);
+                var decoder = BitmapDecoder.Create(ms, BitmapCreateOptions.PreservePixelFormat,
+                    BitmapCacheOption.OnLoad);
+                if (decoder.Frames.Count == 0) return null;
+
+                var converted = new FormatConvertedBitmap(decoder.Frames[0], PixelFormats.Bgra32, null, 0);
+                converted.Freeze();
+                return converted;
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("解码披风贴图失败：" + ex.Message);
+                return null;
+            }
+        }
+
+        public static async Task<BitmapSource> BitmapFromUrlAsync(string url, CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(url)) return null;
+
+            var safe = url.Replace("http://", "https://", StringComparison.OrdinalIgnoreCase);
+            var bytes = await Net.GetBytesAsync(safe, ct).ConfigureAwait(false);
+            return BitmapFromBytes(bytes);
+        }
+
         // ---------------- 模型判定 ----------------
 
         /// <summary>

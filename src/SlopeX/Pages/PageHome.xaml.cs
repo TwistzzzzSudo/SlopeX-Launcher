@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media.Imaging;
 using SlopeX.Modules.ModAccount;
 using SlopeX.Modules.ModBase;
 using SlopeX.Modules.ModJava;
@@ -147,6 +148,7 @@ namespace SlopeX.Pages
         {
             var session = Msa.Current;
             SkinLoadResult pick = null;
+            BitmapSource cape = null;
             string text;
 
             if (session != null)
@@ -157,6 +159,11 @@ namespace SlopeX.Pages
                 {
                     pick = premium;
                     text = "正版皮肤 · " + SkinProvider.ModelText(premium.Model);
+
+                    // 披风只有在正版外观里才有意义；没戴就是 null
+                    var capes = await SkinProvider.CapesAsync(session);
+                    var active = capes.Find(c => c.IsActive);
+                    if (active != null) cape = await SkinProvider.CapeTextureAsync(active);
                 }
                 else
                 {
@@ -180,6 +187,7 @@ namespace SlopeX.Pages
             }
 
             SkinView.SetSkin(pick?.Image, pick?.Model ?? SkinModel.Classic);
+            SkinView.SetCape(cape);
             SkinDetail.Text = text;
         }
 

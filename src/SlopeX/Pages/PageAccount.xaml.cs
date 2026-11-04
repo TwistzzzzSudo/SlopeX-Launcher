@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 using SlopeX.Controls;
@@ -16,16 +18,21 @@ namespace SlopeX.Pages
     ///
     /// 皮肤预览是 3D 的，可以拖动旋转；数据来源分三种——
     /// 正版账号从 Mojang 贴图服务下、离线上传读本地 PNG；都没有就留白，由页面给提示文字。
+    /// 正版账号还能在这里挑披风（切换的是账号设置，不是本地预览）。
     /// </summary>
     public partial class PageAccount : UserControl, ILauncherPage
     {
         private SkinLoadResult _offline;
         private SkinLoadResult _premium;
 
+        private List<Msa.CapeInfo> _capes = new List<Msa.CapeInfo>();
+        private BitmapSource _capeImage;   // 当前戴着那款披风的贴图，预览用
+
         private bool _showPremium = true;
         private string _premiumLoadedFor;
         private bool _nameLoaded;
         private bool _loadingSkins;
+        private bool _capeBusy;
 
         /// <summary>用户手动点过「正版 / 离线」之后，页面刷新就不再自动帮他改回去。</summary>
         private bool _sourceChosenByUser;
@@ -93,6 +100,8 @@ namespace SlopeX.Pages
                 _showPremium = true;
                 _premiumLoadedFor = null;
                 _sourceChosenByUser = false;
+                _capes.Clear();
+                _capeImage = null;
                 MainWindow.Current?.ApplyConfigChanged();
                 MainWindow.Current?.SetStatus($"已登录：{session.Name}", null);
                 Log.Info($"账号已切换为正版：{session.Name}");
@@ -114,6 +123,8 @@ namespace SlopeX.Pages
             SkinProvider.InvalidatePremium();
             _premium = null;
             _premiumLoadedFor = null;
+            _capes.Clear();
+            _capeImage = null;
             _showPremium = false;
             _sourceChosenByUser = false;
 
@@ -153,13 +164,21 @@ namespace SlopeX.Pages
                 {
                     _premium = null;
                     _premiumLoadedFor = null;
+                    _capes.Clear();
+                    _capeImage = null;
                 }
-                else if (_premiumLoadedFor != session.Uuid || _premium == null)
+                else
                 {
-                    if (!SkinProvider.IsPremiumCached(session)) SkinDetail.Text = "正在读取正版皮肤…";
+                    if (_premiumLoadedFor != session.Uuid || _premium == null)
+                    {
+                        if (!SkinProvider.IsPremiumCached(session)) SkinDetail.Text = "正在读取正版皮肤…";
 
-                    _premium = await SkinProvider.PremiumAsync(session).ConfigureAwait(true);
-                    _premiumLoadedFor = session.Uuid;
+                        _premium = await SkinProvider.PremiumAsync(session).ConfigureAwait(true);
+                        _premiumLoadedFor = session.Uuid;
+                    }
+
+                    _capes = await SkinProvider.CapesAsync(session).ConfigureAwait(true);
+                    await RefreshCapeImageAsync().ConfigureAwait(true);
                 }
 
                 if (!_sourceChosenByUser && _premium != null && _premium.Ok && _premiumLoadedFor != null)
@@ -187,12 +206,16 @@ namespace SlopeX.Pages
             else
                 SkinView.SetSkin(current.Image, current.Model);
 
+            // 披风只挂在正版外观上：离线皮肤是本地 PNG，和账号披风没关系
+            SkinView.SetCape(_showPremium && Msa.Current != null ? _capeImage : null);
+
             SkinDetail.Text = Describe();
 
             // 上传按钮只在离线皮肤下有意义
             BtnUpload.IsEnabled = !_showPremium;
 
             UpdateSkinChips();
+            BuildCapeChips();
         }
 
         private string Describe()
@@ -235,6 +258,118 @@ namespace SlopeX.Pages
             _showPremium = ReferenceEquals(sender, ChipPremium);
             _sourceChosenByUser = true;
             ApplyPreview();
+        }
+
+        // ---------------- 披风 ----------------
+
+        private async Task RefreshCapeImageAsync()
+        {
+            var session = Msa.Current;
+            var active = session == null ? null : SkinProvider.ActiveCape(session);
+            _capeImage = active == null ? null : await SkinProvider.CapeTextureAsync(active).ConfigureAwait(true);
+        }
+
+        /// <summary>
+        /// 按当前账号重建披风选项。没有披风的账号只留一个「无」，点不动。
+        ///
+        /// 只在「登录了正版 + 当前看的是正版外观」时出现：披风是账号外观的一部分，
+        /// 离线皮肤是本地 PNG，两者没有关系；摆在离线预览下点它不会有任何视觉反馈。
+        /// </summary>
+        private void BuildCapeChips()
+        {
+            CapeChips.Children.Clear();
+
+            var session = Msa.Current;
+            var visible = session != null && _showPremium;
+
+            CapeSection.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            if (!visible) return;
+
+            var active = _capes.Find(c => c.IsActive);
+
+            var none = MakeCapeChip("无", active == null, _capes.Count == 0 || _capeBusy);
+            none.Click += (s, _) => OnCapeChipClick(s as ToggleButton, null);
+            CapeChips.Children.Add(none);
+
+            foreach (var cape in _capes)
+            {
+                var chip = MakeCapeChip(cape.DisplayName, active != null && cape.Id == active.Id, _capeBusy);
+                chip.Click += (s, _) => OnCapeChipClick(s as ToggleButton, cape);
+                CapeChips.Children.Add(chip);
+            }
+        }
+
+        private ToggleButton MakeCapeChip(string text, bool active, bool disabled) => new ToggleButton
+        {
+            Style = (Style)FindResource("Chip"),
+            Content = text,
+            IsChecked = active,
+            IsEnabled = !disabled,
+            Margin = new Thickness(0, 0, 8, 8)
+        };
+
+        private void OnCapeChipClick(ToggleButton chip, Msa.CapeInfo cape)
+        {
+            if (_capeBusy || chip == null) { BuildCapeChips(); return; }
+
+            // 单选：先把别的取消掉，避免点完两颗都亮着
+            foreach (var child in CapeChips.Children)
+                if (child is ToggleButton other && !ReferenceEquals(other, chip))
+                    other.IsChecked = false;
+
+            _ = ChooseCapeAsync(cape);
+        }
+
+        /// <summary>
+        /// 切换账号的披风。<paramref name="cape"/> 为 null = 摘掉（「无」）。
+        /// 改的是账号设置（游戏下次启动生效），预览立刻跟着变。
+        /// </summary>
+        private async Task ChooseCapeAsync(Msa.CapeInfo cape)
+        {
+            var session = Msa.Current;
+            if (session == null) return;
+
+            var active = _capes.Find(c => c.IsActive);
+            var same = cape == null
+                ? active == null
+                : active != null && string.Equals(active.Id, cape.Id, StringComparison.OrdinalIgnoreCase);
+
+            if (same) { BuildCapeChips(); return; }   // 点的就是当前那款，别白跑一次请求
+
+            _capeBusy = true;
+            SetCapeChipsEnabled(false);
+
+            try
+            {
+                var updated = cape == null
+                    ? await Msa.ClearCapeAsync(session).ConfigureAwait(true)
+                    : await Msa.SetCapeAsync(session, cape.Id).ConfigureAwait(true);
+
+                SkinProvider.UpdateCapes(session, updated);
+                _capes = updated;
+                await RefreshCapeImageAsync().ConfigureAwait(true);
+                ApplyPreview();
+
+                var what = cape == null ? "已摘掉披风" : "披风已切换为 " + cape.DisplayName;
+                MainWindow.Current?.ShowToast(what);
+                Log.Info(what);
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("切换披风失败：" + ex.Message);
+                MainWindow.Current?.ShowToast("切换披风失败：" + ex.Message);
+            }
+            finally
+            {
+                _capeBusy = false;
+                BuildCapeChips();
+            }
+        }
+
+        private void SetCapeChipsEnabled(bool on)
+        {
+            foreach (var child in CapeChips.Children)
+                if (child is ToggleButton chip) chip.IsEnabled = on;
         }
 
         private void Upload_Click(object sender, RoutedEventArgs e)

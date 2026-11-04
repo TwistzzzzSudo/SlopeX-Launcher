@@ -87,6 +87,12 @@
                             <TextBlock x:Name="SkinDetail" Style="{StaticResource TCaption}" Margin="0,14,0,0"
                                        TextWrapping="Wrap"/>
 
+                            <!-- 披风：只有正版账号、且当前看的是正版皮肤时才出现 -->
+                            <StackPanel x:Name="CapeSection" Margin="0,20,0,0" Visibility="Collapsed">
+                                <TextBlock Style="{StaticResource TSection}" Text="披风" Margin="0,0,0,10"/>
+                                <WrapPanel x:Name="CapeChips"/>
+                            </StackPanel>
+
                             <Button x:Name="BtnUpload" Style="{StaticResource BtnGhost}" Content="选择皮肤文件"
                                     HorizontalAlignment="Left" Margin="0,16,0,0" Click="Upload_Click"/>
                         </StackPanel>

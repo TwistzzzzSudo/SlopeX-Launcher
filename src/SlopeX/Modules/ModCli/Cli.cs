@@ -84,7 +84,8 @@ namespace SlopeX.Modules.ModCli
                     Out("  music-test               播放当前主题背景音乐 3 秒并打印进度（排障用）");
                     Out("  music-sim                模拟「启动游戏 / 退出游戏」的音乐挂起与恢复（排障用）");
                     Out("  skin-render [输出png] [皮肤文件]   把皮肤 3D 预览渲染成 PNG（排障用）");
-                    Out("  skin-premium [输出png]   读当前正版账号的皮肤并渲染（排障用）");
+                    Out("  skin-premium [输出png] [角度]   读正版皮肤并渲染（含正戴的披风；角度 180 = 从背后看）");
+                    Out("  capes                    列出当前正版账号拥有的披风（排障用）");
                     Out("  skin-set <皮肤png>       设为离线皮肤（等同账号页「选择皮肤文件」）");
                     Out("  skin-clear               离线皮肤恢复内置默认");
                     Out("  fix-libs <版本>          补齐缺失的依赖库（走镜像）");
@@ -175,6 +176,9 @@ namespace SlopeX.Modules.ModCli
 
                 case "skin-premium":
                     return SkinPremium(args);
+
+                case "capes":
+                    return Capes();
 
                 case "skin-set":
                     return SkinSet(args);
@@ -1077,6 +1081,32 @@ namespace SlopeX.Modules.ModCli
                 ? ModAccount.SkinModel.Slim
                 : ModAccount.SkinModel.Classic;
 
+            // 可选：第 4 个参数是披风图，第 5 个是水平角（180 = 从背后看）
+            var capePath = args.Skip(3).FirstOrDefault();
+            var yaw = args.Count > 4 && double.TryParse(args[4], out var deg) ? deg : 22;
+
+            BitmapSource cape = null;
+            if (!string.IsNullOrWhiteSpace(capePath))
+            {
+                try
+                {
+                    cape = ModAccount.SkinTexture.BitmapFromBytes(File.ReadAllBytes(capePath));
+                }
+                catch (Exception ex)
+                {
+                    Out("读取披风失败：" + ex.Message);
+                    return 1;
+                }
+
+                if (cape == null)
+                {
+                    Out("披风图解码失败：" + capePath);
+                    return 1;
+                }
+
+                Out($"披风：{Path.GetFileName(capePath)}（{cape.PixelWidth}×{cape.PixelHeight}）");
+            }
+
             BitmapSource skin = null;
 
             if (string.IsNullOrWhiteSpace(skinPath))
@@ -1098,7 +1128,7 @@ namespace SlopeX.Modules.ModCli
                     $"{(model == ModAccount.SkinModel.Slim ? "细手臂" : "粗手臂")}）");
             }
 
-            if (!Controls.SkinPreview.RenderToFile(skin, model, outPath))
+            if (!Controls.SkinPreview.RenderToFile(skin, model, outPath, 320, 480, cape, yaw))
             {
                 Out("渲染失败（WPF 3D 需要 STA 线程，可能没起来）");
                 return 1;
@@ -1117,6 +1147,9 @@ namespace SlopeX.Modules.ModCli
         {
             var outPath = args.FirstOrDefault();
             if (string.IsNullOrWhiteSpace(outPath)) outPath = "skin-premium.png";
+
+            // 第二个参数是水平角：默认 22（略侧），180 = 从背后看，用来核披风
+            var yaw = args.Count > 1 && double.TryParse(args[1], out var deg) ? deg : 22;
 
             var session = Msa.Current;
             if (session == null)
@@ -1157,13 +1190,73 @@ namespace SlopeX.Modules.ModCli
             Out($"贴图：{loaded.Image.PixelWidth}×{loaded.Image.PixelHeight}，" +
                 $"{(loaded.Model == ModAccount.SkinModel.Slim ? "细手臂" : "粗手臂")}");
 
-            if (!Controls.SkinPreview.RenderToFile(loaded.Image, loaded.Model, outPath))
+            // 顺带把正戴着的披风也画上，和账号页看到的一致
+            BitmapSource capeImage = null;
+            try
+            {
+                var capes = Msa.FetchCapesAsync(session).GetAwaiter().GetResult();
+                var active = capes.Find(c => c.IsActive);
+
+                if (active == null)
+                {
+                    Out("披风：无（账号没有戴披风）");
+                }
+                else
+                {
+                    capeImage = ModAccount.SkinTexture.BitmapFromUrlAsync(active.Url).GetAwaiter().GetResult();
+                    Out(capeImage == null
+                        ? $"披风：{active.DisplayName}（贴图下载失败）"
+                        : $"披风：{active.DisplayName}（{capeImage.PixelWidth}×{capeImage.PixelHeight}）");
+                }
+            }
+            catch (Exception ex)
+            {
+                Out("读取披风失败：" + ex.Message);
+            }
+
+            if (!Controls.SkinPreview.RenderToFile(loaded.Image, loaded.Model, outPath, 320, 480, capeImage, yaw))
             {
                 Out("渲染失败");
                 return 1;
             }
 
             Out("已输出：" + Path.GetFullPath(outPath));
+            return 0;
+        }
+
+        /// <summary>列出当前账号拥有的披风。判据是档案里的 capes 数组，不会额外发请求。</summary>
+        private static int Capes()
+        {
+            var session = Msa.Current;
+            if (session == null)
+            {
+                Out("还没有登录正版账号");
+                return 1;
+            }
+
+            Out($"账号：{session.Name}");
+
+            List<Msa.CapeInfo> capes;
+            try
+            {
+                capes = Msa.FetchCapesAsync(session).GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                Out("读取披风失败：" + ex.Message);
+                return 1;
+            }
+
+            if (capes.Count == 0)
+            {
+                Out("这个账号没有披风（账号页显示「无」）");
+                return 0;
+            }
+
+            Out($"共 {capes.Count} 款：");
+            foreach (var cape in capes)
+                Out($"  {(cape.IsActive ? "●" : "○")} {cape.DisplayName}  {cape.Id}");
+
             return 0;
         }
 

@@ -67,6 +67,7 @@ namespace SlopeX.Modules.ModAccount
         private const string XstsUrl = "https://xsts.auth.xboxlive.com/xsts/authorize";
         private const string McLoginUrl = "https://api.minecraftservices.com/authentication/login_with_xbox";
         private const string McProfileUrl = "https://api.minecraftservices.com/minecraft/profile";
+        private const string McCapeUrl = "https://api.minecraftservices.com/minecraft/profile/capes/active";
 
         private static readonly object Gate = new object();
         private static MsaSession _current;
@@ -403,6 +404,119 @@ namespace SlopeX.Modules.ModAccount
             }
         }
 
+        // ---------------- 披风 ----------------
+
+        /// <summary>
+        /// 账号拥有的一款披风。平台只标「哪一款正在戴」（<c>state</c> = <c>ACTIVE</c>），
+        /// 不会单独给一个「当前披风」字段——所以列表里最多只有一条 <see cref="IsActive"/>。
+        /// </summary>
+        public sealed class CapeInfo
+        {
+            public string Id { get; set; }
+
+            /// <summary>官方给的名字，如 <c>Migrator</c> / <c>15th Anniversary</c>。可能为空。</summary>
+            public string Alias { get; set; }
+
+            public string Url { get; set; }
+
+            public bool IsActive { get; set; }
+
+            public string DisplayName => string.IsNullOrWhiteSpace(Alias) ? "披风" : Alias;
+        }
+
+        /// <summary>读账号拥有的全部披风（含没戴的那几款）。没有披风返回空列表。</summary>
+        public static async Task<List<CapeInfo>> FetchCapesAsync(MsaSession session, CancellationToken ct = default)
+        {
+            if (session == null || !session.HasToken)
+                throw new MsaException("还没有登录正版账号");
+
+            var fresh = await EnsureFreshAsync(ct).ConfigureAwait(false) ?? session;
+            var json = await GetProfileJsonAsync(fresh.AccessToken, ct).ConfigureAwait(false);
+            return ParseCapes(json);
+        }
+
+        /// <summary>戴上指定披风；<paramref name="capeId"/> 为空等于摘掉。返回更新后的列表。</summary>
+        public static async Task<List<CapeInfo>> SetCapeAsync(MsaSession session, string capeId,
+            CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(capeId))
+                return await ClearCapeAsync(session, ct).ConfigureAwait(false);
+
+            var body = new JsonObject { ["capeId"] = capeId };
+            return await SendCapeAsync(session, HttpMethod.Put, body, ct).ConfigureAwait(false);
+        }
+
+        /// <summary>摘掉当前披风。</summary>
+        public static Task<List<CapeInfo>> ClearCapeAsync(MsaSession session, CancellationToken ct = default) =>
+            SendCapeAsync(session, HttpMethod.Delete, null, ct);
+
+        /// <summary>
+        /// 切换披风。成功时平台会回一份完整档案，直接从里面取新列表，省一次请求；
+        /// 只回 204 的旧行为再补读一次。
+        /// </summary>
+        private static async Task<List<CapeInfo>> SendCapeAsync(MsaSession session, HttpMethod method,
+            JsonObject body, CancellationToken ct)
+        {
+            if (session == null || !session.HasToken)
+                throw new MsaException("还没有登录正版账号");
+
+            var fresh = await EnsureFreshAsync(ct).ConfigureAwait(false);
+            if (fresh == null || !fresh.HasToken)
+                throw new MsaException("登录状态已失效，请重新登录");
+
+            using var req = new HttpRequestMessage(method, McCapeUrl);
+            req.Headers.TryAddWithoutValidation("Authorization", "Bearer " + fresh.AccessToken);
+            if (body != null)
+                req.Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
+
+            using var resp = await Net.Client.SendAsync(req, ct).ConfigureAwait(false);
+            var text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+
+            if ((int)resp.StatusCode == 400)
+                throw new MsaException("这个账号没有这款披风，无法切换");
+            if ((int)resp.StatusCode == 401)
+                throw new MsaException("登录状态已失效，请重新登录");
+            if (!resp.IsSuccessStatusCode)
+                throw new MsaException($"切换披风失败（HTTP {(int)resp.StatusCode}）");
+
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                try
+                {
+                    if (JsonNode.Parse(text) is JsonObject updated && J.Arr(updated, "capes") != null)
+                        return ParseCapes(updated);
+                }
+                catch (JsonException)
+                {
+                    // 回的不是 JSON，当成 204 处理，下面重读档案
+                }
+            }
+
+            return await FetchCapesAsync(fresh, ct).ConfigureAwait(false);
+        }
+
+        private static List<CapeInfo> ParseCapes(JsonObject json)
+        {
+            var list = new List<CapeInfo>();
+            if (J.Arr(json, "capes") is not JsonArray capes) return list;
+
+            foreach (var node in capes.OfType<JsonObject>())
+            {
+                var id = J.Str(node, "id");
+                var url = J.Str(node, "url");
+                if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(url)) continue;
+
+                list.Add(new CapeInfo
+                {
+                    Id = id,
+                    Url = url,
+                    Alias = J.Str(node, "alias"),
+                    IsActive = string.Equals(J.Str(node, "state"), "ACTIVE", StringComparison.OrdinalIgnoreCase)
+                });
+            }
+
+            return list;
+        }
 
         // ---------------- 刷新 / 登出 ----------------
 

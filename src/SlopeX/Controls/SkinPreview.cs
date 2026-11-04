@@ -13,7 +13,8 @@ namespace SlopeX.Controls
     /// 可拖动旋转的角色预览。
     ///
     /// 用 WPF 自带的 <see cref="Viewport3D"/> 拼出六个长方体（头 / 身 / 双臂 / 双腿），
-    /// 每个面按皮肤的 UV 布局取样——不引入任何 3D 库。
+    /// 每个面按皮肤的 UV 布局取样——不引入任何 3D 库。披风是另挂一片 10×16 的薄板，
+    /// 有自己的贴图与 UV（和皮肤不是同一张图）。
     ///
     /// 交互：左键拖动改变水平角与俯仰角；双击回到初始视角。
     /// 没有皮肤时画一块极淡的占位色，不会出现空洞。
@@ -41,9 +42,13 @@ namespace SlopeX.Controls
         private bool _dragging;
         private BitmapSource _skin;
         private SkinModel _model = SkinModel.Classic;
+        private BitmapSource _cape;
 
         private BitmapSource _texture;         // 预放大后的贴图
         private BitmapSource _textureSource;   // 上面那张对应哪个原图
+
+        private BitmapSource _capeTexture;
+        private BitmapSource _capeTextureSource;
 
         public SkinPreview()
         {
@@ -83,6 +88,13 @@ namespace SlopeX.Controls
             Rebuild();
         }
 
+        /// <summary>换披风。传 null 表示不显示（没戴、已摘掉，或当前是离线皮肤）。</summary>
+        public void SetCape(BitmapSource cape)
+        {
+            _cape = cape;
+            Rebuild();
+        }
+
         public void ResetView()
         {
             _yaw = 22;
@@ -96,7 +108,7 @@ namespace SlopeX.Controls
         /// 必须在 STA 线程上跑：命令行入口是在后台线程执行的，WPF 的视觉对象不能在 MTA 上建。
         /// </summary>
         public static bool RenderToFile(BitmapSource skin, SkinModel model, string path, int width = 320,
-            int height = 480)
+            int height = 480, BitmapSource cape = null, double yaw = 22)
         {
             var ok = false;
 
@@ -111,7 +123,9 @@ namespace SlopeX.Controls
                     view.Arrange(new Rect(0, 0, width, height));
                     view.UpdateLayout();
 
+                    view._yaw = yaw;   // 排障用：180 = 从背后看，检查披风
                     view.SetSkin(skin, model);
+                    view.SetCape(cape);
 
                     var bmp = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
                     bmp.Render(view);
@@ -146,25 +160,35 @@ namespace SlopeX.Controls
         /// 先把图放大 16 倍，插值就只发生在放大后的相邻纹素之间（1/16 个皮肤像素宽），
         /// 视觉上接近硬边。
         /// </summary>
-        private BitmapSource Texture
+        private BitmapSource Texture => Cached(ref _texture, ref _textureSource, _skin);
+
+        private BitmapSource CapeTexture => Cached(ref _capeTexture, ref _capeTextureSource, _cape);
+
+        /// <summary>
+        /// 按原图缓存预放大结果：同一个控件会反复 Rebuild（换披风 / 换视角），
+        /// 原图没变就直接复用上一次的放大图。
+        /// </summary>
+        private static BitmapSource Cached(ref BitmapSource cache, ref BitmapSource cacheSource, BitmapSource src)
         {
-            get
+            if (ReferenceEquals(cacheSource, src) && cache != null) return cache;
+
+            cacheSource = src;
+            if (src == null)
             {
-                if (ReferenceEquals(_textureSource, _skin) && _texture != null) return _texture;
-
-                _textureSource = _skin;
-
-                // 高清皮肤（128×128 起）少放大几倍，避免贴图过大
-                var factor = _skin.PixelWidth switch
-                {
-                    <= 64 => 16,
-                    <= 128 => 8,
-                    _ => 4
-                };
-
-                _texture = UpscaleNearest(_skin, factor);
-                return _texture;
+                cache = null;
+                return null;
             }
+
+            // 高清贴图（128×128 起）少放大几倍，避免贴图过大
+            var factor = src.PixelWidth switch
+            {
+                <= 64 => 16,
+                <= 128 => 8,
+                _ => 4
+            };
+
+            cache = UpscaleNearest(src, factor);
+            return cache;
         }
 
         /// <summary>最近邻放大 + alpha 二值化。后者是为了让外衣层的半透明边缘不会混出白边。</summary>
@@ -315,8 +339,52 @@ namespace SlopeX.Controls
                 BackMaterial = material      // 保证任何绕序都不会出现空洞
             });
 
+            if (_cape != null) group.Children.Add(BuildCape());
+
             _root.Content = group;
             UpdateCamera();
+        }
+
+        /// <summary>
+        /// 披风：挂一片 10×16×1 的薄板在背后，上沿齐肩、下沿到大腿。
+        ///
+        /// 贴图布局和皮肤一样是「按方块摊开」，只是原点在左上角 (0,0)：
+        /// 顶 (1,0)、底 (11,0)、右 (0,1)、前 (1,1)、左 (11,1)、后 (12,1)。
+        /// 图案画在 (1,1) 那块，也就是**朝外**的那一面；朝向身体的那面是内衬，
+        /// 所以这里把前后两张对调，不能直接照搬皮肤的顺序。
+        /// </summary>
+        private GeometryModel3D BuildCape()
+        {
+            var geometry = new MeshGeometry3D();
+            var uvH = _cape.PixelHeight * 2 == _cape.PixelWidth ? 32 : 64;
+
+            // 本体背面在 z = -2，外衣层在 -2.25；披风放到 -3.0（厚 1，占 -3.5 ~ -2.5），
+            // 留一条缝，避免两个面贴在一起闪。
+            AddCube(geometry, 0, 0, -3.0, 10, 16, 1, uvH,
+                new FaceUv(1, 0),    // 顶
+                new FaceUv(11, 0),   // 底
+                new FaceUv(0, 1),    // 右
+                new FaceUv(12, 1),   // 前（朝身体，内衬）
+                new FaceUv(11, 1),   // 左
+                new FaceUv(1, 1));   // 后（朝外，图案）
+
+            // 注意 ViewportUnits 必须是 Absolute：披风的 UV 只占贴图的左上角一小块，
+            // 用 RelativeToBoundingBox 的话 WPF 会把整张图拉伸到这块 UV 的包围盒里，
+            // 10×16 的图案会被压掉一半（实测：整幅图挤进来，背面能同时看到正反两面的图案）。
+            var brush = new ImageBrush(CapeTexture)
+            {
+                Stretch = Stretch.Fill,
+                ViewportUnits = BrushMappingMode.Absolute,
+                Viewport = new Rect(0, 0, 1, 1)
+            };
+
+            var material = new DiffuseMaterial(brush);
+            return new GeometryModel3D
+            {
+                Geometry = geometry,
+                Material = material,
+                BackMaterial = material
+            };
         }
 
         /// <summary>皮肤里每个面的左上角坐标（64 基准）。宽高由所在立方体的面决定。</summary>
