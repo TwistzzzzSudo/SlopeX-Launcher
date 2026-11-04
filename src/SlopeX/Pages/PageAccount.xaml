@@ -89,12 +89,8 @@
                             <TextBlock x:Name="SkinDetail" Style="{StaticResource TCaption}" Margin="0,14,0,0"
                                        TextWrapping="Wrap"/>
 
-                            <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-                                <Button x:Name="BtnUpload" Style="{StaticResource BtnGhost}" Content="选择皮肤文件"
-                                        Click="Upload_Click"/>
-                                <Button x:Name="BtnResetSkin" Style="{StaticResource BtnGhost}" Content="恢复默认"
-                                        Margin="8,0,0,0" Click="ResetSkin_Click"/>
-                            </StackPanel>
+                            <Button x:Name="BtnUpload" Style="{StaticResource BtnGhost}" Content="选择皮肤文件"
+                                    HorizontalAlignment="Left" Margin="0,16,0,0" Click="Upload_Click"/>
 
                             <TextBlock Style="{StaticResource TCaption}" Margin="0,14,0,0" TextWrapping="Wrap"
                                        Text="皮肤文件用 64×64 或 64×32 的 PNG；上传后只影响离线账号，正版皮肤由 minecraft.net 管理。"/>

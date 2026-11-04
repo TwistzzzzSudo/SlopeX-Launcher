@@ -241,9 +241,7 @@ namespace SlopeX.Pages
             SkinDetail.Text = Describe();
 
             // 上传按钮只在离线皮肤下有意义
-            var offline = !_showPremium;
-            BtnUpload.IsEnabled = offline;
-            BtnResetSkin.IsEnabled = offline && !string.IsNullOrWhiteSpace(Config.Current.OfflineSkin);
+            BtnUpload.IsEnabled = !_showPremium;
 
             UpdateSkinChips();
         }
@@ -332,19 +330,6 @@ namespace SlopeX.Pages
                 Log.Error("保存离线皮肤失败", ex);
                 MessageBox.Show("保存失败：" + ex.Message, "SlopeX");
             }
-        }
-
-        private void ResetSkin_Click(object sender, RoutedEventArgs e)
-        {
-            Config.Current.OfflineSkin = "";
-            Config.Current.Save();
-
-            _offline = null;
-            _showPremium = false;
-
-            ApplyPreview();
-            SkinView.ResetView();
-            MainWindow.Current?.ShowToast("已恢复默认皮肤");
         }
     }
 }
