@@ -37,6 +37,9 @@ namespace SlopeX.Windows
             InitializeComponent();
             Current = this;
 
+            // 右下角常驻版本号，取自程序集（SlopeX.csproj 的 <Version>）
+            StatusRight.Text = AppInfo.DisplayVersion;
+
             // 霓虹主题才有插画背景；主题切换时跟着显隐
             Themes.ThemeService.Changed += (s2, e2) =>
             {
@@ -171,8 +174,7 @@ namespace SlopeX.Windows
             var javas = await Task.Run(() => JavaFinder.All(true));
 
             var javaText = javas.Count > 0 ? $"Java {javas.Max(j => j.Major)}" : "未检测到 Java";
-            SetStatus($"已安装 {count} 个版本   ·   {javaText}   ·   {gameDir}",
-                $"内存 {Config.Current.MemoryMb / 1024.0:0.#} GB   ·   {(Config.Current.UseMirror ? "BMCLAPI 镜像" : "官方源")}");
+            SetStatus($"已安装 {count} 个版本   ·   {javaText}   ·   {gameDir}");
         }
 
         /// <summary>其它页面更新配置后调用，同步侧边栏与状态栏。</summary>

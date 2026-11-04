@@ -76,10 +76,6 @@ namespace SlopeX.Pages
         {
             var running = _game != null && _game.IsRunning;
 
-            StatVersions.Text = _versions.Count.ToString();
-            StatMemory.Text = (Config.Current.MemoryMb / 1024.0).ToString("0.#") + " GB";
-            StatSource.Text = Config.Current.UseMirror ? "BMCLAPI" : "官方";
-
             if (_selected == null)
             {
                 CurVersionName.Text = "尚未安装版本";
@@ -196,7 +192,6 @@ namespace SlopeX.Pages
             if (_selected == null)
             {
                 InfoJava.Text = "—";
-                StatJava.Text = "—";
                 return;
             }
 
@@ -218,22 +213,21 @@ namespace SlopeX.Pages
                         var text = Config.Current.AutoInstallJava
                             ? $"缺少 Java {required} · 启动时自动安装"
                             : $"缺少 Java {required}";
-                        return (text, 0, true);
+                        return (text, true);
                     }
 
                     // 版本高于要求也能跑，但标黄提醒一下
-                    return ($"Java {java.Major} · {java.Vendor}", java.Major, java.Major != required);
+                    return ($"Java {java.Major} · {java.Vendor}", java.Major != required);
                 }
                 catch (Exception ex)
                 {
-                    return ("无法解析：" + ex.Message, 0, false);
+                    return ("无法解析：" + ex.Message, false);
                 }
             });
 
             InfoJava.Text = result.Item1;
-            if (result.Item3)
+            if (result.Item2)
                 InfoJava.Foreground = (System.Windows.Media.Brush)FindResource("Warn");
-            StatJava.Text = result.Item2 > 0 ? result.Item2.ToString() : "—";
         }
 
         private void ShowHint(string text, bool warn)

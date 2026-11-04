@@ -392,7 +392,7 @@ namespace SlopeX.Modules.ModLaunch
                 ["version_type"] = v.Type ?? "release",
                 ["natives_directory"] = nativesDir,
                 ["launcher_name"] = "SlopeX",
-                ["launcher_version"] = "1.0.0",
+                ["launcher_version"] = AppInfo.Version,
                 ["classpath"] = cp,
                 ["classpath_separator"] = ";",
                 ["library_directory"] = Paths.LibrariesDir(root),

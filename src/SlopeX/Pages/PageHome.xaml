@@ -176,55 +176,6 @@
                             </StackPanel>
                         </StackPanel>
                     </Border>
-
-                    <!-- 统计条 -->
-                    <Border Style="{StaticResource Card}" Padding="0" Margin="0,16,0,0">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="1"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="1"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="1"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-
-                            <StackPanel Grid.Column="0" Margin="0,15">
-                                <TextBlock x:Name="StatVersions" Text="0" FontSize="19" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource Ink}" HorizontalAlignment="Center"/>
-                                <TextBlock Text="已安装版本" Style="{StaticResource TCaption}"
-                                           HorizontalAlignment="Center" Margin="0,3,0,0"/>
-                            </StackPanel>
-
-                            <Border Grid.Column="1" Background="{DynamicResource Line}" Margin="0,14"/>
-
-                            <StackPanel Grid.Column="2" Margin="0,15">
-                                <TextBlock x:Name="StatJava" Text="—" FontSize="19" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource Ink}" HorizontalAlignment="Center"/>
-                                <TextBlock Text="Java 版本" Style="{StaticResource TCaption}"
-                                           HorizontalAlignment="Center" Margin="0,3,0,0"/>
-                            </StackPanel>
-
-                            <Border Grid.Column="3" Background="{DynamicResource Line}" Margin="0,14"/>
-
-                            <StackPanel Grid.Column="4" Margin="0,15">
-                                <TextBlock x:Name="StatMemory" Text="—" FontSize="19" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource Ink}" HorizontalAlignment="Center"/>
-                                <TextBlock Text="内存上限" Style="{StaticResource TCaption}"
-                                           HorizontalAlignment="Center" Margin="0,3,0,0"/>
-                            </StackPanel>
-
-                            <Border Grid.Column="5" Background="{DynamicResource Line}" Margin="0,14"/>
-
-                            <StackPanel Grid.Column="6" Margin="0,15">
-                                <TextBlock x:Name="StatSource" Text="—" FontSize="19" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource Ink}" HorizontalAlignment="Center"/>
-                                <TextBlock Text="下载源" Style="{StaticResource TCaption}"
-                                           HorizontalAlignment="Center" Margin="0,3,0,0"/>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
                 </StackPanel>
 
                 <!-- ===== 右：账号与皮肤 / 游戏目录 ===== -->

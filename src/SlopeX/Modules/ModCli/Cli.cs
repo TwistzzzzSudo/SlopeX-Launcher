@@ -57,7 +57,7 @@ namespace SlopeX.Modules.ModCli
             // 过滤 --cli 自身
             var args = argv.Where(a => a != "--cli").ToList();
             var cmd = args.Count > 0 ? args[0].ToLowerInvariant() : "help";
-            args.RemoveAt(0);
+            if (args.Count > 0) args.RemoveAt(0);   // 不带命令时走 help，别去删空列表
 
             // 支持 --dir <路径>
             var dirIdx = args.FindIndex(a => a == "--dir" || a == "-d");
@@ -67,7 +67,7 @@ namespace SlopeX.Modules.ModCli
                 args.RemoveRange(dirIdx, 2);
             }
 
-            Out("SlopeX Launcher " + "1.0.0" + "  |  gameDir = " + Config.Current.GameDir);
+            Out("SlopeX Launcher " + AppInfo.Version + "  |  gameDir = " + Config.Current.GameDir);
 
             switch (cmd)
             {

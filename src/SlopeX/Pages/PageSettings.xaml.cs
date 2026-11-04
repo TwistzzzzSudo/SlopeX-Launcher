@@ -35,6 +35,7 @@ namespace SlopeX.Pages
         public PageSettings()
         {
             InitializeComponent();
+            VersionText.Text = "SlopeX Launcher " + AppInfo.Version;
             LoadFromConfig();
         }
 
