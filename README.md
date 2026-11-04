@@ -78,6 +78,7 @@ src/SlopeX/
 
 **启动**
 - **微软正版登录**：OAuth 2.0 设备码流程（浏览器输入 8 位码，密码不经过启动器）→ Xbox Live → XSTS → Minecraft 档案；令牌本地保存，24 小时过期后静默刷新（refresh_token 同步轮换）。**Mojang 白名单已通过**（2026-11-01 实测：档案接口 200、皮肤 ACTIVE、披风正常、静默刷新可用）
+- **账号页与皮肤预览**：账号独立成左侧一页，3D 预览可拖动旋转、双击复位。三种皮肤来源——正版账号（自动读 profile 里的贴图地址与 `SLIM`/`CLASSIC` 变体）、离线自定义（选本地 PNG，存进 `SlopeXData\skins\`）、离线默认（内置的 Steve 风格外观，代码生成、不依赖外部文件）
 - 离线登录（玩家名 → 离线 UUID，算法与原版一致），与正版登录并存可随时切换
 - 版本选择、最近版本、启动 / 结束进程、启动后最小化
 - 启动参数完整构造：`arguments.jvm` / `arguments.game` / 旧版 `minecraftArguments` 双格式
@@ -219,6 +220,9 @@ SlopeX.exe --cli mods-deps 1.20.1 iris      # 打印依赖解析结果，标出�
 SlopeX.exe --cli mods-scan 1.20.1 --check   # 扫 mods 目录：读每个 jar 的 modid/版本/依赖，查重复与缺口
 SlopeX.exe --cli mods-update 1.20.1         # 检查已装模组有没有新版本（按文件 SHA1 问 Modrinth）
 SlopeX.exe --cli selftest                 # 自检：中文搜索 5 条 + 账号档案（5+1 条，失败退出码 1）
+SlopeX.exe --cli skin-premium             # 读当前正版皮肤并渲染成 PNG（排障用）
+SlopeX.exe --cli skin-render out.png      # 渲染内置默认皮肤的 3D 预览
+SlopeX.exe --cli skin-set skin.png        # 设为离线皮肤（等同账号页的上传）
 SlopeX.exe --cli pack-info 包.mrpack     # 识别整合包格式与版本（不安装）
 SlopeX.exe --cli import-pack 包.mrpack   # 导入整合包
 ```
