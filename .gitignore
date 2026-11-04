@@ -32,3 +32,6 @@ dist/
 Thumbs.db
 .DS_Store
 .workbuddy/
+
+# 分发给测试用户的压缩包（体积大，不进版本库）
+/SlopeX-Launcher-*.zip
