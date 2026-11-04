@@ -28,6 +28,7 @@ namespace SlopeX.Windows
         private PageVersions _versions;
         private PageDownload _download;
         private PageTasks _tasks;
+        private PageAccount _account;
         private PageSettings _settings;
         private int _currentIndex = -1;
 
@@ -98,7 +99,7 @@ namespace SlopeX.Windows
 
         public void Navigate(int index)
         {
-            if (index < 0 || index > 4) return;
+            if (index < 0 || index > 5) return;
             if (NavList.SelectedIndex == index)
             {
                 ShowPage(index);
@@ -118,7 +119,8 @@ namespace SlopeX.Windows
                 1 => _versions ??= new PageVersions(),
                 2 => _download ??= new PageDownload(),
                 3 => _tasks ??= new PageTasks(),
-                4 => _settings ??= new PageSettings(),
+                4 => _account ??= new PageAccount(),
+                5 => _settings ??= new PageSettings(),
                 _ => null
             };
 

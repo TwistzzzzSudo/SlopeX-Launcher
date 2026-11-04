@@ -415,6 +415,7 @@ namespace SlopeX.Modules.ModBase
         private string _javaPath = "";
         private string _playerName = "Steve";
         private string _uuid = "";
+        private string _offlineSkin = "";
         private int _memoryMb = 4096;
         private int _minMemoryMb = 1024;
         private string _jvmArgs = "";
@@ -500,6 +501,12 @@ namespace SlopeX.Modules.ModBase
 
         public string PlayerName { get => _playerName; set => Set(ref _playerName, value); }
         public string Uuid { get => _uuid; set => Set(ref _uuid, value); }
+
+        /// <summary>
+        /// 离线账号用的自定义皮肤：只存文件名，文件本体在 <c>SlopeXData\skins\</c> 下。
+        /// 空表示用内置的默认皮肤。存文件名而不是完整路径，整个目录搬走仍然有效。
+        /// </summary>
+        public string OfflineSkin { get => _offlineSkin; set => Set(ref _offlineSkin, value ?? ""); }
 
         public int MemoryMb { get => _memoryMb; set => Set(ref _memoryMb, value); }
         public int MinMemoryMb { get => _minMemoryMb; set => Set(ref _minMemoryMb, value); }

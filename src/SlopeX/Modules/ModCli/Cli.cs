@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Media.Imaging;
 using Microsoft.Win32.SafeHandles;
 using SlopeX.Modules.ModAccount;
 using SlopeX.Modules.ModBase;
@@ -82,6 +83,10 @@ namespace SlopeX.Modules.ModCli
                     Out("  diagnose <版本> [日志文本]  对最近一次启动失败做诊断（排障用）");
                     Out("  music-test               播放当前主题背景音乐 3 秒并打印进度（排障用）");
                     Out("  music-sim                模拟「启动游戏 / 退出游戏」的音乐挂起与恢复（排障用）");
+                    Out("  skin-render [输出png] [皮肤文件]   把皮肤 3D 预览渲染成 PNG（排障用）");
+                    Out("  skin-premium [输出png]   读当前正版账号的皮肤并渲染（排障用）");
+                    Out("  skin-set <皮肤png>       设为离线皮肤（等同账号页「选择皮肤文件」）");
+                    Out("  skin-clear               离线皮肤恢复内置默认");
                     Out("  fix-libs <版本>          补齐缺失的依赖库（走镜像）");
                     Out("  msa-explain <状态码> [原文]  预览登录错误会被翻译成什么（排障用）");
                     Out("  mods-list <版本>         列出该版本 mods 目录的模组与元数据");
@@ -164,6 +169,21 @@ namespace SlopeX.Modules.ModCli
 
                 case "music-test":
                     return MusicTest();
+
+                case "skin-render":
+                    return SkinRender(args);
+
+                case "skin-premium":
+                    return SkinPremium(args);
+
+                case "skin-set":
+                    return SkinSet(args);
+
+                case "skin-clear":
+                    Config.Current.OfflineSkin = "";
+                    Config.Current.Save();
+                    Out("已恢复内置默认皮肤");
+                    return 0;
 
                 case "music-sim":
                     return MusicSim();
@@ -1038,6 +1058,154 @@ namespace SlopeX.Modules.ModCli
             Step("（暂停状态下）游戏退出后", ThemeMusic.IsPaused, true);
 
             return ok ? 0 : 1;
+        }
+
+        /// <summary>
+        /// 把皮肤预览渲染成 PNG（排障用）。
+        /// 用法：skin-render [输出png] [皮肤文件] [classic|slim]
+        /// 不给皮肤文件就用内置的默认皮肤；不给输出就写到当前目录的 skin-preview.png。
+        /// 3D 预览出了问题，靠它能在命令行里直接看图，不用开窗口对坐标。
+        /// </summary>
+        private static int SkinRender(List<string> args)
+        {
+            var outPath = args.FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(outPath)) outPath = "skin-preview.png";
+
+            var skinPath = args.Skip(1).FirstOrDefault();
+            var modelText = args.Skip(2).FirstOrDefault() ?? "classic";
+            var model = string.Equals(modelText, "slim", StringComparison.OrdinalIgnoreCase)
+                ? ModAccount.SkinModel.Slim
+                : ModAccount.SkinModel.Classic;
+
+            BitmapSource skin;
+
+            if (string.IsNullOrWhiteSpace(skinPath))
+            {
+                skin = ModAccount.SkinTexture.CreateDefault();
+                Out("皮肤：内置默认（Steve 风格）");
+            }
+            else
+            {
+                var loaded = ModAccount.SkinTexture.FromFile(skinPath);
+                if (!loaded.Ok)
+                {
+                    Out("读取皮肤失败：" + loaded.Error);
+                    return 1;
+                }
+
+                skin = loaded.Image;
+                model = loaded.Model;
+                Out($"皮肤：{Path.GetFileName(skinPath)}（{skin.PixelWidth}×{skin.PixelHeight}，" +
+                    $"{(model == ModAccount.SkinModel.Slim ? "细手臂" : "粗手臂")}）");
+            }
+
+            if (!Controls.SkinPreview.RenderToFile(skin, model, outPath))
+            {
+                Out("渲染失败（WPF 3D 需要 STA 线程，可能没起来）");
+                return 1;
+            }
+
+            Out("已输出：" + Path.GetFullPath(outPath));
+            return 0;
+        }
+
+        /// <summary>
+        /// 查当前正版账号的皮肤并渲染成 PNG（排障用）。
+        /// 用法：skin-premium [输出png]
+        /// 会走一遍「读档案 → 拿贴图地址 → 下载 → 渲染」，任何一步失败都打印原因。
+        /// </summary>
+        private static int SkinPremium(List<string> args)
+        {
+            var outPath = args.FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(outPath)) outPath = "skin-premium.png";
+
+            var session = Msa.Current;
+            if (session == null)
+            {
+                Out("还没有登录正版账号");
+                return 1;
+            }
+
+            Out($"账号：{session.Name}");
+
+            ModAccount.Msa.SkinInfo info;
+            try
+            {
+                info = Msa.FetchSkinAsync(session).GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                Out("读取档案失败：" + ex.Message);
+                return 1;
+            }
+
+            if (!info.HasSkin)
+            {
+                Out("这个账号没有自定义皮肤（游戏里会显示默认外观）");
+                return 1;
+            }
+
+            Out("皮肤地址：" + info.Url);
+            Out("模型：" + (string.IsNullOrEmpty(info.Variant) ? "未标注（按像素猜）" : info.Variant));
+
+            var loaded = ModAccount.SkinTexture.FromUrlAsync(info.Url, info.Variant).GetAwaiter().GetResult();
+            if (!loaded.Ok)
+            {
+                Out("下载皮肤失败：" + loaded.Error);
+                return 1;
+            }
+
+            Out($"贴图：{loaded.Image.PixelWidth}×{loaded.Image.PixelHeight}，" +
+                $"{(loaded.Model == ModAccount.SkinModel.Slim ? "细手臂" : "粗手臂")}");
+
+            if (!Controls.SkinPreview.RenderToFile(loaded.Image, loaded.Model, outPath))
+            {
+                Out("渲染失败");
+                return 1;
+            }
+
+            Out("已输出：" + Path.GetFullPath(outPath));
+            return 0;
+        }
+
+        /// <summary>
+        /// 设置离线皮肤。用法：skin-set &lt;皮肤png&gt;
+        /// 和账号页「选择皮肤文件」走完全相同的两段逻辑（SkinStore.Save + 写配置），
+        /// 只是入口不同——文件对话框那步没法自动化，靠它验证后面整条链。
+        /// </summary>
+        private static int SkinSet(List<string> args)
+        {
+            var file = args.FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(file))
+            {
+                Out("用法：skin-set <皮肤png>");
+                return 2;
+            }
+
+            var loaded = ModAccount.SkinTexture.FromFile(file);
+            if (!loaded.Ok)
+            {
+                Out("不是可用的皮肤：" + loaded.Error);
+                return 1;
+            }
+
+            try
+            {
+                var stored = ModAccount.SkinStore.Save(file);
+                Config.Current.OfflineSkin = stored;
+                Config.Current.Save();
+
+                Out($"已设为离线皮肤：{stored}");
+                Out($"  贴图：{loaded.Image.PixelWidth}×{loaded.Image.PixelHeight}，" +
+                    $"{(loaded.Model == ModAccount.SkinModel.Slim ? "细手臂" : "粗手臂")}");
+                Out("  存放：" + ModAccount.SkinStore.Dir);
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Out("保存失败：" + ex.Message);
+                return 1;
+            }
         }
 
         private static int MusicTest()

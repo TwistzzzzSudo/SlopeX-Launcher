@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -291,6 +292,19 @@ namespace SlopeX.Modules.ModAccount
 
         private static async Task<(string Uuid, string Name)> MinecraftProfileAsync(string mcToken, CancellationToken ct)
         {
+            var json = await GetProfileJsonAsync(mcToken, ct).ConfigureAwait(false);
+
+            var id = J.Str(json, "id");
+            var name = J.Str(json, "name");
+            if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(name))
+                throw new MsaException("游戏档案数据不完整");
+
+            return (FormatUuid(id), name);
+        }
+
+        /// <summary>取原始的游戏档案 JSON（登录、修复、皮肤预览共用）。</summary>
+        private static async Task<JsonObject> GetProfileJsonAsync(string mcToken, CancellationToken ct)
+        {
             using var req = new HttpRequestMessage(HttpMethod.Get, McProfileUrl);
             req.Headers.TryAddWithoutValidation("Authorization", "Bearer " + mcToken);
 
@@ -302,14 +316,93 @@ namespace SlopeX.Modules.ModAccount
             if (!resp.IsSuccessStatusCode)
                 throw new MsaException($"读取游戏档案失败（HTTP {(int)resp.StatusCode}）");
 
-            var json = JsonNode.Parse(text) as JsonObject;
-            var id = J.Str(json, "id");
-            var name = J.Str(json, "name");
-            if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(name))
-                throw new MsaException("游戏档案数据不完整");
-
-            return (FormatUuid(id), name);
+            if (JsonNode.Parse(text) is JsonObject json) return json;
+            throw new MsaException("游戏档案返回的不是合法 JSON");
         }
+
+        // ---------------- 皮肤 ----------------
+
+        /// <summary>当前账号上传的皮肤。地址可以直接交给 <see cref="SkinTexture"/> 下载。</summary>
+        public sealed class SkinInfo
+        {
+            public string Url { get; set; }
+
+            /// <summary>平台给的模型：SLIM / CLASSIC。老账号可能没有。</summary>
+            public string Variant { get; set; }
+
+            public bool HasSkin => !string.IsNullOrEmpty(Url);
+        }
+
+        /// <summary>
+        /// 读当前账号的皮肤地址。
+        ///
+        /// 两条路都试：新版档案接口在顶层给了 <c>skins</c> 数组（带 <c>variant</c>，不用猜模型）；
+        /// 老一些的响应只有 <c>properties</c> 里的 base64 签名贴图，那就解出来读 <c>textures.SKIN</c>。
+        /// </summary>
+        public static async Task<SkinInfo> FetchSkinAsync(MsaSession session, CancellationToken ct = default)
+        {
+            if (session == null || !session.HasToken)
+                throw new MsaException("还没有登录正版账号");
+
+            var fresh = await EnsureFreshAsync(ct).ConfigureAwait(false) ?? session;
+            var json = await GetProfileJsonAsync(fresh.AccessToken, ct).ConfigureAwait(false);
+
+            if (J.Arr(json, "skins") is JsonArray skins)
+            {
+                foreach (var node in skins.OfType<JsonObject>())
+                {
+                    var state = J.Str(node, "state") ?? "";
+                    if (state.Length > 0 && !string.Equals(state, "ACTIVE", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    var url = J.Str(node, "url");
+                    if (string.IsNullOrEmpty(url)) continue;
+
+                    return new SkinInfo { Url = url, Variant = J.Str(node, "variant") };
+                }
+            }
+
+            // 退回 properties：value 是 base64 编码的贴图清单
+            if (J.Arr(json, "properties") is JsonArray props)
+            {
+                foreach (var node in props.OfType<JsonObject>())
+                {
+                    if (!string.Equals(J.Str(node, "name"), "textures", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    var decoded = DecodeTexturesProperty(J.Str(node, "value"));
+                    if (decoded != null && !string.IsNullOrEmpty(decoded.Url))
+                        return decoded;
+                }
+            }
+
+            return new SkinInfo();   // 没上传皮肤（用的是默认）
+        }
+
+        private static SkinInfo DecodeTexturesProperty(string base64)
+        {
+            if (string.IsNullOrWhiteSpace(base64)) return null;
+
+            try
+            {
+                var json = Encoding.UTF8.GetString(Convert.FromBase64String(base64));
+                if (JsonNode.Parse(json) is not JsonObject root) return null;
+
+                if (J.Obj(root, "textures") is not JsonObject textures) return null;
+                if (J.Obj(textures, "SKIN") is not JsonObject skin) return null;
+
+                var url = J.Str(skin, "url");
+                if (string.IsNullOrEmpty(url)) return null;
+
+                var model = J.Str(J.Obj(skin, "metadata"), "model");
+                return new SkinInfo { Url = url, Variant = model };
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
 
         // ---------------- 刷新 / 登出 ----------------
 

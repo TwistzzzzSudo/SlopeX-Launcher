@@ -160,6 +160,13 @@
                             <ListBoxItem Style="{StaticResource NavItem}" Tag="4">
                                 <StackPanel Orientation="Horizontal">
                                     <Path Style="{StaticResource NavIconStroke}"
+                                          Data="M8,3.1 A2.2,2.2 0 1 1 7.99,3.1 M3.5,13.2 C3.5,10.5 5.4,9.2 8,9.2 C10.6,9.2 12.5,10.5 12.5,13.2"/>
+                                    <TextBlock Text="账号" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </ListBoxItem>
+                            <ListBoxItem Style="{StaticResource NavItem}" Tag="5">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Style="{StaticResource NavIconStroke}"
                                           Data="M2.9,5.6 L13.1,5.6 M2.9,10.4 L13.1,10.4 M6.1,3.9 L6.1,7.3 M10.2,8.7 L10.2,12.1"/>
                                     <TextBlock Text="设置" VerticalAlignment="Center"/>
                                 </StackPanel>

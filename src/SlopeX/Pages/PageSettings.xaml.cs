@@ -50,7 +50,6 @@ namespace SlopeX.Pages
             try
             {
                 var c = Config.Current;
-                InputName.Text = c.PlayerName;
                 InputGameDir.Text = c.GameDir;
                 InputJava.Text = c.JavaPath ?? "";
                 InputMemory.Text = c.MemoryMb.ToString();
@@ -73,8 +72,6 @@ namespace SlopeX.Pages
                 _threads = SelectedThreads;
 
                 UpdateThemeChips();
-
-                UpdateAccountUi();
 
                 ConfigPath.Text = Paths.ConfigFile;
                 UpdateMemoryHint();
@@ -183,65 +180,6 @@ namespace SlopeX.Pages
             RuntimeDirHint.Text = "当前生效：默认位置（%APPDATA%\\SlopeX\\runtime），点「保存设置」后生效";
         }
 
-        // ---------------- 账号 ----------------
-
-        private void UpdateAccountUi()
-        {
-            var session = Msa.Current;
-            if (session != null)
-            {
-                AccountStatus.Text = "已登录：" + session.Name;
-                AccountHint.Text = session.Expired
-                    ? "令牌已过期，启动游戏时会自动续期，不用重新登录。"
-                    : "正版账号：皮肤与正版验证服务器可用。";
-                BtnLogin.Content = "重新登录";
-                BtnLogout.Visibility = Visibility.Visible;
-            }
-            else
-            {
-                AccountStatus.Text = "未登录：使用离线账号";
-                AccountHint.Text = "登录正版账号后，皮肤与正版验证服务器可用。";
-                BtnLogin.Content = "登录微软账号";
-                BtnLogout.Visibility = Visibility.Collapsed;
-            }
-        }
-
-        private void Login_Click(object sender, RoutedEventArgs e)
-        {
-            var dialog = new LoginDialog();
-
-            dialog.Finished += session =>
-            {
-                MainWindow.Current?.HideModal();
-
-                if (session == null)
-                {
-                    UpdateAccountUi();
-                    return;
-                }
-
-                UpdateAccountUi();
-                MainWindow.Current?.ApplyConfigChanged();
-                MainWindow.Current?.SetStatus($"已登录：{session.Name}", null);
-                Log.Info($"账号已切换为正版：{session.Name}");
-            };
-
-            MainWindow.Current?.ShowModal(dialog);
-            dialog.Start();
-        }
-
-        private void Logout_Click(object sender, RoutedEventArgs e)
-        {
-            var r = MessageBox.Show("退出后将以离线账号启动，确定吗？", "退出登录",
-                MessageBoxButton.OKCancel, MessageBoxImage.Question);
-            if (r != MessageBoxResult.OK) return;
-
-            Msa.Logout();
-            UpdateAccountUi();
-            MainWindow.Current?.ApplyConfigChanged();
-            MainWindow.Current?.SetStatus("已退出正版账号", null);
-        }
-
         // ---------------- 主题 ----------------
 
         private void ThemeChip_Click(object sender, RoutedEventArgs e)
@@ -300,10 +238,6 @@ namespace SlopeX.Pages
             try
             {
                 var c = Config.Current;
-
-                var name = (InputName.Text ?? "").Trim();
-                if (string.IsNullOrEmpty(name)) name = "Steve";
-                c.PlayerName = name;
 
                 var dir = (InputGameDir.Text ?? "").Trim();
                 if (!string.IsNullOrEmpty(dir)) c.GameDir = dir;
