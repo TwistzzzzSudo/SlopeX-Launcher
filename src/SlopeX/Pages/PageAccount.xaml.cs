@@ -15,12 +15,10 @@ namespace SlopeX.Pages
     /// 账号页：登录状态、离线昵称，以及皮肤预览（正版皮肤 / 离线皮肤可切换）。
     ///
     /// 皮肤预览是 3D 的，可以拖动旋转；数据来源分三种——
-    /// 正版账号从 Mojang 贴图服务下、离线上传读本地 PNG、都没有就用内置的默认史蒂夫。
+    /// 正版账号从 Mojang 贴图服务下、离线上传读本地 PNG；都没有就留白，由页面给提示文字。
     /// </summary>
     public partial class PageAccount : UserControl, ILauncherPage
     {
-        private readonly BitmapSource _fallback;
-
         private SkinLoadResult _offline;
         private SkinLoadResult _premium;
 
@@ -36,8 +34,8 @@ namespace SlopeX.Pages
         {
             InitializeComponent();
 
-            _fallback = SkinTexture.CreateDefault();
-            SkinView.SetSkin(_fallback, SkinModel.Classic);
+            // 不预置任何皮肤：没导入就留白，避免让人以为"已经有一张默认皮肤"
+            SkinView.SetSkin(null, SkinModel.Classic);
         }
 
         public void OnShown()
@@ -175,9 +173,9 @@ namespace SlopeX.Pages
                         {
                             _premium = new SkinLoadResult
                             {
-                                Image = _fallback,
+                                Image = null,
                                 Model = SkinModel.Classic,
-                                Error = "这个账号还没有上传皮肤，显示默认外观"
+                                Error = "这个账号还没有上传皮肤"
                             };
                         }
 
@@ -208,7 +206,7 @@ namespace SlopeX.Pages
 
             if (string.IsNullOrWhiteSpace(name))
             {
-                _offline = new SkinLoadResult { Image = _fallback, Model = SkinModel.Classic };
+                _offline = null;   // 没导入过 → 预览留白
                 return;
             }
 
@@ -225,7 +223,7 @@ namespace SlopeX.Pages
             Log.Warn($"离线皮肤不可用（{name}）：{result.Error}");
             Config.Current.OfflineSkin = "";
             Config.Current.Save();
-            _offline = new SkinLoadResult { Image = _fallback, Model = SkinModel.Classic };
+            _offline = null;
         }
 
         private void ApplyPreview()
@@ -236,7 +234,7 @@ namespace SlopeX.Pages
             var current = _showPremium ? _premium : _offline;
 
             if (current == null || !current.Ok)
-                SkinView.SetSkin(_fallback, SkinModel.Classic);
+                SkinView.SetSkin(null, SkinModel.Classic);   // 留白
             else
                 SkinView.SetSkin(current.Image, current.Model);
 
@@ -254,25 +252,25 @@ namespace SlopeX.Pages
         {
             if (_showPremium)
             {
-                if (_premium == null) return "还没有登录正版账号。";
+                if (_premium == null) return "还没有登录正版账号，登录后才能预览正版皮肤。";
 
                 if (!_premium.Ok)
-                    return "读取正版皮肤失败：" + (_premium.Error ?? "未知原因") +
-                           "。皮肤由 minecraft.net 管理，这里只能预览。";
+                {
+                    // 账号确实没皮肤时 Error 是那句中性的说明；读取失败才是异常
+                    return string.Equals(_premium.Error, "这个账号还没有上传皮肤", StringComparison.Ordinal)
+                        ? "这个账号还没有上传皮肤，游戏里会显示官方默认外观。"
+                        : "读取正版皮肤失败：" + (_premium.Error ?? "未知原因") +
+                          "。皮肤由 minecraft.net 管理，这里只能预览。";
+                }
 
-                var suffix = string.IsNullOrEmpty(_premium.Error) ? "" : "（" + _premium.Error + "）";
-                return $"正版皮肤 · {ModelText(_premium.Model)}{suffix}";
+                return $"正版皮肤 · {ModelText(_premium.Model)}";
             }
 
             var custom = Config.Current.OfflineSkin;
-            if (string.IsNullOrWhiteSpace(custom))
-            {
-                return _offline != null && _offline.Ok
-                    ? $"离线皮肤 · 内置默认（{ModelText(_offline.Model)}）"
-                    : "离线皮肤 · 内置默认";
-            }
+            if (string.IsNullOrWhiteSpace(custom) || _offline == null || !_offline.Ok)
+                return "还没有选择皮肤。点「选择皮肤文件」挑一张 64×64（或 64×32）的 PNG。";
 
-            return $"离线皮肤 · {custom}（{ModelText(_offline?.Model ?? SkinModel.Classic)}）";
+            return $"离线皮肤 · {custom}（{ModelText(_offline.Model)}）";
         }
 
         private static string ModelText(SkinModel model) =>
@@ -341,7 +339,7 @@ namespace SlopeX.Pages
             Config.Current.OfflineSkin = "";
             Config.Current.Save();
 
-            _offline = new SkinLoadResult { Image = _fallback, Model = SkinModel.Classic };
+            _offline = null;
             _showPremium = false;
 
             ApplyPreview();

@@ -42,6 +42,9 @@ namespace SlopeX.Controls
         private BitmapSource _skin;
         private SkinModel _model = SkinModel.Classic;
 
+        private BitmapSource _texture;         // 预放大后的贴图
+        private BitmapSource _textureSource;   // 上面那张对应哪个原图
+
         public SkinPreview()
         {
             ClipToBounds = true;
@@ -53,10 +56,11 @@ namespace SlopeX.Controls
             _camera.FarPlaneDistance = 1000;
             _viewport.Camera = _camera;
 
-            // 环境光负责还原贴图本色，一点点方向光给轮廓做出明暗
-            _lights.Children.Add(new AmbientLight(Color.FromRgb(0xC8, 0xC8, 0xC8)));
-            _lights.Children.Add(new DirectionalLight(Color.FromRgb(0x3C, 0x3C, 0x3C),
-                new Vector3D(-0.35, -0.6, -1)));
+            // 环境光负责还原贴图本色，方向光给轮廓做出明暗——
+            // 两者相加在正面接近满值，侧面只剩环境光，立体感才出得来
+            _lights.Children.Add(new AmbientLight(Color.FromRgb(0xB0, 0xB0, 0xB0)));
+            _lights.Children.Add(new DirectionalLight(Color.FromRgb(0x58, 0x58, 0x58),
+                new Vector3D(-0.4, -0.55, -1)));
 
             _viewport.Children.Add(_root);
             _viewport.Children.Add(new ModelVisual3D { Content = _lights });
@@ -133,18 +137,86 @@ namespace SlopeX.Controls
 
         // ---------------- 模型 ----------------
 
+        /// <summary>
+        /// 给 3D 用的贴图：按最近邻预放大过的版本。
+        ///
+        /// WPF 3D 的纹理采样固定是双线性插值，没有"最近邻"开关。64×64 的像素画铺到
+        /// 每个皮肤像素约 10 个屏幕像素时，每条像素边界都会被摊成一条 10 px 宽的渐变带，
+        /// 看着就是糊的（实测一条横线上 99 个像素出现 44 种颜色）。
+        /// 先把图放大 16 倍，插值就只发生在放大后的相邻纹素之间（1/16 个皮肤像素宽），
+        /// 视觉上接近硬边。
+        /// </summary>
+        private BitmapSource Texture
+        {
+            get
+            {
+                if (ReferenceEquals(_textureSource, _skin) && _texture != null) return _texture;
+
+                _textureSource = _skin;
+
+                // 高清皮肤（128×128 起）少放大几倍，避免贴图过大
+                var factor = _skin.PixelWidth switch
+                {
+                    <= 64 => 16,
+                    <= 128 => 8,
+                    _ => 4
+                };
+
+                _texture = UpscaleNearest(_skin, factor);
+                return _texture;
+            }
+        }
+
+        /// <summary>最近邻放大 + alpha 二值化。后者是为了让外衣层的半透明边缘不会混出白边。</summary>
+        private static BitmapSource UpscaleNearest(BitmapSource src, int factor)
+        {
+            var sw = src.PixelWidth;
+            var sh = src.PixelHeight;
+            var srcPx = new byte[sw * sh * 4];
+            src.CopyPixels(srcPx, sw * 4, 0);
+
+            var dw = sw * factor;
+            var dh = sh * factor;
+            var dst = new byte[dw * dh * 4];
+
+            for (var y = 0; y < dh; y++)
+            {
+                var sy = y / factor;
+                var srcRow = sy * sw;
+                var dstRow = y * dw;
+
+                for (var x = 0; x < dw; x++)
+                {
+                    var si = (srcRow + x / factor) * 4;
+                    var di = (dstRow + x) * 4;
+
+                    dst[di] = srcPx[si];
+                    dst[di + 1] = srcPx[si + 1];
+                    dst[di + 2] = srcPx[si + 2];
+                    dst[di + 3] = srcPx[si + 3] < 128 ? (byte)0 : (byte)255;
+                }
+            }
+
+            var bmp = BitmapSource.Create(dw, dh, 96, 96, PixelFormats.Bgra32, null, dst, dw * 4);
+            bmp.Freeze();
+            return bmp;
+        }
+
         private void Rebuild()
         {
-            var group = new Model3DGroup();
-            group.Children.Add(_lights);
-
+            // 没有皮肤就什么都不画：预览区保持空白，由页面自己给提示文字。
+            // 不画灰色占位人形——那会让人以为是"已有一张默认皮肤"。
             if (_skin == null)
             {
-                group.Children.Add(Placeholder());
-                _root.Content = group;
+                _root.Content = null;
+                _texture = null;
+                _textureSource = null;
                 UpdateCamera();
                 return;
             }
+
+            var group = new Model3DGroup();
+            group.Children.Add(_lights);
 
             var geometry = new MeshGeometry3D();
             var uvH = _skin.PixelHeight * 2 == _skin.PixelWidth ? 32 : 64;   // 64×32 老皮肤
@@ -228,13 +300,12 @@ namespace SlopeX.Controls
                     new FaceUv(8, 52), new FaceUv(12, 52));
             }
 
-            var brush = new ImageBrush(_skin)
+            var brush = new ImageBrush(Texture)
             {
                 Stretch = Stretch.Fill,
                 ViewportUnits = BrushMappingMode.RelativeToBoundingBox,
                 Viewport = new Rect(0, 0, 1, 1)
             };
-            RenderOptions.SetBitmapScalingMode(brush, BitmapScalingMode.HighQuality);
 
             var material = new DiffuseMaterial(brush);
             group.Children.Add(new GeometryModel3D
@@ -246,71 +317,6 @@ namespace SlopeX.Controls
 
             _root.Content = group;
             UpdateCamera();
-        }
-
-        /// <summary>没有皮肤时的一块浅灰人形，纯粹让预览区不空着。</summary>
-        private Model3D Placeholder()
-        {
-            var group = new Model3DGroup();
-            var brush = new SolidColorBrush(Color.FromArgb(0x26, 0x80, 0x80, 0x80));
-            brush.Freeze();
-            var material = new DiffuseMaterial(brush);
-
-            void Box(double cx, double cy, double w, double h, double d)
-            {
-                var g = new MeshGeometry3D();
-                AddSolidCube(g, cx, cy, w, h, d);
-                group.Children.Add(new GeometryModel3D
-                {
-                    Geometry = g,
-                    Material = material,
-                    BackMaterial = material
-                });
-            }
-
-            Box(0, 12, HeadSize, HeadSize, HeadSize);
-            Box(0, 2, BodyW, BodyH, BodyD);
-            Box(-(BodyW / 2 + ArmW / 2), 2, ArmW, ArmH, ArmD);
-            Box(BodyW / 2 + ArmW / 2, 2, ArmW, ArmH, ArmD);
-            Box(-LegW / 2, -10, LegW, LegH, LegD);
-            Box(LegW / 2, -10, LegW, LegH, LegD);
-
-            return group;
-        }
-
-        private static void AddSolidCube(MeshGeometry3D mesh, double cx, double cy, double w, double h, double d)
-        {
-            var hx = w / 2;
-            var hy = h / 2;
-            var hz = d / 2;
-
-            void Face(Point3D a, Point3D b, Point3D c, Point3D e)
-            {
-                var i = mesh.Positions.Count;
-                mesh.Positions.Add(a);
-                mesh.Positions.Add(b);
-                mesh.Positions.Add(c);
-                mesh.Positions.Add(e);
-                mesh.TriangleIndices.Add(i);
-                mesh.TriangleIndices.Add(i + 1);
-                mesh.TriangleIndices.Add(i + 2);
-                mesh.TriangleIndices.Add(i);
-                mesh.TriangleIndices.Add(i + 2);
-                mesh.TriangleIndices.Add(i + 3);
-            }
-
-            Face(new Point3D(cx - hx, cy + hy, hz), new Point3D(cx + hx, cy + hy, hz),
-                 new Point3D(cx + hx, cy - hy, hz), new Point3D(cx - hx, cy - hy, hz));
-            Face(new Point3D(cx + hx, cy + hy, -hz), new Point3D(cx - hx, cy + hy, -hz),
-                 new Point3D(cx - hx, cy - hy, -hz), new Point3D(cx + hx, cy - hy, -hz));
-            Face(new Point3D(cx + hx, cy + hy, -hz), new Point3D(cx + hx, cy + hy, hz),
-                 new Point3D(cx + hx, cy - hy, hz), new Point3D(cx + hx, cy - hy, -hz));
-            Face(new Point3D(cx - hx, cy + hy, hz), new Point3D(cx - hx, cy + hy, -hz),
-                 new Point3D(cx - hx, cy - hy, -hz), new Point3D(cx - hx, cy - hy, hz));
-            Face(new Point3D(cx - hx, cy + hy, -hz), new Point3D(cx + hx, cy + hy, -hz),
-                 new Point3D(cx + hx, cy + hy, hz), new Point3D(cx - hx, cy + hy, hz));
-            Face(new Point3D(cx - hx, cy - hy, hz), new Point3D(cx + hx, cy - hy, hz),
-                 new Point3D(cx + hx, cy - hy, -hz), new Point3D(cx - hx, cy - hy, -hz));
         }
 
         /// <summary>皮肤里每个面的左上角坐标（64 基准）。宽高由所在立方体的面决定。</summary>

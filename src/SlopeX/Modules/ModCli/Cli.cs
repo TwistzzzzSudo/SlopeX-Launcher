@@ -1077,12 +1077,11 @@ namespace SlopeX.Modules.ModCli
                 ? ModAccount.SkinModel.Slim
                 : ModAccount.SkinModel.Classic;
 
-            BitmapSource skin;
+            BitmapSource skin = null;
 
             if (string.IsNullOrWhiteSpace(skinPath))
             {
-                skin = ModAccount.SkinTexture.CreateDefault();
-                Out("皮肤：内置默认（Steve 风格）");
+                Out("皮肤：未指定 —— 渲染空预览（验证留白状态用）");
             }
             else
             {
