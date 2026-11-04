@@ -219,40 +219,135 @@ namespace SlopeX.Modules.ModMods
 
             foreach (var o in (J.Arr(node, "data") ?? new JsonArray()).OfType<JsonObject>())
             {
-                var fileId = J.Long(o, "id");
-                if (fileId <= 0) continue;
-
-                // 作者可以禁止第三方分发，这时 downloadUrl 是 null，得走专门的端点再取一次
-                var url2 = J.Str(o, "downloadUrl");
-                if (string.IsNullOrEmpty(url2))
-                    url2 = await ResolveDownloadUrlAsync(modId, fileId, ct).ConfigureAwait(false);
-                if (string.IsNullOrEmpty(url2)) continue;
-
-                var file = new ModFileRef
-                {
-                    Source = SourceName,
-                    ProjectId = modId,
-                    VersionLabel = J.Str(o, "displayName") ?? J.Str(o, "fileName") ?? "",
-                    FileName = J.Str(o, "fileName") ?? "",
-                    Url = url2,
-                    Sha1 = Sha1Of(o),
-                    Size = J.Long(o, "fileLength")
-                };
-
-                foreach (var d in J.Arr(o, "dependencies") ?? new JsonArray())
-                {
-                    if (d is not JsonObject dep) continue;
-                    if (J.Long(dep, "relationType") != 3) continue;   // 3 = RequiredDependency
-
-                    var depId = J.Long(dep, "modId");
-                    if (depId > 0) file.RequiredDepIds.Add(depId.ToString());
-                }
-
-                list.Add(file);
+                var file = await ToFileRefAsync(modId, o, ct).ConfigureAwait(false);
+                if (file != null) list.Add(file);
             }
 
             return list;
         }
+
+        /// <summary>
+        /// 取该项目**最新**的一个适配当前版本 + 加载器的文件（<c>pageSize=1</c>，服务端按时间倒序）。
+        /// 更新检查用：一次请求就能判断有没有新版本，不必把整个文件列表拉回来。
+        /// </summary>
+        public static async Task<ModFileRef> LatestFileAsync(string modId, string mcVersion, string loader,
+            CancellationToken ct = default)
+        {
+            var q = new List<string> { "pageSize=1", "index=0" };
+
+            if (!string.IsNullOrWhiteSpace(mcVersion))
+                q.Add("gameVersion=" + Uri.EscapeDataString(mcVersion.Trim()));
+
+            var lt = LoaderType(loader);
+            if (lt.HasValue) q.Add("modLoaderType=" + lt.Value);
+
+            var url = $"{Base}/mods/{Uri.EscapeDataString(modId)}/files?" + string.Join("&", q);
+            var node = await Net.GetJsonRawAsync(url, ct).ConfigureAwait(false);
+
+            var o = (J.Arr(node, "data") ?? new JsonArray()).OfType<JsonObject>().FirstOrDefault();
+            return o == null ? null : await ToFileRefAsync(modId, o, ct).ConfigureAwait(false);
+        }
+
+        /// <summary>把一个 CF 文件对象转成内部结构；作者禁止第三方分发又拿不到地址时返回 null。</summary>
+        private static async Task<ModFileRef> ToFileRefAsync(string modId, JsonObject o, CancellationToken ct)
+        {
+            var fileId = J.Long(o, "id");
+            if (fileId <= 0) return null;
+
+            // 作者可以禁止第三方分发，这时 downloadUrl 是 null，得走专门的端点再取一次
+            var url = J.Str(o, "downloadUrl");
+            if (string.IsNullOrEmpty(url))
+                url = await ResolveDownloadUrlAsync(modId, fileId, ct).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(url)) return null;
+
+            var file = new ModFileRef
+            {
+                Source = SourceName,
+                ProjectId = modId,
+                VersionLabel = J.Str(o, "displayName") ?? J.Str(o, "fileName") ?? "",
+                FileName = J.Str(o, "fileName") ?? "",
+                Url = url,
+                Sha1 = Sha1Of(o),
+                Size = J.Long(o, "fileLength"),
+                FileDate = ParseDate(J.Str(o, "fileDate"))
+            };
+
+            foreach (var d in J.Arr(o, "dependencies") ?? new JsonArray())
+            {
+                if (d is not JsonObject dep) continue;
+                if (J.Long(dep, "relationType") != 3) continue;   // 3 = RequiredDependency
+
+                var depId = J.Long(dep, "modId");
+                if (depId > 0) file.RequiredDepIds.Add(depId.ToString());
+            }
+
+            return file;
+        }
+
+        private static DateTime? ParseDate(string s) =>
+            DateTime.TryParse(s, out var d) ? d : (DateTime?)null;
+
+        // ---------------- 指纹 ----------------
+
+        /// <summary>指纹反查的命中结果：本地这个 jar 在 CF 上是哪个项目的哪个文件。</summary>
+        public sealed class CfMatch
+        {
+            /// <summary>CF 的数字项目 ID（与 Modrinth 的 base62 不互通）。</summary>
+            public string ProjectId { get; set; } = "";
+
+            public long FileId { get; set; }
+            public string FileName { get; set; } = "";
+            public DateTime? FileDate { get; set; }
+        }
+
+        /// <summary>一次能问多少个指纹。镜像是社区服务，别一次灌太多。</summary>
+        public const int FingerprintBatch = 100;
+
+        /// <summary>
+        /// 按指纹反查文件。返回的字典以**指纹**为键（无符号 32 位，与 <c>JarFingerprint</c> 同一个口径），
+        /// 没认出来的文件不会出现在结果里。
+        ///
+        /// 这是 CF 侧更新检查的入口：CF 没有"按 SHA1 批量查更新"的接口，只能先用指纹认出
+        /// "本地这个 jar 是哪个项目的哪个文件"，再去看该项目有没有更新的文件。
+        /// </summary>
+        public static async Task<Dictionary<long, CfMatch>> MatchFingerprintsAsync(
+            IReadOnlyList<long> fingerprints, CancellationToken ct = default)
+        {
+            var result = new Dictionary<long, CfMatch>();
+            if (fingerprints == null || fingerprints.Count == 0) return result;
+
+            var arr = new JsonArray();
+            foreach (var fp in fingerprints) arr.Add(JsonValue.Create(fp));
+
+            var node = await Net.PostJsonAsync(Base + "/fingerprints",
+                new JsonObject { ["fingerprints"] = arr }, ct).ConfigureAwait(false);
+
+            var matches = J.Arr(J.Obj(node, "data"), "exactMatches") ?? new JsonArray();
+
+            foreach (var m in matches.OfType<JsonObject>())
+            {
+                var file = J.Obj(m, "file");
+                if (file == null) continue;
+
+                var fileId = J.Long(file, "id");
+                if (fileId <= 0) continue;
+
+                // 用响应里回带的指纹做键，避免顺序假设
+                var key = J.Long(file, "fileFingerprint");
+                if (key == 0) continue;
+
+                result[key] = new CfMatch
+                {
+                    ProjectId = J.Long(m, "id").ToString(),
+                    FileId = fileId,
+                    FileName = J.Str(file, "fileName") ?? "",
+                    FileDate = ParseDate(J.Str(file, "fileDate"))
+                };
+            }
+
+            return result;
+        }
+
 
         private static async Task<string> ResolveDownloadUrlAsync(string modId, long fileId, CancellationToken ct)
         {

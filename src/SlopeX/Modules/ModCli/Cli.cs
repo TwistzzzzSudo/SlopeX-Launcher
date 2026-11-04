@@ -92,7 +92,7 @@ namespace SlopeX.Modules.ModCli
                     Out("  mods-list <版本>         列出该版本 mods 目录的模组与元数据");
                     Out("  mods-deps <版本> <项目>  打印该模组的必需依赖解析结果，标明哪些锁定了版本（排障用）");
                     Out("  mods-scan <版本|目录> [--check]   扫描 jar 元数据、查重复装；--check 顺带校验依赖是否齐全（排障用）");
-                    Out("  mods-update <版本>       检查已装模组有没有新版本（按文件 SHA1 问 Modrinth）");
+                    Out("  mods-update <版本>       检查已装模组有没有新版本（SHA1 问 Modrinth、指纹问 CurseForge）");
                     Out("  selftest [--mc 版本] [--loader 加载器] [-v]   用固定样本自检中文搜索链路（需联网，失败返回 1）");
                     Out("  mods-search <版本> <关键词> [all|modrinth|curseforge]   搜索模组（英文按来源搜，中文走 MC百科）");
                     Out("  legal [brief]            打印内置法律声明（brief = 首次启动的简版）");
@@ -764,7 +764,7 @@ namespace SlopeX.Modules.ModCli
 
                 if (updates.Count == 0)
                 {
-                    Out("没有可更新的（已是最新，或不在 Modrinth 上架）");
+                    Out("没有可更新的（已是最新，或两边都没上架）");
                     return 0;
                 }
 
@@ -772,7 +772,7 @@ namespace SlopeX.Modules.ModCli
                 Out($"可更新 {updates.Count} 个：");
                 foreach (var u in updates)
                 {
-                    Out("  " + u.Describe());
+                    Out($"  [{u.Source}] " + u.Describe());
                     Out($"      下载 {u.LatestFileName}（{Format.Bytes(u.Size)}）");
                 }
 

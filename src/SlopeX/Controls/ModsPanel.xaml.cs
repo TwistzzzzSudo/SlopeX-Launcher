@@ -130,8 +130,8 @@ namespace SlopeX.Controls
         private bool _checkingUpdates;
 
         /// <summary>
-        /// 检查更新：算每个 jar 的 SHA1 去问 Modrinth，确认后逐个下载替换。
-        /// 只覆盖 Modrinth 上架的模组；CurseForge 来的会安静跳过（那边要先实现它的指纹算法）。
+        /// 检查更新：Modrinth 按 SHA1 批量问，CurseForge 按文件指纹反查再逐个看新版本，
+        /// 确认后逐个下载替换。两边都没上架的（自己编译、改过的）安静跳过。
         /// </summary>
         private async void CheckUpdates_Click(object sender, RoutedEventArgs e)
         {
@@ -153,7 +153,7 @@ namespace SlopeX.Controls
                 if (updates.Count == 0)
                 {
                     SubText.Text = $"{_versionId}  ·  {_mods.Count} 个模组，已是最新";
-                    MainWindow.Current?.ShowToast("没有可更新的模组（或这些模组不在 Modrinth 上架）");
+                    MainWindow.Current?.ShowToast("没有可更新的模组（或这些模组两边都没上架）");
                     _checkingUpdates = false;
                     return;
                 }

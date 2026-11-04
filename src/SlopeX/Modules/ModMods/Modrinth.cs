@@ -155,6 +155,13 @@ namespace SlopeX.Modules.ModMods
         public long Size { get; set; }
 
         /// <summary>
+        /// 文件发布时间。只有 CurseForge 侧会填（Modrinth 留空）。
+        /// 更新检查拿它做"新旧"的硬判据：项目最新文件比本地这份还早，就说明本地已是最新，
+        /// 光比 fileId 不够——作者补传旧分支时排序会变。
+        /// </summary>
+        public DateTime? FileDate { get; set; }
+
+        /// <summary>
         /// CurseForge 在文件里直接给出的必需依赖（数字 modId）。Modrinth 用不到，留空，
         /// 装的时候还按版本号反查（见 <c>ModrinthSource.RequiredDepsAsync</c>）。
         /// </summary>
