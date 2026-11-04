@@ -116,7 +116,11 @@ namespace SlopeX.Pages
             }
 
             if (RecentList.SelectedItem != _selected)
+            {
+                _pickSync = true;
                 RecentList.SelectedItem = _selected;
+                _pickSync = false;
+            }
         }
 
         private void UpdateAccount()
@@ -510,15 +514,25 @@ namespace SlopeX.Pages
             }
         }
 
+        /// <summary>程序同步选中项时置位，避免把"刷新选中"当成用户点击。</summary>
+        private bool _pickSync;
+
         private void RecentList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (RecentList.SelectedItem is InstalledVersion v)
-            {
-                _selected = v;
-                ApplySelection();
-                Config.Current.LastVersion = v.Id;
-                _ = UpdateJavaInfoAsync();
-            }
+            if (_pickSync) return;
+            if (RecentList.SelectedItem is not InstalledVersion v) return;
+            if (ReferenceEquals(v, _selected)) return;
+
+            // 点版本行 = 切换"当前要启动的版本"：顶部卡片、Java 检测、配置里的 LastVersion 一起跟着走
+            _selected = v;
+            Config.Current.LastVersion = v.Id;
+            Config.Current.Save();
+
+            ApplySelection();
+            _ = UpdateJavaInfoAsync();
+
+            MainWindow.Current?.ShowToast("已切换到 " + v.Id);
+            Log.Info("切换当前版本：" + v.Id);
         }
     }
 }

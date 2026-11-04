@@ -418,6 +418,13 @@
         </Setter>
     </Style>
 
+    <!-- 可点击选中的行：RowItem 关掉 Focusable 是为了让行内按钮独占点击，
+         但"点一下就是选中"的列表（首页全部版本）必须能选中，否则 SelectionChanged 永远不来 -->
+    <Style x:Key="RowItemPick" TargetType="ListBoxItem" BasedOn="{StaticResource RowItem}">
+        <Setter Property="Focusable" Value="True"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
     <Style x:Key="PlainList" TargetType="ListBox">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>

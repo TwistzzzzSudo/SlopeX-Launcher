@@ -143,7 +143,8 @@
                                 <Button Style="{StaticResource BtnText}" Content="管理" HorizontalAlignment="Right"
                                         Click="GoVersions_Click"/>
                             </Grid>
-                            <ListBox x:Name="RecentList" Style="{StaticResource PlainList}" MaxHeight="228"
+                            <ListBox x:Name="RecentList" Style="{StaticResource PlainList}"
+                                     ItemContainerStyle="{StaticResource RowItemPick}" MaxHeight="228"
                                      SelectionChanged="RecentList_SelectionChanged">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
