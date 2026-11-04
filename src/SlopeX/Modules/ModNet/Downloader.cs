@@ -46,10 +46,10 @@ namespace SlopeX.Modules.ModNet
     }
 
     /// <summary>
-    /// 分段下载引擎（对应 PCL2 的 NetThread）。
+    /// 分段下载引擎。
     ///
     /// 为什么需要它：cdn.modrinth.com 这类源对**单条连接**的限速很低（本机实测 35 KB/s），
-    /// 但把同一个文件拆成几十段并发拉，聚合速度能到 2–3 MB/s——浏览器 / PCL2 快就是这个原因。
+    /// 但把同一个文件拆成几十段并发拉，聚合速度能到 2–3 MB/s——浏览器快就是这个原因。
     ///
     /// 策略：
     /// <list type="bullet">

@@ -22,7 +22,7 @@ namespace SlopeX.Modules.ModDownload
     }
 
     /// <summary>
-    /// Fabric 安装（对应 PCL2 的安装器加载器分支）。
+    /// Fabric 安装。
     ///
     /// 与 Forge 不同，Fabric 不需要跑任何 Java 处理器：
     /// 官方 meta 直接给出一份完整的版本 profile（<c>inheritsFrom</c> 指向原版 + 一串 Maven 库），

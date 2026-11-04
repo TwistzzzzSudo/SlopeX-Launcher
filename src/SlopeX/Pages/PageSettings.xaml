@@ -251,15 +251,6 @@
                             <TextBlock x:Name="ConfigPath" Grid.Column="1" Style="{StaticResource TMono}"
                                        TextTrimming="CharacterEllipsis"/>
                         </Grid>
-                        <Grid Margin="0,8,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="112"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Style="{StaticResource TSub}" Text="架构参考"/>
-                            <TextBlock Grid.Column="1" Style="{StaticResource TSub}" TextWrapping="Wrap"
-                                       Text="模块分层参考 PCL2（ModBase / ModNet / ModMinecraft / ModJava / ModLaunch / ModDownload），代码为独立实现。"/>
-                        </Grid>
                         <Grid Margin="0,14,0,0">
                             <Button Style="{StaticResource BtnGhost}" Content="打开配置目录" Height="30"
                                     HorizontalAlignment="Left" Click="OpenConfigDir_Click"/>
@@ -274,7 +265,7 @@
                     <StackPanel>
                         <TextBlock Style="{StaticResource TSection}" Text="法律声明"/>
                         <TextBlock Style="{StaticResource TCaption}" Margin="0,6,0,0" TextWrapping="Wrap"
-                                   Text="与 PCL2 的关系、非商业使用限制、权利通知与联系方式。使用本启动器即视为同意全部条款。"/>
+                                   Text="非商业使用限制、权利通知与联系方式。使用本启动器即视为同意全部条款。"/>
                         <Button Style="{StaticResource BtnGhost}" Content="查看" Height="30"
                                 HorizontalAlignment="Left" Margin="0,12,0,0" Click="OpenLegal_Click"/>
                     </StackPanel>

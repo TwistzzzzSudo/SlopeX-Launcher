@@ -33,7 +33,7 @@ namespace SlopeX.Modules.ModJava
         }
     }
 
-    /// <summary>Java 运行时探测与匹配（对应 PCL2 的 ModJava）。</summary>
+    /// <summary>Java 运行时探测与匹配。</summary>
     public static class JavaFinder
     {
         private static List<JavaInfo> _cache;

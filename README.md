@@ -12,10 +12,10 @@
 > `api.minecraftservices.com/authentication/login_with_xbox` → `/minecraft/profile`.
 > Scopes: `XboxLive.signin`, `offline_access`. Implementation: [`src/SlopeX/Modules/ModAccount/Msa.cs`](src/SlopeX/Modules/ModAccount/Msa.cs).
 
-一个仿照 [PCL2](https://github.com/Meloong-Git/PCL)（Plain Craft Launcher 2）思路实现的 Minecraft 启动器。
+一个面向 Windows 的 Minecraft: Java Edition 第三方启动器，C# + WPF 独立实现。
 界面风格为**极简白纸**：纯白底、1px 细描边、大留白、单一墨色强调，不使用阴影与彩色渐变。
 
-> 代码为独立实现，未复制 PCL2 源码。仅借鉴其**模块分层方式**与**启动器行为逻辑**。
+> 全部代码为独立实现，不依赖任何第三方启动器的代码。
 
 ## 界面
 
@@ -49,10 +49,9 @@
 
 ## 技术栈
 
-与 PCL2 同一条技术路线：**.NET + WPF**（PCL2 用 VB.NET，其底层通用库 MeloongCore 本身是 C#）。
-本项目使用 C# + WPF，目标框架 `net8.0-windows`，不依赖任何第三方 NuGet 包。
+**C# + WPF**，目标框架 `net8.0-windows`，不依赖任何第三方 NuGet 包。
 
-## 架构（对照 PCL2 的模块划分）
+## 架构
 
 ```
 src/SlopeX/
@@ -263,6 +262,4 @@ tools/make-icon.ps1  # 由矢量几何重新生成 ico；改标记形状时改�
 
 ## 许可
 
-本项目以 [MIT](LICENSE) 许可发布。
-
-PCL2 采用 LGPL-3.0（仓库标注为 Other），本项目**未使用其任何代码**，只借鉴了模块划分与启动器行为逻辑，因此不继承其许可；如需二次分发，请自行确认对 PCL2 名称与素材的使用边界。
+本项目以 [MIT](LICENSE) 许可发布，全部代码为独立实现，未使用任何第三方启动器的源代码。

@@ -48,7 +48,7 @@ namespace SlopeX.Modules.ModJava
     }
 
     /// <summary>
-    /// 缺失 Java 时自动下载安装（对应 PCL2 的 Java 自动安装能力）。
+    /// 缺失 Java 时自动下载安装。
     ///
     /// 只使用国内镜像，按速度与稳定性依次尝试：
     ///   1. 清华大学 TUNA（Adoptium / Temurin，优先 JRE，体积约为 JDK 的 1/4）

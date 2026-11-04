@@ -152,7 +152,7 @@ namespace SlopeX.Modules.ModLaunch
         public List<string> Excludes { get; } = new List<string>();
     }
 
-    /// <summary>启动参数构造与游戏进程管理（对应 PCL2 的 ModLaunch）。</summary>
+    /// <summary>启动参数构造与游戏进程管理。</summary>
     public static class LaunchBuilder
     {
         public static LaunchPlan Build(ResolvedVersion version, LaunchOptions o, string javaExe)

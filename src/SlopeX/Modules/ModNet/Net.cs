@@ -14,7 +14,7 @@ using SlopeX.Modules.ModBase;
 
 namespace SlopeX.Modules.ModNet
 {
-    /// <summary>HTTP 访问与镜像重写（对应 PCL2 的 ModNet）。</summary>
+    /// <summary>HTTP 访问与镜像重写。</summary>
     public static class Net
     {
         public static readonly HttpClient Client = CreateClient();
@@ -176,7 +176,7 @@ namespace SlopeX.Modules.ModNet
         public double Percent => Size > 0 ? Math.Min(100, _downloaded * 100.0 / Size) : (_state == JobState.Done ? 100 : 0);
     }
 
-    /// <summary>并发下载队列：统一进度、速度、失败重试（对应 PCL2 的下载模块）。</summary>
+    /// <summary>并发下载队列：统一进度、速度、失败重试。</summary>
     public sealed class DownloadQueue : ObservableObject
     {
         public ObservableCollection<DownloadJob> Jobs { get; } = new ObservableCollection<DownloadJob>();

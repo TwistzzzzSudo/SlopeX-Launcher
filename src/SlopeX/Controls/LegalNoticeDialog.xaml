@@ -8,7 +8,7 @@
     <StackPanel>
         <Grid>
             <TextBlock Style="{StaticResource TSub}" FontWeight="SemiBold" Text="法律声明"/>
-            <Button Style="{StaticResource BtnText}" Content="关闭" HorizontalAlignment="Right"
+            <Button Style="{StaticResource BtnText}" Content="已明白" HorizontalAlignment="Right"
                     Click="Close_Click"/>
         </Grid>
 

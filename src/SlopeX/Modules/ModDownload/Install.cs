@@ -67,7 +67,7 @@ namespace SlopeX.Modules.ModDownload
         public bool CanInstall => !_busy;
     }
 
-    /// <summary>Mojang 版本清单（对应 PCL2 的下载源处理）。</summary>
+    /// <summary>Mojang 版本清单。</summary>
     public static class Mojang
     {
         public const string ManifestUrl = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
@@ -300,7 +300,7 @@ namespace SlopeX.Modules.ModDownload
         }
     }
 
-    /// <summary>原版版本安装（对应 PCL2 的 ModDownload）。</summary>
+    /// <summary>原版版本安装。</summary>
     public static class VanillaInstaller
     {
         public static bool IsInstalled(string gameDir, string versionId)

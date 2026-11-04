@@ -9,7 +9,7 @@ using System.Text.Json.Serialization;
 
 namespace SlopeX.Modules.ModBase
 {
-    /// <summary>全局路径（对应 PCL2 的 ModBase 路径管理）。</summary>
+    /// <summary>全局路径。</summary>
     public static class Paths
     {
         /// <summary>%APPDATA%\SlopeX：旧位置、便携不可写时的回落点，也是 Java 运行时的默认位置。</summary>
