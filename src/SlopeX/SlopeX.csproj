@@ -13,6 +13,11 @@
     <!-- 高 DPI：PerMonitorV2 必须写在清单里，代码里改不了（见 app.manifest） -->
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Version>1.0.0</Version>
+    <!--
+      对外展示的版本号。NuGet 的 Version 必须是合法 semver（1.0.0e 会被直接判错），
+      所以带后缀的写法放这里：程序集版本仍是 1.0.0，界面 / CLI / launcher_version 读这个。
+    -->
+    <InformationalVersion>1.0.0e</InformationalVersion>
     <Company>SlopeX</Company>
     <Product>SlopeX Launcher</Product>
     <StartupObject>SlopeX.App</StartupObject>
