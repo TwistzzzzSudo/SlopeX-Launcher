@@ -251,7 +251,8 @@ namespace SlopeX.Modules.ModMods
             if (!string.IsNullOrEmpty(l))
                 facets.Add($"[\"categories:{l}\"]");
 
-            return await QueryAsync(query, facets, limit, offset, mirror, ct, index).ConfigureAwait(false);
+            var (hits, _) = await QueryAsync(query, facets, limit, offset, mirror, ct, index).ConfigureAwait(false);
+            return hits;
         }
 
         /// <summary>
@@ -266,11 +267,37 @@ namespace SlopeX.Modules.ModMods
         public static async Task<List<ModSearchHit>> SearchByTypeAsync(string query, string projectType,
             int limit = 20, int offset = 0, CancellationToken ct = default, string index = "relevance")
         {
+            var (hits, _) = await SearchByTypePageAsync(query, projectType, limit, offset, ct, index)
+                .ConfigureAwait(false);
+            return hits;
+        }
+
+        /// <summary>同上，但把 <c>total_hits</c> 一起带回来——分页要知道总共有多少条。</summary>
+        public static async Task<(List<ModSearchHit> Hits, int Total)> SearchByTypePageAsync(string query,
+            string projectType, int limit = 20, int offset = 0, CancellationToken ct = default,
+            string index = "relevance")
+        {
             var facets = new List<string> { $"[\"project_type:{projectType}\"]" };
             return await QueryAsync(query, facets, limit, offset, false, ct, index).ConfigureAwait(false);
         }
 
-        private static async Task<List<ModSearchHit>> QueryAsync(string query, List<string> facets,
+        /// <summary>模组搜索的分页版本，带回 <c>total_hits</c>。</summary>
+        public static async Task<(List<ModSearchHit> Hits, int Total)> SearchPageAsync(string query,
+            string mcVersion, string loader, int limit = 20, int offset = 0, CancellationToken ct = default,
+            bool mirror = false, string index = "relevance")
+        {
+            var facets = new List<string> { "[\"project_type:mod\"]" };
+            if (!string.IsNullOrWhiteSpace(mcVersion))
+                facets.Add($"[\"versions:{mcVersion}\"]");
+
+            var l = LoaderFacet(loader);
+            if (!string.IsNullOrEmpty(l))
+                facets.Add($"[\"categories:{l}\"]");
+
+            return await QueryAsync(query, facets, limit, offset, mirror, ct, index).ConfigureAwait(false);
+        }
+
+        private static async Task<(List<ModSearchHit> Hits, int Total)> QueryAsync(string query, List<string> facets,
             int limit, int offset, bool mirror, CancellationToken ct, string index = "relevance")
         {
             var url = $"{BaseUrl(mirror)}/search?query={Uri.EscapeDataString(query ?? "")}" +
@@ -308,7 +335,7 @@ namespace SlopeX.Modules.ModMods
                 hits.Add(hit);
             }
 
-            return hits;
+            return (hits, (int)J.Long(node, "total_hits"));
         }
 
         /// <summary>列出该项目适用于指定 MC 版本 + 加载器的文件（新的在前）。</summary>

@@ -50,6 +50,9 @@ namespace SlopeX.Modules.ModMods
         /// <summary>关键词为空、按下载量浏览榜单（不是搜索）。状态文案据此换个说法。</summary>
         public bool Browsing { get; set; }
 
+        /// <summary>后面还有没有更多（分页按钮用）。</summary>
+        public bool HasMore { get; set; }
+
         public string StatusText(string mcVersion, string loader)
         {
             var target = TargetLabel(mcVersion, loader);
@@ -59,7 +62,7 @@ namespace SlopeX.Modules.ModMods
                 if (Hits.Count == 0)
                     return "没能列出热门模组，检查网络后点「搜索」重试。";
 
-                return $"下载量最高的 {Hits.Count} 个模组。已按 {target} 过滤。";
+                return $"按下载量排序。已按 {target} 过滤。";
             }
 
             if (!FromMcMod)
@@ -168,6 +171,118 @@ namespace SlopeX.Modules.ModMods
             return await SearchChineseAsync(query, mcVersion, loader, filter, limit, ct).ConfigureAwait(false);
         }
 
+        /// <summary>一页最多能翻到多深（两源各抓 need 条做归并，太深会把请求数拖爆）。</summary>
+        private const int PageWindowCap = 500;
+
+        /// <summary>
+        /// 分页搜索：把两个源的**前 <c>limit × page</c> 条**都取回来，去重合并、排序后
+        /// 再切出第 <paramref name="page"/> 页。这样每页正好 <paramref name="limit"/> 条、
+        /// 顺序与「一次性取完再切页」一致，翻回去也不会变样。
+        ///
+        /// 代价是翻得越深请求越多（Modrinth 一次 100 条、CurseForge 一页 50 条），
+        /// 所以窗口封顶 <see cref="PageWindowCap"/> 条。
+        /// </summary>
+        public static async Task<ModSearchResult> SearchPageAsync(string query, string mcVersion, string loader,
+            ModSourceFilter filter, int limit, int page, CancellationToken ct = default,
+            string index = "relevance")
+        {
+            limit = Math.Clamp(limit, 1, 50);
+            page = Math.Max(1, page);
+
+            // 中文关键词那套走 MC百科 映射，条数本来就少，不分页
+            if (HasChinese(query))
+                return await SearchChineseAsync(query, mcVersion, loader, filter, CheckLimit, ct)
+                    .ConfigureAwait(false);
+
+            var browsing = string.IsNullOrWhiteSpace(query) && index == "downloads";
+            var need = Math.Min(limit * page, PageWindowCap);
+
+            var modrinthTask = filter != ModSourceFilter.CurseForge
+                ? WithTimeoutAsync(t => FetchModrinthAsync(query, mcVersion, loader, need, t,
+                    filter == ModSourceFilter.All, index), ct, "Modrinth")
+                : Task.FromResult(new List<ModSearchHit>());
+
+            var curseforgeTask = filter != ModSourceFilter.Modrinth
+                ? WithTimeoutAsync(t => FetchCurseForgeAsync(query, mcVersion, loader, need, t,
+                    browsing ? CurseForgeSource.SortDownloads : CurseForgeSource.SortPopularity), ct, "CurseForge")
+                : Task.FromResult(new List<ModSearchHit>());
+
+            var modrinth = await SafeAsync(modrinthTask, "Modrinth").ConfigureAwait(false);
+            var curseforge = await SafeAsync(curseforgeTask, "CurseForge").ConfigureAwait(false);
+
+            // Modrinth 在前、CF 补在后，同名只留一条（顺序即页面顺序）
+            var merged = new List<ModSearchHit>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var hit in modrinth)
+                if (seen.Add(hit.DedupeKey)) merged.Add(hit);
+            foreach (var hit in curseforge)
+                if (seen.Add(hit.DedupeKey)) merged.Add(hit);
+
+            // 榜单看的是「整体按下载量」：两个源的排序规则不同，合并后必须重排
+            if (browsing)
+                merged.Sort((a, b) => b.Downloads.CompareTo(a.Downloads));
+
+            var result = new ModSearchResult
+            {
+                Filter = filter,
+                Browsing = browsing,
+                ModrinthCount = modrinth.Count,
+                CurseForgeCount = curseforge.Count,
+                Total = merged.Count
+            };
+
+            var skip = (page - 1) * limit;
+            foreach (var hit in merged.Skip(skip).Take(limit))
+                result.Hits.Add(hit);
+
+            // 窗口取满 + 本页也填满，才认为后面可能还有；取不满就是到底了
+            result.HasMore = merged.Count >= need && result.Hits.Count == limit && need < PageWindowCap;
+
+            return result;
+        }
+
+        private static async Task<List<ModSearchHit>> FetchModrinthAsync(string query, string mcVersion,
+            string loader, int count, CancellationToken ct, bool mirror, string index)
+        {
+            var all = new List<ModSearchHit>();
+            var offset = 0;
+
+            // Modrinth 一次最多 100 条，按 100 一块往回捞
+            while (all.Count < count)
+            {
+                var (hits, total) = await ModrinthSource
+                    .SearchPageAsync(query, mcVersion, loader, 100, offset, ct, mirror, index)
+                    .ConfigureAwait(false);
+
+                all.AddRange(hits);
+                if (hits.Count == 0 || all.Count >= total) break;
+                offset += hits.Count;
+            }
+
+            return all.Count > count ? all.GetRange(0, count) : all;
+        }
+
+        private static async Task<List<ModSearchHit>> FetchCurseForgeAsync(string query, string mcVersion,
+            string loader, int count, CancellationToken ct, int sortField)
+        {
+            var all = new List<ModSearchHit>();
+            var pageIndex = 0;
+
+            // CF 只支持「第几页 + 每页多少」，一页最多 50 条
+            while (all.Count < count)
+            {
+                var (hits, total) = await CurseForgeSource
+                    .SearchPageAsync(query, mcVersion, loader, 50, pageIndex, ct, CurseForgeSource.ClassMods, sortField)
+                    .ConfigureAwait(false);
+
+                all.AddRange(hits);
+                if (hits.Count == 0 || all.Count >= total) break;
+                pageIndex++;
+            }
+
+            return all.Count > count ? all.GetRange(0, count) : all;
+        }
+
         // ---------------- 英文：直接问平台 ----------------
 
         private static async Task<ModSearchResult> SearchDirectAsync(string query, string mcVersion, string loader,
@@ -220,6 +335,9 @@ namespace SlopeX.Modules.ModMods
             return result;
         }
 
+        /// <summary>单次搜索请求的上限。CurseForge 走社区镜像，镜像抽风时不能让界面干等两分钟。</summary>
+        private const int SourceTimeoutSeconds = 10;
+
         private static async Task<List<ModSearchHit>> SafeAsync(Task<List<ModSearchHit>> task, string name)
         {
             try
@@ -233,6 +351,27 @@ namespace SlopeX.Modules.ModMods
             catch (Exception ex)
             {
                 Log.Warn($"{name} 搜索失败：{ex.Message}");
+                return new List<ModSearchHit>();
+            }
+        }
+
+        /// <summary>
+        /// 给单个源加超时：镜像挂掉时把它当成「这个源没结果」，而不是让整页一直转圈。
+        /// 用户主动取消（外层的 <paramref name="outer"/>）照旧往上抛，不受这里影响。
+        /// </summary>
+        private static async Task<List<ModSearchHit>> WithTimeoutAsync(
+            Func<CancellationToken, Task<List<ModSearchHit>>> work, CancellationToken outer, string name)
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(outer);
+            cts.CancelAfter(TimeSpan.FromSeconds(SourceTimeoutSeconds));
+
+            try
+            {
+                return await work(cts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!outer.IsCancellationRequested)
+            {
+                Log.Warn($"{name} 在 {SourceTimeoutSeconds} 秒内没有响应，本次跳过该源");
                 return new List<ModSearchHit>();
             }
         }

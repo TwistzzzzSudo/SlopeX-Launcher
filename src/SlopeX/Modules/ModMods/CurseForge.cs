@@ -69,13 +69,26 @@ namespace SlopeX.Modules.ModMods
             int limit = 20, CancellationToken ct = default, int classId = ClassMods,
             int sortField = SortPopularity)
         {
+            var (hits, _) = await SearchPageAsync(query, mcVersion, loader, limit, 0, ct, classId, sortField)
+                .ConfigureAwait(false);
+            return hits;
+        }
+
+        /// <summary>
+        /// 分页版本：<paramref name="pageIndex"/> 是 CF 的「第几页」（从 0 起，不是 offset），
+        /// 顺带把 <c>pagination.totalCount</c> 带回来给分页器算总页数。
+        /// </summary>
+        public static async Task<(List<ModSearchHit> Hits, int Total)> SearchPageAsync(string query,
+            string mcVersion, string loader, int pageSize = 20, int pageIndex = 0, CancellationToken ct = default,
+            int classId = ClassMods, int sortField = SortPopularity)
+        {
             var q = new List<string>
             {
                 "gameId=" + GameId,
                 "classId=" + classId,
                 "searchFilter=" + Uri.EscapeDataString(query ?? ""),
-                "pageSize=" + Math.Clamp(limit, 1, 50),
-                "index=0",
+                "pageSize=" + Math.Clamp(pageSize, 1, 50),
+                "index=" + Math.Max(0, pageIndex),
                 "sortField=" + sortField,
                 "sortOrder=desc"
             };
@@ -95,11 +108,13 @@ namespace SlopeX.Modules.ModMods
                 .Where(h => h != null)
                 .ToList();
 
+            var total = (int)J.Long(J.Obj(node, "pagination"), "totalCount");
+
             var key = (query ?? "").Trim();
-            if (key.Length == 0) return hits;
+            if (key.Length == 0) return (hits, total);
 
             // OrderByDescending 是稳定排序：精确命中的提前，其余保持服务端顺序
-            return hits.OrderByDescending(h => IsExact(h, key)).ToList();
+            return (hits.OrderByDescending(h => IsExact(h, key)).ToList(), total);
         }
 
         /// <summary>

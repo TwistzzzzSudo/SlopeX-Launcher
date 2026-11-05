@@ -36,6 +36,11 @@ namespace SlopeX.Controls
 
         private CancellationTokenSource _cts;
 
+        /// <summary>每页条数；还有没有下一页由接口返回的总数决定。</summary>
+        private const int PageSize = 20;
+        private int _page = 1;
+        private bool _hasMore;
+
         /// <summary>装完一个模组后通知外面刷新列表。</summary>
         public event EventHandler Installed;
 
@@ -68,10 +73,32 @@ namespace SlopeX.Controls
         {
             if (e.Key != Key.Enter) return;
             e.Handled = true;
+            _ = SearchAsync(true);
+        }
+
+        private void Search_Click(object sender, RoutedEventArgs e) => _ = SearchAsync(true);
+
+        private void UpdatePager()
+        {
+            Pager.Visibility = _page > 1 || _hasMore ? Visibility.Visible : Visibility.Collapsed;
+            PageText.Text = $"第 {_page} 页";
+            PrevPageBtn.IsEnabled = _page > 1;
+            NextPageBtn.IsEnabled = _hasMore;
+        }
+
+        private void PrevPage_Click(object sender, RoutedEventArgs e)
+        {
+            if (_page <= 1) return;
+            _page--;
             _ = SearchAsync();
         }
 
-        private void Search_Click(object sender, RoutedEventArgs e) => _ = SearchAsync();
+        private void NextPage_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_hasMore) return;
+            _page++;
+            _ = SearchAsync();
+        }
 
         /// <summary>三个 Chip 互为单选；换源时清掉上一次的结果，免得把 A 源的结果当成 B 源的。</summary>
         private void Source_Click(object sender, RoutedEventArgs e)
@@ -89,7 +116,7 @@ namespace SlopeX.Controls
             // 浏览态（没输关键词）换源就等于换榜单，直接重新列，不用用户再点一次搜索
             if (string.IsNullOrWhiteSpace(QueryBox.Text))
             {
-                _ = SearchAsync();
+                _ = SearchAsync(true);
                 return;
             }
 
@@ -101,8 +128,11 @@ namespace SlopeX.Controls
             };
         }
 
-        private async System.Threading.Tasks.Task SearchAsync()
+        private async System.Threading.Tasks.Task SearchAsync(bool newSearch = false)
         {
+            // 新关键词从第一页开始；翻页时沿用当前页
+            if (newSearch) _page = 1;
+
             var query = QueryBox.Text?.Trim() ?? "";
 
             // 空关键词 = 看榜单（按总下载量从高到低），有关键词才按相关度搜
@@ -134,13 +164,15 @@ namespace SlopeX.Controls
 
             try
             {
-                var result = await ModSearch.SearchAsync(query, _mcVersion, _loader, _filter,
-                    browsing ? 20 : ModSearch.CheckLimit, _cts.Token,
-                    browsing ? "downloads" : "relevance");
+                var result = await ModSearch.SearchPageAsync(query, _mcVersion, _loader, _filter,
+                    PageSize, _page, _cts.Token, browsing ? "downloads" : "relevance");
 
                 if (_cts.IsCancellationRequested) return;
 
+                _hasMore = result.HasMore;
                 ResultList.ItemsSource = result.Hits;
+                if (result.Hits.Count > 0) ResultList.ScrollIntoView(result.Hits[0]);
+                UpdatePager();
                 StatusText.Text = result.StatusText(_mcVersion, _loader);
 
                 // 列表先出来，图标随后补——网络慢的时候不能让用户对着空列表等

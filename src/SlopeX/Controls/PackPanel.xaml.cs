@@ -32,6 +32,12 @@ namespace SlopeX.Controls
         private PackRow _activeRow;          // 正在选版本的那一行
         private Button _activeButton;        // 那一行的「安装」按钮，下载期间禁用
 
+        /// <summary>每页条数。接口的 <c>total_hits</c> 决定总页数。</summary>
+        private const int PageSize = 20;
+        private int _page = 1;
+        private int _pages = 1;
+        private int _total;
+
         /// <summary>返回版本列表。</summary>
         public event EventHandler BackRequested;
 
@@ -58,6 +64,7 @@ namespace SlopeX.Controls
             RefreshCounts();
 
             // 进面板就把榜单列出来：空关键词按下载量排，用户不必先想到搜什么
+            _page = 1;
             _ = SearchAsync();
         }
 
@@ -75,6 +82,7 @@ namespace SlopeX.Controls
             RefreshCounts();
 
             // 换页签就换榜单：光影和材质是两套项目，旧结果不能留着
+            _page = 1;
             _ = SearchAsync();
         }
 
@@ -107,10 +115,37 @@ namespace SlopeX.Controls
         {
             if (e.Key != Key.Enter) return;
             e.Handled = true;
+            _page = 1;
             _ = SearchAsync();
         }
 
-        private void Search_Click(object sender, RoutedEventArgs e) => _ = SearchAsync();
+        private void Search_Click(object sender, RoutedEventArgs e)
+        {
+            _page = 1;      // 新关键词从第一页看起
+            _ = SearchAsync();
+        }
+
+        private void UpdatePager()
+        {
+            Pager.Visibility = _pages > 1 ? Visibility.Visible : Visibility.Collapsed;
+            PageText.Text = $"第 {_page} / {_pages} 页 · 共 {_total:N0} 个";
+            PrevPageBtn.IsEnabled = _page > 1;
+            NextPageBtn.IsEnabled = _page < _pages;
+        }
+
+        private void PrevPage_Click(object sender, RoutedEventArgs e)
+        {
+            if (_page <= 1) return;
+            _page--;
+            _ = SearchAsync();
+        }
+
+        private void NextPage_Click(object sender, RoutedEventArgs e)
+        {
+            if (_page >= _pages) return;
+            _page++;
+            _ = SearchAsync();
+        }
 
         private async Task SearchAsync()
         {
@@ -131,13 +166,18 @@ namespace SlopeX.Controls
 
             try
             {
-                var hits = await ModrinthSource.SearchByTypeAsync(query, projectType, 20, 0, _cts.Token,
-                    browsing ? "downloads" : "relevance");
+                var offset = (_page - 1) * PageSize;
+                var (hits, total) = await ModrinthSource.SearchByTypePageAsync(query, projectType, PageSize, offset,
+                    _cts.Token, browsing ? "downloads" : "relevance");
 
                 if (_cts.IsCancellationRequested) return;
 
+                _total = total;
+                _pages = Math.Max(1, (int)Math.Ceiling(total / (double)PageSize));
+
                 var rows = hits.Select(h => new PackRow(h)).ToList();
                 PackList.ItemsSource = rows;
+                if (rows.Count > 0) PackList.ScrollIntoView(rows[0]);
 
                 // 列表先出来，图标随后补
                 _ = IconLoader.FillAsync(hits, _cts.Token);
@@ -146,17 +186,19 @@ namespace SlopeX.Controls
                 {
                     SetStatus(rows.Count == 0
                         ? $"没能列出{kindText}榜单，检查网络后点「刷新」重试。"
-                        : $"下载量最高的 {rows.Count} 个{kindText}。点每行的「安装」，挑一个包版本就开始下载。");
+                        : $"下载量最高的{kindText}，共 {total:N0} 个。点每行的「安装」，挑一个包版本就开始下载。");
                 }
                 else
                 {
                     SetStatus(rows.Count == 0
                         ? $"没有找到「{query}」相关的{kindText}。换个关键词，或确认识别方式是英文名。"
-                        : $"找到 {rows.Count} 个{kindText}。点每行的「安装」，挑一个包版本就开始下载。");
+                        : $"找到 {total:N0} 个{kindText}。点每行的「安装」，挑一个包版本就开始下载。");
                 }
 
                 EmptyPanel.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-                Log.Info($"资源包{(browsing ? "榜单" : "搜索「" + query + "」")}（{projectType}）：{rows.Count} 个结果");
+                UpdatePager();
+                Log.Info($"资源包{(browsing ? "榜单" : "搜索「" + query + "」")}（{projectType}）" +
+                         $"第 {_page}/{_pages} 页：{rows.Count} 个结果，共 {total}");
             }
             catch (OperationCanceledException)
             {
@@ -326,7 +368,6 @@ namespace SlopeX.Controls
             VersionPopup.IsOpen = false;
             BackRequested?.Invoke(this, EventArgs.Empty);
         }
-
         /// <summary>
         /// 改状态行。
         ///

@@ -138,6 +138,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <Grid Grid.Row="0" Margin="14,0,14,6">
@@ -231,6 +232,17 @@
                     </StackPanel>
                 </Grid>
             </Border>
+
+            <!-- 翻页：每页 20 个，总数来自接口的 total_hits -->
+            <StackPanel x:Name="Pager" Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"
+                        Margin="0,10,2,0" Visibility="Collapsed">
+                <Button x:Name="PrevPageBtn" Style="{StaticResource BtnGhost}" Content="上一页"
+                        MinWidth="78" Click="PrevPage_Click"/>
+                <TextBlock x:Name="PageText" Style="{StaticResource TCaption}" VerticalAlignment="Center"
+                           Margin="14,0" Text="第 1 页"/>
+                <Button x:Name="NextPageBtn" Style="{StaticResource BtnGhost}" Content="下一页"
+                        MinWidth="78" Click="NextPage_Click"/>
+            </StackPanel>
         </Grid>
 
         <!-- 版本选择浮层：点「安装」时贴在该按钮下方，点中哪个版本就开始下载哪个 -->

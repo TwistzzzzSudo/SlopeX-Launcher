@@ -135,5 +135,16 @@
                 </ListBox.ItemTemplate>
             </ListBox>
         </Border>
+
+        <!-- 翻页：每页 20 个 -->
+        <StackPanel x:Name="Pager" Orientation="Horizontal" HorizontalAlignment="Right"
+                    Margin="0,10,0,0" Visibility="Collapsed">
+            <Button x:Name="PrevPageBtn" Style="{StaticResource BtnGhost}" Content="上一页"
+                    MinWidth="78" Click="PrevPage_Click"/>
+            <TextBlock x:Name="PageText" Style="{StaticResource TCaption}" VerticalAlignment="Center"
+                       Margin="14,0" Text="第 1 页"/>
+            <Button x:Name="NextPageBtn" Style="{StaticResource BtnGhost}" Content="下一页"
+                    MinWidth="78" Click="NextPage_Click"/>
+        </StackPanel>
     </StackPanel>
 </UserControl>
