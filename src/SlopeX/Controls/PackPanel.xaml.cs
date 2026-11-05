@@ -158,9 +158,9 @@ namespace SlopeX.Controls
             _cts = new CancellationTokenSource();
 
             var projectType = _kind == PackKind.Shader ? "shader" : "resourcepack";
-            var kindText = _kind == PackKind.Shader ? "光影" : "材质包";
+            var kindText = _kind == PackKind.Shader ? "光影包" : "材质包";
 
-            SetStatus(browsing ? $"正在列出下载量最高的{kindText}…" : $"正在搜索「{query}」…");
+            SetStatus(browsing ? $"正在列出{kindText}…" : $"正在搜索「{query}」…");
             PackList.ItemsSource = null;
             EmptyPanel.Visibility = Visibility.Collapsed;
 
@@ -184,7 +184,7 @@ namespace SlopeX.Controls
                 if (browsing)
                 {
                     SetStatus(rows.Count == 0
-                        ? $"没能列出{kindText}榜单，检查网络后点「刷新」重试。"
+                        ? $"没能列出{kindText}，检查网络后点「刷新」重试。"
                         : "点每行的「安装」，挑一个包版本就开始下载。");
                 }
                 else

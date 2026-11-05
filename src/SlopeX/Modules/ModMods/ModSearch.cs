@@ -62,7 +62,7 @@ namespace SlopeX.Modules.ModMods
                 if (Hits.Count == 0)
                     return "没能列出热门模组，检查网络后点「搜索」重试。";
 
-                return $"按下载量排序。已按 {target} 过滤。";
+                return $"已按 {target} 过滤。点「安装」下载。";
             }
 
             if (!FromMcMod)

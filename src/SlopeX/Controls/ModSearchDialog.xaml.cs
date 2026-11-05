@@ -148,7 +148,7 @@ namespace SlopeX.Controls
 
             if (browsing)
             {
-                StatusText.Text = $"正在列出下载量最高的模组…（按 {_mcVersion}" +
+                StatusText.Text = $"正在列出模组…（按 {_mcVersion}" +
                                   (string.IsNullOrEmpty(_loader) ? "" : " / " + _loader) + " 过滤）";
             }
             else
