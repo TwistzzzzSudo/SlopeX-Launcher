@@ -101,7 +101,12 @@ namespace SlopeX.Modules.ModCli
                     Out("  packs-versions <项目ID>  列出该资源包的全部版本");
                     Out("  packs-install <版本> <shader|resourcepack> <项目ID> [版本号]   下载到该版本目录");
                     Out("  modpacks-search <关键词> [all|modrinth|curseforge]   搜整合包（中文走 MC百科）");
-                    Out("  modpacks-versions <modrinth|curseforge> <项目ID>   列出该整合包可下载的包版本");                    Out("  mods-install <版本> <关键词|项目ID>   搜索并安装首个结果（含必需依赖）");
+                    Out("  modpacks-versions <modrinth|curseforge> <项目ID>   列出该整合包可下载的包版本");
+                    Out("  mods-install <版本> <关键词|项目ID>   搜索并安装首个结果（含必需依赖）");
+                    Out("  update-check             检查启动器有没有新版本");
+                    Out("  update-download [版本]   把新版本下到缓存并打印校验值（不替换）");
+                    Out("  update-script <exe>      生成替换脚本并打印内容（不执行，排障用）");
+                    Out("  update-apply <exe>       生成并执行替换脚本，随后本进程退出");
                     Out("  plan <版本>              打印启动命令行（不启动）");
                     Out("  launch <版本>            启动游戏");
                     Out("  fabric-list <原版版本>   列出该原版可用的 Fabric 加载器");
@@ -172,6 +177,18 @@ namespace SlopeX.Modules.ModCli
 
                 case "modpacks-versions":
                     return ModpacksVersions(args);
+
+                case "update-check":
+                    return UpdateCheck();
+
+                case "update-download":
+                    return UpdateDownload(args.FirstOrDefault());
+
+                case "update-script":
+                    return UpdateScript(args.FirstOrDefault());
+
+                case "update-apply":
+                    return UpdateApply(args.FirstOrDefault());
 
                 case "msa-explain":
                     return MsaExplain(args.FirstOrDefault(), string.Join(" ", args.Skip(1)));
@@ -944,6 +961,149 @@ namespace SlopeX.Modules.ModCli
             catch (Exception ex)
             {
                 Out("读取版本失败：" + ex.Message);
+                return 1;
+            }
+        }
+
+        // ---------------- 自更新 ----------------
+
+        /// <summary>查一次更新，打印结论。没有更新也返回 0——"没更新"不是错误。</summary>
+        private static int UpdateCheck()
+        {
+            var source = Updater.Source;
+            Out("清单地址：" + (source.Length == 0 ? "（已关闭，配置里 UpdateSource = off）" : source));
+            Out("当前版本：" + AppInfo.Version);
+
+            try
+            {
+                var info = Updater.CheckAsync().GetAwaiter().GetResult();
+
+                if (info == null)
+                {
+                    Out("结果：没有可用更新");
+                    return 0;
+                }
+
+                Out($"结果：有新版本 v{info.Version}" +
+                    (info.Forced ? $"（强制，最低版本 {info.MinVersion}）" : ""));
+
+                Out("  下载地址：" + info.Url);
+                Out("  SHA-256 ：" + (info.Sha256.Length > 0 ? info.Sha256 : "（清单未提供，不校验）"));
+                Out("  大小    ：" + (info.Size > 0 ? ModNet.Format.Bytes(info.Size) : "未知"));
+
+                if (!string.IsNullOrWhiteSpace(info.Notes))
+                {
+                    Out("  说明    ：");
+                    foreach (var line in info.Notes.Replace("\r", "").Split('\n').Take(20))
+                        Out("    " + line);
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Out("检查失败：" + ex.Message);
+                return 1;
+            }
+        }
+
+        /// <summary>下载新版本到缓存并校验（不替换）。排障时用来确认直链与哈希都对得上。</summary>
+        private static int UpdateDownload(string expectedVersion)
+        {
+            try
+            {
+                var info = Updater.CheckAsync().GetAwaiter().GetResult();
+
+                if (info == null)
+                {
+                    Out("没有可用更新，未下载");
+                    return 0;
+                }
+
+                if (!string.IsNullOrEmpty(expectedVersion) && Updater.Compare(info.Version, expectedVersion) != 0)
+                {
+                    Out($"清单里的版本是 {info.Version}，不是 {expectedVersion}");
+                    return 2;
+                }
+
+                Out($"开始下载 v{info.Version}（{(info.Size > 0 ? ModNet.Format.Bytes(info.Size) : "大小未知")}）");
+
+                var last = 0;
+                var path = Updater.DownloadAsync(info, p =>
+                {
+                    var pct = (int)p.Percent;
+                    if (pct < last + 10 && pct < 100) return;
+                    last = pct;
+                    Out("  " + p.DetailText);
+                }).GetAwaiter().GetResult();
+
+                Out("已下载：" + path);
+                Out("SHA-256：" + Updater.Sha256Of(path));
+                Out("清单值 ：" + (info.Sha256.Length > 0 ? info.Sha256 : "（未提供）"));
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Out("下载失败：" + ex.Message);
+                return 1;
+            }
+        }
+
+        /// <summary>
+        /// 真正执行替换：生成脚本、启动它、本进程退出。走的是和界面「立即更新」同一条路，
+        /// 用来在没有界面的环境里验证替换脚本确实能把 exe 换掉并拉起来。
+        /// </summary>
+        private static int UpdateApply(string newExePath)
+        {
+            if (string.IsNullOrEmpty(newExePath) || !File.Exists(newExePath))
+            {
+                Out("用法：update-apply <已下载的新版 exe 路径>（会立刻退出本进程）");
+                return 2;
+            }
+
+            if (!Updater.CanReplaceSelf())
+            {
+                Out("当前 exe 所在目录不可写，无法自动替换");
+                return 1;
+            }
+
+            var script = Updater.WriteScript(newExePath);
+            Out("脚本位置：" + script);
+
+            if (!Updater.RunScript(script))
+            {
+                Out("替换程序没能启动");
+                return 1;
+            }
+
+            Out("已启动替换程序，本进程退出");
+            return 0;
+        }
+
+        /// <summary>生成替换脚本并打印——只写文件不执行，方便肉眼确认路径引号与重试逻辑。</summary>
+        private static int UpdateScript(string newExePath)
+        {
+            if (string.IsNullOrEmpty(newExePath) || !File.Exists(newExePath))
+            {
+                Out("用法：update-script <已下载的新版 exe 路径>");
+                return 2;
+            }
+
+            try
+            {
+                var script = Updater.WriteScript(newExePath);
+                Out("当前 exe：" + Environment.ProcessPath);
+                Out("脚本位置：" + script);
+                Out("---");
+
+                foreach (var line in File.ReadAllLines(script))
+                    Out("  " + line);
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Out("生成脚本失败：" + ex.Message);
                 return 1;
             }
         }

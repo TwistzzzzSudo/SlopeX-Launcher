@@ -10,6 +10,7 @@ using System.Windows.Threading;
 using SlopeX.Modules.ModBase;
 using SlopeX.Modules.ModJava;
 using SlopeX.Modules.ModMinecraft;
+using SlopeX.Modules.ModNet;
 using SlopeX.Pages;
 
 namespace SlopeX.Windows
@@ -87,6 +88,10 @@ namespace SlopeX.Windows
                     ShowModal(new Controls.LegalGateDialog());
 
                 await RefreshStatusAsync();
+
+                // 启动时静默查一次更新：不阻塞界面，失败也只是记一行日志。
+                // 有新版本才弹窗（用户对该版本点过「稍后」则跳过）。
+                _ = CheckForUpdatesAsync(false);
             };
 
             Closing += (s, e) => Config.Current.Save();
@@ -519,6 +524,123 @@ namespace SlopeX.Windows
                 anim.Completed += (s, e) => onDone();
 
             target.BeginAnimation(prop, anim);
+        }
+
+        // ---------------- 自更新 ----------------
+
+        /// <summary>弹窗只允许存在一个，避免手动连点或自动检查与手动检查撞在一起。</summary>
+        private bool _updateDialogOpen;
+
+        /// <summary>最近一次检查的结果，设置页用它决定状态文字。</summary>
+        public UpdateInfo LastUpdate { get; private set; }
+
+        /// <summary>
+        /// 检查一次更新。<paramref name="manual"/> = 用户主动点的：没更新、失败都要给可见反馈；
+        /// 自动检查只在确实有新版本时打扰。
+        /// </summary>
+        public async Task<UpdateInfo> CheckForUpdatesAsync(bool manual)
+        {
+            try
+            {
+                var info = await Updater.CheckAsync();
+                LastUpdate = info;
+
+                if (info == null)
+                {
+                    if (manual)
+                    {
+                        SetStatus("已是最新版本", null);
+                        ShowToast("已是最新版本 " + AppInfo.DisplayVersion);
+                    }
+
+                    return null;
+                }
+
+                SetStatus($"发现新版本 v{info.Version}", null);
+
+                // 自动检查：用户对这个版本点过「稍后」就不再弹，强制更新不受影响
+                if (!manual && !info.Forced &&
+                    string.Equals(Config.Current.SkipUpdateVersion, info.Version, StringComparison.Ordinal))
+                {
+                    Log.Info($"新版本 {info.Version} 已被跳过，本次不弹窗");
+                    return info;
+                }
+
+                ShowUpdateDialog(info);
+                return info;
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("检查更新失败：" + ex.Message);
+                if (manual) ShowToast("检查更新失败");
+                return null;
+            }
+        }
+
+        private void ShowUpdateDialog(UpdateInfo info)
+        {
+            if (_updateDialogOpen) return;
+
+            // 已经有模态在显示（典型是首次启动的法律声明）：不要抢它的位置，
+            // 否则两个弹窗叠在同一个宿主里，前一个等于被吞掉
+            if (IsModalOpen) return;
+
+            _updateDialogOpen = true;
+
+            var dialog = new Controls.UpdateDialog(info);
+
+            dialog.Closed += () =>
+            {
+                _updateDialogOpen = false;
+                HideModal();
+
+                // 记下「稍后」，同一版本下次启动不再自动弹；用户主动查更新仍然会弹
+                if (!info.Forced)
+                {
+                    Config.Current.SkipUpdateVersion = info.Version;
+                    Config.Current.Save();
+                }
+            };
+
+            dialog.Install += target => { _ = InstallUpdateAsync(dialog, target); };
+
+            ShowModal(dialog);
+            dialog.FocusInitial();
+        }
+
+        private async Task InstallUpdateAsync(Controls.UpdateDialog dialog, UpdateInfo info)
+        {
+            dialog.BeginProgress();
+
+            try
+            {
+                var path = await Updater.DownloadAsync(info,
+                    p => Dispatcher.Invoke(() => dialog.ReportProgress(p)));
+
+                dialog.BeginApply();
+
+                if (!Updater.CanReplaceSelf())
+                {
+                    dialog.Failed("启动器所在目录不可写，无法自动替换。新版本已下载到：" + path);
+                    return;
+                }
+
+                var script = Updater.WriteScript(path);
+                if (!Updater.RunScript(script))
+                {
+                    dialog.Failed("替换程序没能启动。新版本已下载到：" + path + "，可手动替换");
+                    return;
+                }
+
+                // 脚本等本进程退出后才覆盖 exe——这里必须让出控制权，不能继续跑
+                Config.Current.Save();
+                Application.Current.Shutdown();
+            }
+            catch (Exception ex)
+            {
+                Log.Error("更新失败", ex);
+                dialog.Failed("更新失败：" + ex.Message);
+            }
         }
 
         // ---------------- Toast ----------------

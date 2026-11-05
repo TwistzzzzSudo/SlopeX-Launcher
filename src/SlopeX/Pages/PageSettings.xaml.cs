@@ -71,6 +71,9 @@ namespace SlopeX.Pages
 
                 ConfigPath.Text = Paths.ConfigFile;
                 UpdateMemoryHint();
+                UpdateHint.Text = MainWindow.Current?.LastUpdate == null
+                    ? "尚未检查"
+                    : "有新版本 " + MainWindow.Current.LastUpdate.Headline;
             }
             finally
             {
@@ -388,5 +391,32 @@ namespace SlopeX.Pages
 
         private void OpenLegal_Click(object sender, RoutedEventArgs e)
             => MainWindow.Current?.ShowModal(new Controls.LegalNoticeDialog());
+
+        // ---------------- 更新 ----------------
+
+        /// <summary>
+        /// 手动检查：没更新也要给一句明确结论，否则点了没反应。
+        /// 有新版本时弹窗由主窗口负责，这里只把结果写在行上。
+        /// </summary>
+        private async void CheckUpdate_Click(object sender, RoutedEventArgs e)
+        {
+            var main = MainWindow.Current;
+            if (main == null) return;
+
+            CheckUpdateBtn.IsEnabled = false;
+            UpdateHint.Text = "正在检查…";
+
+            try
+            {
+                var info = await main.CheckForUpdatesAsync(true);
+                UpdateHint.Text = info == null
+                    ? "已是最新版本 " + AppInfo.DisplayVersion
+                    : "有新版本 " + info.Headline;
+            }
+            finally
+            {
+                CheckUpdateBtn.IsEnabled = true;
+            }
+        }
     }
 }

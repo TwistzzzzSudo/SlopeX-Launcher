@@ -251,6 +251,21 @@
                             <TextBlock x:Name="ConfigPath" Grid.Column="1" Style="{StaticResource TMono}"
                                        TextTrimming="CharacterEllipsis"/>
                         </Grid>
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="112"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Style="{StaticResource TSub}" Text="更新"
+                                       VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <TextBlock x:Name="UpdateHint" Style="{StaticResource TBody}"
+                                           Text="尚未检查" VerticalAlignment="Center"/>
+                                <Button x:Name="CheckUpdateBtn" Style="{StaticResource BtnGhost}"
+                                        Content="检查更新" Height="30" Margin="12,0,0,0"
+                                        Click="CheckUpdate_Click"/>
+                            </StackPanel>
+                        </Grid>
                         <Grid Margin="0,14,0,0">
                             <Button Style="{StaticResource BtnGhost}" Content="打开配置目录" Height="30"
                                     HorizontalAlignment="Left" Click="OpenConfigDir_Click"/>

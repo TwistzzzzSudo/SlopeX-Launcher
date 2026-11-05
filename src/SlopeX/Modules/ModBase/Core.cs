@@ -435,6 +435,8 @@ namespace SlopeX.Modules.ModBase
         private double _musicVolume = 0.15;
         private bool _legalAccepted;
         private string _legalAcceptedAt = "";
+        private string _updateSource = "";
+        private string _skipUpdateVersion = "";
 
         /// <summary>游戏目录（.minecraft 根），内存中始终是绝对路径。</summary>
         [JsonIgnore]
@@ -563,6 +565,18 @@ namespace SlopeX.Modules.ModBase
 
         /// <summary>同意时间（<c>yyyy-MM-dd HH:mm:ss</c>），只作记录，不参与判断。</summary>
         public string LegalAcceptedAt { get => _legalAcceptedAt; set => Set(ref _legalAcceptedAt, value); }
+
+        /// <summary>
+        /// 更新清单地址。留空用内置的 GitHub Releases 地址；填 <c>off</c> 彻底关掉自动检查。
+        /// 只在配置文件里改——界面上不暴露，普通用户不需要也不该关心这个。
+        /// </summary>
+        public string UpdateSource { get => _updateSource; set => Set(ref _updateSource, value ?? ""); }
+
+        /// <summary>
+        /// 用户点过「稍后」的版本号。同一个版本不再自动弹窗（强制更新不受它影响），
+        /// 免得每次启动都被同一个提示拦一次。
+        /// </summary>
+        public string SkipUpdateVersion { get => _skipUpdateVersion; set => Set(ref _skipUpdateVersion, value ?? ""); }
 
         /// <summary>当前版本缺少所需 Java 时，自动下载安装（国内镜像）。</summary>
         public bool AutoInstallJava { get => _autoInstallJava; set => Set(ref _autoInstallJava, value); }
