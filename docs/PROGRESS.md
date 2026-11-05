@@ -195,12 +195,16 @@ UI 层         5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeS
 | 设置页文案瘦身        | ✅            | 页头改为「主题即时生效；其余点保存」；存档隔离由 4 层文案压到 2 层；旧存档提示可「不再提示」                                                    |
 | 法律声明 + 首启确认    | ✅ 2026-10-31 | 完整版在设置页底部可查看；首次启动弹简版，勾选后才可确认，同意结果落盘                                                                  |
 | 命令行自检           | ✅ 2026-11-01 | `selftest` 5 条搜索样本 + 1 条账号档案断言，失败返回 1；把「站点改版静默失效」变成当天可见（见 §6「命令行自检」）                                      |
+| 正版服务器联机验证       | ✅ 2026-11-05 | Hypixel（`online-mode=true`）实测进服：`--uuid` 36 位、服务端接受会话、皮肤与档案一致（见 §8.1「正版服务器联机验证」）                           |
 
 ### 6.2 待办（按优先级）
 
-> **打磨项已清空**（2026-11-05：界面细节落地，见下文）。剩下这一条是被主动搁置的验证项，不占主线。
+> **待办已清空**（2026-11-05）。原计划里的打磨项（高 DPI / 键盘导航 / 日志搜索与导出）与被搁置的联机验证均已落地，见 §6.1 与 §8.1。
 
-1. **真实服务器联机验证（⏸ 已搁置）**：目前只验到令牌 / 档案 / 皮肤三层，`Setting user: ShakableCat` 只在单机日志里出现过，**没有连过一台强制正版验证的服务器**。真正能验的是「服务器接受这个会话」——`--uuid` 与 `session.minecraft.net/join` 都走通才算数。需要一台开 online-mode 的服务器（用户自开或给地址）；不用改代码，属于验收项而非开发项，所以排到主线之外
+没有排期中的新增项。已知未修（不阻塞，记录备查）：
+
+1. **`ModpackInstaller.Inspect` 的普通 zip 分支是死代码**：`fallbackBaseVersion` 永远走不到，传入不带 `minecraftinstance.json` / `mmc-pack.json` / `modrinth.index.json` 的裸 zip 会在推断基础版本前抛异常；
+2. **`verify --hash` 只查不修**：能列出内容不符的文件，但要修复仍得走 `install` / `repair` 重装。真要做成「一键修」需要给每个文件留来源信息，属于新功能不是补漏
 
 ### 建议里程碑
 
@@ -1371,6 +1375,10 @@ WPF 的 `TextBox` 只在「自己拿到过焦点」时渲染选中区，`IsInact
 | 静默刷新              | 人为把 `accounts.json` 的 `ExpiresAt` 改到 2020-01-01 → `--cli plan 1.20.1` 触发刷新：access_token 与 refresh_token **双双更换**、到期顺延 24 h，新令牌再取档案仍 200；日志出现「正版令牌已过期，正在刷新…」                                                                                                          |
 | 正版启动真机（2026-11-01） | `--cli launch 1.20.1` 实机跑通：日志第 3 行 `Setting user: ShakableCat`，进单人存档 `ShakableCat[local:E:ee884371] logged in with entity id 104`，关窗口后 CLI 打印「退出码：0」。**但人物是默认皮肤（红上衣的 Kai）**——游戏日志里没有任何 skin / error 行，单机也照常进服，只有肉眼看得见；核对启动参数发现 `--uuid xxxxxxxx-xxxx-xxxx-xxxx-xxxx` 只有 28 位（§4-14）                                                 |
 | 皮肤修复复核            | 修 `FormatUuid` 后重跑：`--uuid …-xxxxxxxxxxxx` 补齐到 36 位，同一存档第三人称截图里换成账号真实皮肤（灰白连帽衫 + 暗红领口 + 黑裤），与 `textures.minecraft.net/texture/ae252684…` 的贴图逐块一致；`--cli account` 顺手把 `accounts.json` 里存量的 28 位 UUID 自愈成 36 位。结论：**皮肤是否加载在日志里查不出来**，只能靠 UUID 断言 + 人眼核对截图（第三人称视角由用户手动切换） |
+| 正版服务器联机验证（2026-11-05） | Hypixel `mc.hypixel.net`（强制 `online-mode`）实测进服：`--uuid xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` 为 **36 位**（8-4-4-4-12），`--username ShakableCat`；17:59:14 `Connecting to mc.hypixel.net, 25565`，17:59:17 收到服务端自己发的成就播报（`Achievement Get! Hypixel Server!`），全程断开 / 踢出记录 **0** 条，3 分 40 秒后主动关窗退出码 0。服务端在登录阶段拿 username + serverId 去 `sessionserver.mojang.com/session/minecraft/hasJoined` 验签，**能进大厅本身即证明令牌有效**，不是本地伪造 |
+| UUID 交叉核对           | 用启动器传出去的同一个 UUID 反向查 Mojang：`GET /session/minecraft/profile/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` → `id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`、`name=ShakableCat`，与 `--uuid` 完全对应（去横线后逐字符相同），说明既没截断也没走离线兜底 |
+| 皮肤人眼比对（2026-11-05） | 同一档案的 `textures` 解出 `SKIN=ae252684…`（`model=slim`）+ `CAPE=cd9d82ab…`；把官方皮肤按正视图拼出来与第三人称截图对照：灰白偏银的头发、暗红瞳孔、白灰马甲配红色 Ω 形图案、黑袖灰白横纹、黑裤——逐块一致，手臂确为 Alex 细臂。**CAPE 在截图里看不见**（Hypixel 大厅是否渲染披风与视角有关），不能据此判定披风失效 |
+| 日志里 50 条 `Bad signature length: got 0` | **与启动器无关，也不是故障**：那是 Hypixel 广播同一大厅里 25 个玩家的皮肤，每张记两次，签名段为空。对照实验证明签名本身是有的——Mojang 的 sessionserver **要带 `?unsigned=false` 才回签名**（同一档案实测长度 684，即 512 字节 RSA），不带就回空串。自己的皮肤 URL 不在这 25 张里，客户端用的是本地档案，所以照常渲染 |
 
 ### 8.2 命令速查
 
