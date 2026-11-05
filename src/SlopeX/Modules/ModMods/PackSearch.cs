@@ -30,6 +30,12 @@ namespace SlopeX.Modules.ModMods
         public int ModrinthCount { get; set; }
         public int CurseForgeCount { get; set; }
 
+        /// <summary>关键词为空、按下载量浏览（不是搜索）。</summary>
+        public bool Browsing { get; set; }
+
+        /// <summary>后面还有没有更多（翻页按钮用）。</summary>
+        public bool HasMore { get; set; }
+
         public string StatusText()
         {
             if (!FromMcMod)
@@ -42,24 +48,16 @@ namespace SlopeX.Modules.ModMods
                           "可以切到「全部」看看另一个平台有没有。";
                 }
 
-                var detail = Filter switch
-                {
-                    ModSourceFilter.All =>
-                        $"CurseForge {CurseForgeCount} 个、Modrinth {ModrinthCount} 个，去重后 {Hits.Count} 个" +
-                        "（CurseForge 在前，Modrinth 补充在后）",
-                    ModSourceFilter.CurseForge => $"CurseForge 共 {Hits.Count} 个",
-                    _ => $"Modrinth 共 {Hits.Count} 个"
-                };
-
-                return $"找到 {detail}。点「安装」挑一个包版本就开始下载。";
+                // 不报数量、不提排序规则：这些都是开发者口径，对挑包没有帮助
+                return "点「安装」挑一个包版本就开始下载。";
             }
 
             if (Total == 0)
                 return "MC百科 没搜到这个关键词的整合包。换个说法试试，比如用完整的包名。";
 
-            var text = $"MC百科 命中 {Total} 个，核对前 {Checked} 个，其中 {Hits.Count} 个在平台上有对应项目";
-            if (NotOnPlatform > 0) text += $"（{NotOnPlatform} 个只挂了网盘 / 论坛，装不了）";
-            return text + "。";
+            var text = "点「安装」挑一个包版本就开始下载。";
+            if (NotOnPlatform > 0) text = "有些词条只挂了网盘 / 论坛，装不了。" + text;
+            return text;
         }
     }
 
@@ -91,6 +89,110 @@ namespace SlopeX.Modules.ModMods
                 return await SearchDirectAsync(query, filter, limit, ct).ConfigureAwait(false);
 
             return await SearchChineseAsync(query, filter, limit, ct).ConfigureAwait(false);
+        }
+
+        /// <summary>翻页窗口上限：两源各取前 limit×page 条做归并，太深会把请求数拖爆。</summary>
+        private const int PageWindowCap = 500;
+
+        /// <summary>
+        /// 分页搜索：取两源各自的前 <c>limit × page</c> 条，去重合并、排序后切出当前页。
+        /// 每页正好 <paramref name="limit"/> 条，翻回上一页内容不变。
+        /// </summary>
+        public static async Task<PackSearchResult> SearchPageAsync(string query, ModSourceFilter filter,
+            int limit, int page, CancellationToken ct = default)
+        {
+            limit = Math.Clamp(limit, 1, 50);
+            page = Math.Max(1, page);
+
+            // 中文走 MC百科 映射，条数本来就少，不分页
+            if (ModSearch.HasChinese(query))
+                return await SearchChineseAsync(query, filter, CheckLimit, ct).ConfigureAwait(false);
+
+            var browsing = string.IsNullOrWhiteSpace(query);
+            var need = Math.Min(limit * page, PageWindowCap);
+
+            var modrinthTask = filter != ModSourceFilter.CurseForge
+                ? ModSearch.WithTimeoutAsync(t => FetchModrinthAsync(query, need, t, browsing), ct, "Modrinth")
+                : Task.FromResult(new List<ModSearchHit>());
+
+            var curseforgeTask = filter != ModSourceFilter.Modrinth
+                ? ModSearch.WithTimeoutAsync(t => FetchCurseForgeAsync(query, need, t, browsing), ct, "CurseForge")
+                : Task.FromResult(new List<ModSearchHit>());
+
+            var modrinth = await SafeAsync(modrinthTask, "Modrinth").ConfigureAwait(false);
+            var curseforge = await SafeAsync(curseforgeTask, "CurseForge").ConfigureAwait(false);
+
+            // 整合包与模组相反：CF 才是主战场，CF 在前、Modrinth 补在后
+            var merged = new List<ModSearchHit>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var hit in curseforge)
+                if (seen.Add(hit.DedupeKey)) merged.Add(hit);
+            foreach (var hit in modrinth)
+                if (seen.Add(hit.DedupeKey)) merged.Add(hit);
+
+            // 榜单要的是「整体按下载量」：两个源的排序规则不同，合并后统一重排
+            if (browsing)
+                merged.Sort((a, b) => b.Downloads.CompareTo(a.Downloads));
+
+            var result = new PackSearchResult
+            {
+                Filter = filter,
+                Browsing = browsing,
+                ModrinthCount = modrinth.Count,
+                CurseForgeCount = curseforge.Count,
+                Total = merged.Count
+            };
+
+            var skip = (page - 1) * limit;
+            foreach (var hit in merged.Skip(skip).Take(limit))
+                result.Hits.Add(hit);
+
+            result.HasMore = merged.Count >= need && result.Hits.Count == limit && need < PageWindowCap;
+            return result;
+        }
+
+        private static async Task<List<ModSearchHit>> FetchModrinthAsync(string query, int count,
+            CancellationToken ct, bool browsing)
+        {
+            var all = new List<ModSearchHit>();
+            var offset = 0;
+
+            // Modrinth 一次最多 100 条
+            while (all.Count < count)
+            {
+                var (hits, total) = await ModrinthSource
+                    .SearchByTypePageAsync(query, "modpack", 100, offset, ct,
+                        browsing ? "downloads" : "relevance")
+                    .ConfigureAwait(false);
+
+                all.AddRange(hits);
+                if (hits.Count == 0 || all.Count >= total) break;
+                offset += hits.Count;
+            }
+
+            return all.Count > count ? all.GetRange(0, count) : all;
+        }
+
+        private static async Task<List<ModSearchHit>> FetchCurseForgeAsync(string query, int count,
+            CancellationToken ct, bool browsing)
+        {
+            var all = new List<ModSearchHit>();
+            var pageIndex = 0;
+
+            // CF 一页最多 50 条；浏览时按总下载量排，搜索时按热度
+            while (all.Count < count)
+            {
+                var (hits, total) = await CurseForgeSource
+                    .SearchPageAsync(query, null, null, 50, pageIndex, ct, CurseForgeSource.ClassModpacks,
+                        browsing ? CurseForgeSource.SortDownloads : CurseForgeSource.SortPopularity)
+                    .ConfigureAwait(false);
+
+                all.AddRange(hits);
+                if (hits.Count == 0 || all.Count >= total) break;
+                pageIndex++;
+            }
+
+            return all.Count > count ? all.GetRange(0, count) : all;
         }
 
         // ---------------- 英文：直接问平台 ----------------

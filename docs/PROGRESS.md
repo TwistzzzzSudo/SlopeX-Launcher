@@ -1105,6 +1105,9 @@ SlopeX.exe --cli skin-clear                          恢复内置默认
 - 模组（1.21.1 / fabric / 全部）：第 1 页 Fabric API 282.8M → Sodium 248.7M → Iris 192.4M；第 2 页 Reese's Sodium Options 87.5M → JEI 84.6M；第 1 页「上一页」置灰
 - 回归：`--cli mods-search 1.21.1 jei` 仍 22 条（Modrinth 在前）；`--cli packs-search complementary shader` 仍 20 条
 
+**整合包页（`PageModpack`）同样接了这一套**：进页面自动列出 CF + Modrinth 的榜单（CF 在前，整合包主战场），每页 20 个、只显示当前页。
+两源合并后的「总数」没有可信来源（各自 `total_hits` 不能直接相加），所以不看总页数，用 `HasMore` 控制「下一页」。
+
 **界面口径**：排序规则、总数、总页数都**不告诉用户**——加载中只说「正在列出模组…」「正在列出光影包…」，加载完只说「点每行的「安装」…」。这些数字只在日志和本文档里出现（2026-11-05 23:18 用户明确要求）。
 
 **要留意**：CF 的 `downloadCount` 与 Modrinth 的 `downloads` 都是**项目累计值**，不是当前版本的口径，所以「全部」榜单里 CF 项目天然靠前（JEI 在 CF 644M、在 Modrinth 84.6M）。想单看一边就切 Chip。测试当晚 `mod.mcimirror.top` 正好超时（curl 25 秒无响应），模组那两页只剩 Modrinth 结果——也正是加 10 秒超时的原因。

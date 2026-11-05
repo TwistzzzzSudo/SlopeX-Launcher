@@ -346,7 +346,7 @@ namespace SlopeX.Modules.ModMods
         /// 给单个源加超时：镜像挂掉时把它当成「这个源没结果」，而不是让整页一直转圈。
         /// 用户主动取消（外层的 <paramref name="outer"/>）照旧往上抛，不受这里影响。
         /// </summary>
-        private static async Task<List<ModSearchHit>> WithTimeoutAsync(
+        internal static async Task<List<ModSearchHit>> WithTimeoutAsync(
             Func<CancellationToken, Task<List<ModSearchHit>>> work, CancellationToken outer, string name)
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(outer);

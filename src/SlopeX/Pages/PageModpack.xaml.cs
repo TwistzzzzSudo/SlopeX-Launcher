@@ -33,6 +33,11 @@ namespace SlopeX.Pages
         private ModSourceFilter _filter = ModSourceFilter.All;
         private CancellationTokenSource _cts;
 
+        /// <summary>每页条数。总页数不展示，也不去算——两源合并后总数没有可信来源，只看「还有没有下一页」。</summary>
+        private const int PageSize = 20;
+        private int _page = 1;
+        private bool _hasMore;
+
         private PackRow _activeRow;          // 正在选版本的那一行
         private Button _activeButton;        // 那一行的「安装」按钮
 
@@ -45,6 +50,10 @@ namespace SlopeX.Pages
         {
             RefreshCounts();
             QueryBox.Focus();
+
+            // 进页面就把榜单列出来：空关键词按下载量排，用户不必先想到搜什么
+            _page = 1;
+            _ = SearchAsync();
         }
 
         private void RefreshCounts()
@@ -72,7 +81,8 @@ namespace SlopeX.Pages
             _filter = which;
 
             // 换来源后旧结果不再对应，直接重搜一次（与模组面板的行为一致）
-            if (PackList.Items.Count > 0) _ = SearchAsync();
+            _page = 1;
+            _ = SearchAsync();
         }
 
         // ---------------- 搜索 ----------------
@@ -81,44 +91,76 @@ namespace SlopeX.Pages
         {
             if (e.Key != Key.Enter) return;
             e.Handled = true;
+            _page = 1;
             _ = SearchAsync();
         }
 
-        private void Search_Click(object sender, RoutedEventArgs e) => _ = SearchAsync();
+        private void Search_Click(object sender, RoutedEventArgs e)
+        {
+            _page = 1;
+            _ = SearchAsync();
+        }
+
+        private void UpdatePager()
+        {
+            // 只显示当前页：总数与总页数都不告诉用户，靠「还有没有下一页」决定能不能翻
+            Pager.Visibility = _page > 1 || _hasMore ? Visibility.Visible : Visibility.Collapsed;
+            PageText.Text = $"第 {_page} 页";
+            PrevPageBtn.IsEnabled = _page > 1;
+            NextPageBtn.IsEnabled = _hasMore;
+        }
+
+        private void PrevPage_Click(object sender, RoutedEventArgs e)
+        {
+            if (_page <= 1) return;
+            _page--;
+            _ = SearchAsync();
+        }
+
+        private void NextPage_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_hasMore) return;
+            _page++;
+            _ = SearchAsync();
+        }
 
         private async Task SearchAsync()
         {
             var query = QueryBox.Text?.Trim() ?? "";
-            if (query.Length == 0)
-            {
-                SetStatus("先输入要搜索的名字，比如 all the mods、RLCraft、宝可梦。");
-                return;
-            }
+
+            // 空关键词 = 看榜单（按总下载量从高到低），有关键词才按相关度搜
+            var browsing = query.Length == 0;
 
             _cts?.Cancel();
             _cts = new CancellationTokenSource();
             var token = _cts.Token;
 
-            SetStatus($"正在搜索「{query}」…");
+            SetStatus(browsing ? "正在列出整合包…" : $"正在搜索「{query}」…");
             PackList.ItemsSource = null;
             EmptyPanel.Visibility = Visibility.Collapsed;
 
             try
             {
-                var result = await PackSearch.SearchAsync(query, _filter, PackSearch.CheckLimit, token);
+                var result = await PackSearch.SearchPageAsync(query, _filter, PageSize, _page, token);
 
                 if (token.IsCancellationRequested) return;
 
+                // 中文走百科映射、条数本来就少，不分页
+                _hasMore = !result.FromMcMod && result.HasMore;
+
                 var rows = result.Hits.Select(h => new PackRow(h)).ToList();
                 PackList.ItemsSource = rows;
+                if (rows.Count > 0) PackList.ScrollIntoView(rows[0]);
 
                 // 列表先出来，图标随后补
                 _ = IconLoader.FillAsync(result.Hits, token);
 
                 SetStatus(result.StatusText());
                 EmptyPanel.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+                UpdatePager();
 
-                Log.Info($"整合包搜索「{query}」（{_filter}）：{rows.Count} 个结果" +
+                Log.Info($"整合包{(browsing ? "榜单" : "搜索「" + query + "」")}（{_filter}）第 {_page} 页：" +
+                         $"{rows.Count} 个结果，下一页={_hasMore}" +
                          (result.FromMcMod ? $"，MC百科 命中 {result.Total} 个" : ""));
             }
             catch (OperationCanceledException)
