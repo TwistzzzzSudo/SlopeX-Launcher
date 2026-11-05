@@ -47,8 +47,21 @@
                                                            VerticalAlignment="Center" Margin="0,0,10,0"/>
                                                 <TextBlock Text="{Binding SizeText}" Style="{StaticResource TMono}"
                                                            VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                                <Button Style="{StaticResource BtnText}" Content="暂停" Height="24"
+                                                        Margin="8,0,0,0" Tag="{Binding}" Click="PauseTask_Click"
+                                                        Visibility="{Binding CanPause, Converter={StaticResource BoolToVis}}"/>
+                                                <Button Style="{StaticResource BtnText}" Content="继续" Height="24"
+                                                        Margin="8,0,0,0" Tag="{Binding}" Click="ResumeTask_Click"
+                                                        Visibility="{Binding CanResume, Converter={StaticResource BoolToVis}}"/>
+                                                <Button Style="{StaticResource BtnText}" Content="重试" Height="24"
+                                                        Margin="8,0,0,0" Tag="{Binding}" Click="RetryTask_Click"
+                                                        Visibility="{Binding CanRetry, Converter={StaticResource BoolToVis}}"/>
                                                 <Button Style="{StaticResource BtnText}" Content="取消" Height="24"
-                                                        Tag="{Binding}" Click="CancelTask_Click"/>
+                                                        Margin="8,0,0,0" Tag="{Binding}" Click="CancelTask_Click"
+                                                        Visibility="{Binding CanCancel, Converter={StaticResource BoolToVis}}"/>
+                                                <Button Style="{StaticResource BtnText}" Content="移除" Height="24"
+                                                        Margin="8,0,0,0" Tag="{Binding}" Click="RemoveTask_Click"
+                                                        Visibility="{Binding CanRemove, Converter={StaticResource BoolToVis}}"/>
                                             </StackPanel>
                                         </Grid>
 

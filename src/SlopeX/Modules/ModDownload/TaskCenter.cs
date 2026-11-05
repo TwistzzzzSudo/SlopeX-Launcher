@@ -10,7 +10,7 @@ namespace SlopeX.Modules.ModDownload
 
         public static InstallTask StartInstall(string versionId)
         {
-            var existing = Tasks.FirstOrDefault(t => t.VersionId == versionId && t.Running);
+            var existing = Tasks.FirstOrDefault(t => t.VersionId == versionId && t.IsActive);
             if (existing != null) return existing;
 
             var task = new InstallTask { VersionId = versionId };
@@ -26,7 +26,7 @@ namespace SlopeX.Modules.ModDownload
         public static InstallTask StartFabricInstall(string baseVersion, string loaderVersion = null)
         {
             var existing = Tasks.FirstOrDefault(t =>
-                t.Kind == InstallKind.Fabric && t.BaseVersion == baseVersion && t.Running);
+                t.Kind == InstallKind.Fabric && t.BaseVersion == baseVersion && t.IsActive);
             if (existing != null) return existing;
 
             var task = new InstallTask
@@ -51,7 +51,7 @@ namespace SlopeX.Modules.ModDownload
         public static InstallTask StartForgeInstall(string baseVersion, string loaderVersion = null)
         {
             var existing = Tasks.FirstOrDefault(t =>
-                t.Kind == InstallKind.Forge && t.BaseVersion == baseVersion && t.Running);
+                t.Kind == InstallKind.Forge && t.BaseVersion == baseVersion && t.IsActive);
             if (existing != null) return existing;
 
             var task = new InstallTask
@@ -89,7 +89,7 @@ namespace SlopeX.Modules.ModDownload
         public static InstallTask StartNeoForgeInstall(string baseVersion, string loaderVersion = null)
         {
             var existing = Tasks.FirstOrDefault(t =>
-                t.Kind == InstallKind.NeoForge && t.BaseVersion == baseVersion && t.Running);
+                t.Kind == InstallKind.NeoForge && t.BaseVersion == baseVersion && t.IsActive);
             if (existing != null) return existing;
 
             var task = new InstallTask
@@ -111,7 +111,7 @@ namespace SlopeX.Modules.ModDownload
         public static InstallTask StartLibraryRepair(string versionId)
         {
             var running = Tasks.FirstOrDefault(t => t.Kind == InstallKind.Libraries &&
-                                                    t.VersionId == versionId && t.Running);
+                                                    t.VersionId == versionId && t.IsActive);
             if (running != null) return running;
 
             var task = new InstallTask { Kind = InstallKind.Libraries, VersionId = versionId };
@@ -121,8 +121,15 @@ namespace SlopeX.Modules.ModDownload
         }
 
         public static bool IsBusy(string versionId) =>
-            Tasks.Any(t => t.VersionId == versionId && t.Running);
+            Tasks.Any(t => t.VersionId == versionId && t.IsActive);
 
         public static int RunningCount => Tasks.Count(t => t.Running);
+
+        /// <summary>从列表里移除已结束的任务。运行中/暂停中的不让移——移了就成没人观察的孤儿。</summary>
+        public static bool Remove(InstallTask task)
+        {
+            if (task == null || task.IsActive) return false;
+            return Tasks.Remove(task);
+        }
     }
 }

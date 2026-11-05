@@ -94,6 +94,30 @@ namespace SlopeX.Pages
                 task.Cancel();
         }
 
+        private void PauseTask_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button b && b.Tag is InstallTask task)
+                task.Pause();
+        }
+
+        private void ResumeTask_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button b && b.Tag is InstallTask task)
+                _ = task.ResumeAsync();
+        }
+
+        private void RetryTask_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button b && b.Tag is InstallTask task)
+                _ = task.RetryAsync();
+        }
+
+        private void RemoveTask_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button b && b.Tag is InstallTask task)
+                TaskCenter.Remove(task);
+        }
+
         private void ClearLog_Click(object sender, RoutedEventArgs e)
         {
             LogBox.Clear();

@@ -130,6 +130,9 @@ namespace SlopeX.Modules.ModDownload
         private bool _running;
         private bool _completed;
         private bool _failed;
+        private bool _paused;
+        private bool _canceled;
+        private bool _pauseRequested;
         private string _error;
 
         /// <summary>目标任务 ID：原版为版本号，Fabric 为 fabric-loader-&lt;loader&gt;-&lt;mc&gt;，Forge 为 &lt;mc&gt;-forge-&lt;loader&gt;。</summary>
@@ -185,12 +188,50 @@ namespace SlopeX.Modules.ModDownload
         public double Percent { get => _percent; private set => Set(ref _percent, value); }
         public string SpeedText { get => _speedText; private set => Set(ref _speedText, value); }
         public string SizeText { get => _sizeText; private set => Set(ref _sizeText, value); }
-        public bool Running { get => _running; private set => Set(ref _running, value); }
-        public bool Completed { get => _completed; private set => Set(ref _completed, value); }
-        public bool Failed { get => _failed; private set => Set(ref _failed, value); }
         public string Error { get => _error; private set => Set(ref _error, value); }
 
-        public string StateText => Failed ? "失败" : Completed ? "已完成" : Running ? "进行中" : "等待中";
+        /// <summary>五个状态位共用一套联动通知——按钮可见性全靠它们。</summary>
+        public bool Running { get => _running; private set => SetState(ref _running, value); }
+        public bool Completed { get => _completed; private set => SetState(ref _completed, value); }
+        public bool Failed { get => _failed; private set => SetState(ref _failed, value); }
+        public bool Paused { get => _paused; private set => SetState(ref _paused, value); }
+        public bool Canceled { get => _canceled; private set => SetState(ref _canceled, value); }
+
+        public string StateText =>
+            Canceled ? "已取消" :
+            Failed ? "失败" :
+            Completed ? "已完成" :
+            Paused ? "已暂停" :
+            Running ? "进行中" : "等待中";
+
+        /// <summary>还在流程里（运行中或暂停）——去重与「该版本占用中」都看这个。</summary>
+        public bool IsActive => Running || Paused;
+
+        public bool CanPause => Running;
+        public bool CanResume => Paused && !Running;
+        public bool CanRetry => Failed && !Running;
+        public bool CanCancel => Running || Paused;
+        public bool CanRemove => !Running && !Paused && (Completed || Failed || Canceled);
+
+        /// <summary>跑过几轮。整合包据此判断要不要复用上一轮的版本目录。</summary>
+        public int RunCount { get; private set; }
+
+        private bool SetState(ref bool field, bool value, [System.Runtime.CompilerServices.CallerMemberName] string name = null)
+        {
+            if (!Set(ref field, value, name)) return false;
+            NotifyState();
+            return true;
+        }
+
+        private void NotifyState()
+        {
+            OnPropertyChanged(nameof(StateText));
+            OnPropertyChanged(nameof(CanPause));
+            OnPropertyChanged(nameof(CanResume));
+            OnPropertyChanged(nameof(CanRetry));
+            OnPropertyChanged(nameof(CanCancel));
+            OnPropertyChanged(nameof(CanRemove));
+        }
 
         public CancellationTokenSource Cts { get; private set; }
 
@@ -201,6 +242,11 @@ namespace SlopeX.Modules.ModDownload
         public async Task RunAsync()
         {
             if (Running) return;
+
+            RunCount++;
+            _pauseRequested = false;
+            Paused = false;
+            Canceled = false;
             Cts = new CancellationTokenSource();
             Running = true;
             Failed = false;
@@ -236,8 +282,11 @@ namespace SlopeX.Modules.ModDownload
                 }
                 else if (Kind == InstallKind.Modpack)
                 {
+                    // 第二轮起复用上一轮的版本目录：否则「继续」会新建一个 xxx-2，
+                    // 已经下好的模组全部作废重下
+                    var resumeId = RunCount > 1 ? VersionId : null;
                     VersionId = await ModpackInstaller.InstallAsync(Config.Current.GameDir, PackPath,
-                        BaseVersionFallback, this, Cts.Token).ConfigureAwait(false);
+                        BaseVersionFallback, this, Cts.Token, resumeId).ConfigureAwait(false);
                     Log.Info($"整合包 {VersionId} 安装完成");
                 }
                 else
@@ -253,8 +302,18 @@ namespace SlopeX.Modules.ModDownload
             }
             catch (OperationCanceledException)
             {
-                Stage = "已取消";
-                Log.Warn($"{VersionId} 安装已取消");
+                if (_pauseRequested)
+                {
+                    Paused = true;
+                    Stage = "已暂停";
+                    Log.Info($"{VersionId} 安装已暂停（已完成的文件保留，继续时跳过）");
+                }
+                else
+                {
+                    Canceled = true;
+                    Stage = "已取消";
+                    Log.Warn($"{VersionId} 安装已取消");
+                }
             }
             catch (Exception ex)
             {
@@ -274,7 +333,47 @@ namespace SlopeX.Modules.ModDownload
             }
         }
 
-        public void Cancel() => Cts?.Cancel();
+        /// <summary>
+        /// 暂停：取消当前操作但保留「暂停」状态而不是「取消」。
+        /// 断点粒度是文件级的——继续时重跑同一条流程，已完成且大小正确的文件直接跳过。
+        /// </summary>
+        public void Pause()
+        {
+            if (!Running) return;
+            _pauseRequested = true;
+            Cts?.Cancel();
+        }
+
+        /// <summary>从暂停处继续。</summary>
+        public Task ResumeAsync()
+        {
+            if (Running || !Paused) return Task.CompletedTask;
+            return RunAsync();
+        }
+
+        /// <summary>失败后重试。</summary>
+        public Task RetryAsync()
+        {
+            if (Running || !Failed) return Task.CompletedTask;
+            return RunAsync();
+        }
+
+        public void Cancel()
+        {
+            // 暂停中的任务没有活着的 Cts（上一轮已释放），直接把状态推过去
+            if (Paused && !Running)
+            {
+                Paused = false;
+                Canceled = true;
+                Stage = "已取消";
+                Log.Warn($"{VersionId} 安装已取消");
+                Raise();
+                return;
+            }
+
+            _pauseRequested = false;
+            Cts?.Cancel();
+        }
 
         internal void SetStage(string text)
         {

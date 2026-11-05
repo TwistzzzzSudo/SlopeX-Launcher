@@ -375,9 +375,10 @@ namespace SlopeX.Modules.ModDownload
         /// <summary>
         /// 导入整合包。返回生成的版本 ID。
         /// <paramref name="fallbackBaseVersion"/> 仅用于普通 zip（无清单时指定基础版本）。
+        /// <paramref name="resumeVersionId"/> 非空且目录已存在时复用它——暂停后继续不能另起一个 -2。
         /// </summary>
         public static async Task<string> InstallAsync(string gameDir, string zipPath, string fallbackBaseVersion,
-            InstallTask task, CancellationToken ct)
+            InstallTask task, CancellationToken ct, string resumeVersionId = null)
         {
             var plan = Inspect(zipPath);
 
@@ -420,9 +421,19 @@ namespace SlopeX.Modules.ModDownload
             }
 
             // ---- 3. 建版本目录 ----
-            var packId = MakeUniqueId(gameDir, plan.SuggestVersionId());
+            var resumeDir = string.IsNullOrEmpty(resumeVersionId)
+                ? null
+                : Path.Combine(Paths.VersionsDir(gameDir), resumeVersionId);
+
+            var packId = resumeDir != null && Directory.Exists(resumeDir)
+                ? resumeVersionId
+                : MakeUniqueId(gameDir, plan.SuggestVersionId());
+
             var versionDir = Path.Combine(Paths.VersionsDir(gameDir), packId);
             Directory.CreateDirectory(versionDir);
+
+            // 让任务立刻记住实际 ID：这一轮中途暂停时，下一轮才有东西可复用
+            task.VersionId = packId;
 
             var json = new JsonObject
             {
