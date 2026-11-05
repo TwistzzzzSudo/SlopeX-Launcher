@@ -39,6 +39,10 @@ namespace SlopeX.Windows
             InitializeComponent();
             Current = this;
 
+            // 键盘：页面快捷键挂在窗口的隧道阶段，焦点在页面内容里也能收到
+            PreviewKeyDown += MainWindow_PreviewKeyDown;
+            NavList.GotKeyboardFocus += NavList_GotKeyboardFocus;
+
             // 右下角常驻版本号，取自程序集（SlopeX.csproj 的 <Version>）
             StatusRight.Text = AppInfo.DisplayVersion;
 
@@ -64,10 +68,25 @@ namespace SlopeX.Windows
             ApplyWindowCorner();
 
             // 小屏 / 高缩放下 1280×820 可能超出可用区（例如 2560×1440 @200% 只有 1280×720 DIP），
-            // 超出部分会被屏幕切掉，底部状态栏看不见。这里按工作区收一下。
+            // 超出部分会被屏幕切掉，底部状态栏看不见。
+            // 下限也得跟着收：只写 Math.Max(MinWidth, …) 的话，可用区比 MinWidth 还窄时
+            // 窗口仍然比屏幕宽，右侧内容照样被切掉。
             var work = SystemParameters.WorkArea;
-            Width = Math.Min(Width, Math.Max(MinWidth, work.Width - 40));
-            Height = Math.Min(Height, Math.Max(MinHeight, work.Height - 40));
+            var fitWidth = Math.Max(WindowFloorWidth, work.Width - 40);
+            var fitHeight = Math.Max(WindowFloorHeight, work.Height - 40);
+
+            MinWidth = Math.Min(MinWidth, fitWidth);
+            MinHeight = Math.Min(MinHeight, fitHeight);
+            Width = Math.Min(Width, fitWidth);
+            Height = Math.Min(Height, fitHeight);
+
+            // 拖到另一块缩放比不同的显示器上：WPF 会按新 DPI 重新排版（清单里声明了 PerMonitorV2），
+            // 这里只需要把圆角裁剪按新尺寸补一次，并把新的缩放比记进日志备查。
+            DpiChanged += (s, e) =>
+            {
+                ApplyWindowCorner();
+                Log.Info($"显示缩放切换为 {e.NewDpi.PixelsPerInchX:0} DPI（{e.NewDpi.PixelsPerInchX / 96:P0}）");
+            };
 
             StateChanged += (s, e) =>
             {
@@ -79,6 +98,9 @@ namespace SlopeX.Windows
 
             Loaded += async (s, e) =>
             {
+                var dpi = VisualTreeHelper.GetDpi(this);
+                Log.Info($"窗口 DPI：{dpi.PixelsPerInchX:0}（缩放 {dpi.PixelsPerInchX / 96:P0}），窗口 {ActualWidth:0}×{ActualHeight:0} DIP");
+
                 NavList.SelectedIndex = 0;
                 UpdateAccount();
 
@@ -95,6 +117,86 @@ namespace SlopeX.Windows
             };
 
             Closing += (s, e) => Config.Current.Save();
+        }
+
+        // ---------------- 键盘 ----------------
+
+        /// <summary>可用区比这还小时不再收缩（再小页面就排不开了，让内容自己出滚动条）。</summary>
+        private const double WindowFloorWidth = 720;
+        private const double WindowFloorHeight = 480;
+
+        /// <summary>侧栏项按视觉顺序取，编号跟 Tag 无关：「整合包」插在「下载」之后。</summary>
+        private ListBoxItem[] NavItems => NavList.Items.OfType<ListBoxItem>().ToArray();
+
+        /// <summary>
+        /// Tab 进侧栏时焦点先落在 ListBox 自己身上，而它没有模板、看不出焦点在哪。
+        /// 这里直接把焦点交给选中项，焦点环才会出现在正确的行上。
+        /// </summary>
+        private void NavList_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+        {
+            if (!ReferenceEquals(e.OriginalSource, NavList)) return;
+            if (NavList.SelectedItem is ListBoxItem item) item.Focus();
+        }
+
+        /// <summary>
+        /// 全局快捷键（模态打开时不生效，页面在遮罩后面切来切去没有意义）：
+        /// Ctrl+1…7 直达侧栏第 N 项，Ctrl+Tab / Ctrl+Shift+Tab 前后切换，Ctrl+F 搜日志。
+        /// </summary>
+        private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (IsModalOpen) return;
+
+            var mods = Keyboard.Modifiers;
+            if ((mods & ModifierKeys.Control) == 0 || (mods & ModifierKeys.Alt) != 0) return;
+
+            if (e.Key == Key.Tab)
+            {
+                StepPage((mods & ModifierKeys.Shift) != 0 ? -1 : 1);
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == Key.F)
+            {
+                // 日志只在「任务与日志」页可见，先切过去再聚焦搜索框
+                Navigate(3);
+                _tasks?.FocusSearch();
+                e.Handled = true;
+                return;
+            }
+
+            var number = e.Key switch
+            {
+                >= Key.D1 and <= Key.D7 => e.Key - Key.D1 + 1,
+                >= Key.NumPad1 and <= Key.NumPad7 => e.Key - Key.NumPad1 + 1,
+                _ => 0
+            };
+
+            if (number == 0) return;
+
+            SelectNavOrder(number - 1);
+            e.Handled = true;
+        }
+
+        /// <summary>选中侧栏第 <paramref name="order"/> 项（0 起，按视觉顺序）。</summary>
+        private void SelectNavOrder(int order)
+        {
+            var items = NavItems;
+            if (order < 0 || order >= items.Length) return;
+            if (!int.TryParse(items[order].Tag?.ToString(), out var tag)) return;
+
+            Navigate(tag);
+        }
+
+        private void StepPage(int delta)
+        {
+            var items = NavItems;
+            if (items.Length == 0) return;
+
+            var current = Array.FindIndex(items, i => ReferenceEquals(i, NavList.SelectedItem));
+            var next = current < 0 ? 0 : (current + delta + items.Length) % items.Length;
+
+            SelectNavOrder(next);
         }
 
         // ---------------- 导航 ----------------

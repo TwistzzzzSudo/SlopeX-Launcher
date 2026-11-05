@@ -18,9 +18,11 @@
                            Text="安装进度、下载详情与游戏运行日志。"/>
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
-                <Button Style="{StaticResource BtnGhost}" Content="清空日志" Click="ClearLog_Click"/>
+                <Button Style="{StaticResource BtnGhost}" Content="导出日志" Click="ExportLog_Click"/>
                 <Button Style="{StaticResource BtnGhost}" Content="打开日志目录" Margin="8,0,0,0"
                         Click="OpenLogDir_Click"/>
+                <Button Style="{StaticResource BtnGhost}" Content="清空日志" Margin="8,0,0,0"
+                        Click="ClearLog_Click"/>
             </StackPanel>
         </Grid>
 
@@ -100,21 +102,66 @@
                 </Grid.RowDefinitions>
 
                 <Border Grid.Row="0" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1"
-                        Padding="14,10,14,10">
+                        Padding="14,8,14,8">
                     <Grid>
-                        <TextBlock Text="运行日志" Style="{StaticResource TCaption}" FontWeight="SemiBold"/>
-                        <TextBlock x:Name="LogCount" Style="{StaticResource TCaption}" HorizontalAlignment="Right"/>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="运行日志" Style="{StaticResource TCaption}" FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+
+                            <!-- 搜索：边打边找（180ms 防抖），命中会标出来并滚到对应行 -->
+                            <Grid Width="228" Margin="16,0,0,0">
+                                <TextBox x:Name="LogSearch" Style="{StaticResource Input}" Height="28" Padding="9,0"
+                                         TextChanged="LogSearch_TextChanged"
+                                         PreviewKeyDown="LogSearch_PreviewKeyDown"/>
+                                <TextBlock Text="搜索日志" Foreground="{DynamicResource Muted}" FontSize="12"
+                                           Margin="10,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Text, ElementName=LogSearch}" Value="">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+
+                            <TextBlock x:Name="SearchCount" Style="{StaticResource TCaption}" Margin="10,0,0,0"
+                                       VerticalAlignment="Center" MinWidth="46"/>
+
+                            <StackPanel x:Name="SearchNav" Orientation="Horizontal" Visibility="Collapsed">
+                                <Button Style="{StaticResource BtnText}" Width="24" Height="24" Padding="0"
+                                        FontFamily="Segoe MDL2 Assets" FontSize="10" Content="&#xE70E;"
+                                        ToolTip="上一个匹配（Shift+Enter）" Click="PrevHit_Click"/>
+                                <Button Style="{StaticResource BtnText}" Width="24" Height="24" Padding="0"
+                                        FontFamily="Segoe MDL2 Assets" FontSize="10" Content="&#xE70D;"
+                                        ToolTip="下一个匹配（Enter）" Click="NextHit_Click"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <TextBlock x:Name="LogCount" Style="{StaticResource TCaption}" HorizontalAlignment="Right"
+                                   VerticalAlignment="Center"/>
                     </Grid>
                 </Border>
 
-                <TextBox x:Name="LogBox" Grid.Row="1" IsReadOnly="True" BorderThickness="0"
-                         AcceptsReturn="True" TextWrapping="NoWrap"
-                         Background="{DynamicResource Bg}" Foreground="{DynamicResource Sub}"
-                         FontFamily="{StaticResource MonoFont}" FontSize="11.5"
-                         Padding="14,10,10,10"
-                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                         VerticalContentAlignment="Top"
-                         IsReadOnlyCaretVisible="False"/>
+                <!-- 命中标记用一层 Canvas 画在文字底下：TextBox 的选中色只在「自己拿到过焦点」
+                     的时候才渲染，搜索框有焦点时它不画，所以不能靠 Select() 来标位置。 -->
+                <Grid Grid.Row="1" Background="{DynamicResource Bg}" ClipToBounds="True">
+                    <Canvas x:Name="LogHighlight" IsHitTestVisible="False" ClipToBounds="True"/>
+
+                    <TextBox x:Name="LogBox" IsReadOnly="True" BorderThickness="0"
+                             AcceptsReturn="True" TextWrapping="NoWrap"
+                             Background="Transparent" Foreground="{DynamicResource Sub}"
+                             FontFamily="{StaticResource MonoFont}" FontSize="11.5"
+                             Padding="14,10,10,10"
+                             VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                             VerticalContentAlignment="Top"
+                             IsReadOnlyCaretVisible="False"
+                             IsInactiveSelectionHighlightEnabled="True"
+                             SelectionBrush="{DynamicResource Ink}" SelectionOpacity="0.24"/>
+                </Grid>
             </Grid>
         </Border>
     </Grid>

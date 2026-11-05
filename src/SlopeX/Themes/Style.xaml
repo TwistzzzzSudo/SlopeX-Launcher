@@ -98,10 +98,29 @@
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
 
+    <!-- ============ 键盘焦点环 ============ -->
+    <!--
+        FocusVisualStyle 只在**键盘**操作时出现（鼠标点一下不会亮），正好用来回答「Tab 现在走到哪」。
+        负 Margin 让环画在控件外沿，不挤动布局；圆角比 R8 大 1，贴着按钮的圆角走。
+        只给自绘模板的控件加：默认模板的控件还留 WPF 自带的虚线圈。
+    -->
+    <Style x:Key="FocusRing">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Border BorderBrush="{DynamicResource Ink}" BorderThickness="2"
+                            CornerRadius="9" Margin="-3" Opacity="0.7"
+                            SnapsToDevicePixels="True"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ============ 按钮 ============ -->
     <Style x:Key="BtnPrimary" TargetType="Button">
         <Setter Property="Foreground" Value="{DynamicResource OnPrimary}"/>
         <Setter Property="Background" Value="{DynamicResource Primary}"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
         <Setter Property="FontSize" Value="13.5"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Height" Value="40"/>
@@ -137,6 +156,7 @@
     <Style x:Key="BtnGhost" TargetType="Button">
         <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
         <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
         <Setter Property="FontSize" Value="12.5"/>
         <Setter Property="Height" Value="32"/>
         <Setter Property="Padding" Value="14,0"/>
@@ -172,6 +192,7 @@
     <Style x:Key="BtnText" TargetType="Button">
         <Setter Property="Foreground" Value="{DynamicResource Sub}"/>
         <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
         <Setter Property="FontSize" Value="12.5"/>
         <Setter Property="Height" Value="28"/>
         <Setter Property="Padding" Value="10,0"/>
@@ -202,6 +223,7 @@
     <Style x:Key="BtnWin" TargetType="Button">
         <Setter Property="Foreground" Value="{DynamicResource Sub}"/>
         <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
         <Setter Property="Width" Value="42"/>
         <Setter Property="Height" Value="30"/>
         <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
@@ -248,6 +270,7 @@
     <Style x:Key="BtnLink" TargetType="Button">
         <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
         <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
         <Setter Property="FontSize" Value="12.5"/>
         <Setter Property="Padding" Value="0"/>
         <Setter Property="Cursor" Value="Hand"/>
@@ -267,6 +290,7 @@
     <Style x:Key="Chip" TargetType="ToggleButton">
         <Setter Property="Foreground" Value="{DynamicResource Sub}"/>
         <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
         <Setter Property="Height" Value="28"/>
         <Setter Property="Margin" Value="0,0,8,0"/>
         <Setter Property="Padding" Value="13,0"/>
@@ -423,6 +447,7 @@
     <Style x:Key="RowItemPick" TargetType="ListBoxItem" BasedOn="{StaticResource RowItem}">
         <Setter Property="Focusable" Value="True"/>
         <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
     </Style>
 
     <Style x:Key="PlainList" TargetType="ListBox">
@@ -448,6 +473,7 @@
     <Style x:Key="Chk" TargetType="CheckBox">
         <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
         <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Template">
             <Setter.Value>
@@ -484,6 +510,7 @@
     <Style x:Key="OptionRow" TargetType="RadioButton">
         <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
         <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
         <Setter Property="Margin" Value="0,0,0,8"/>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
         <Setter Property="Template">

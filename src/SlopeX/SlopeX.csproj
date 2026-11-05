@@ -10,6 +10,8 @@
     <RootNamespace>SlopeX</RootNamespace>
     <!-- 图标只有一个来源：仓库根目录的 ico/SlopeX.ico（由 tools/make-icon.ps1 生成） -->
     <ApplicationIcon>..\..\ico\SlopeX.ico</ApplicationIcon>
+    <!-- 高 DPI：PerMonitorV2 必须写在清单里，代码里改不了（见 app.manifest） -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <Version>1.0.0</Version>
     <Company>SlopeX</Company>
     <Product>SlopeX Launcher</Product>

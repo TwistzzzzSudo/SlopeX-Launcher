@@ -2,7 +2,7 @@
 
 > 首次生成：2026-10-29 02:32 ｜ 最近更新：2026-11-05 16:58
 > 对应产物：`SlopeX.exe` 1.0.0（自包含单文件，win-x64）
-> 代码规模：91 个 C# / XAML 源文件，≈24,876 行
+> 代码规模：91 个 C# / XAML 源文件，≈25,353 行
 > 版本控制：分支 `main`，远端公开 `github.com/TwistzzzzSudo/SlopeX-Launcher`
 > 当前状态：**S3 视觉定案**（7 个组件里补完 4 个，剩 `ComboBox` / `ContextMenu` / `Steps` 待有真实场景再补）；四条加载器线 + 整合包导入 + 模组增删与中英文搜索（Modrinth / CurseForge / 双源三选一）+ 光影 / 材质包下载 + 法律声明（首启确认）全部可用；**微软登录已通过 Mojang 白名单，实测登录 / 静默刷新 / 档案接口全部正常（2026-11-01）**
 > 下一个执行项 = **继续完善启动器**（集中补既有链路，不铺新功能面），候选待办见 §6.2
@@ -198,10 +198,9 @@ UI 层         5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeS
 
 ### 6.2 待办（按优先级）
 
-> **当前主线 = 继续打磨启动器**（2026-11-01 02:42 定）。第 1 项是打磨项；第 2 项是被主动搁置的验证项，不占主线。
+> **打磨项已清空**（2026-11-05：界面细节落地，见下文）。剩下这一条是被主动搁置的验证项，不占主线。
 
-1. **界面细节**：高 DPI 适配、键盘导航、日志搜索与导出
-2. **真实服务器联机验证（⏸ 已搁置）**：目前只验到令牌 / 档案 / 皮肤三层，`Setting user: ShakableCat` 只在单机日志里出现过，**没有连过一台强制正版验证的服务器**。真正能验的是「服务器接受这个会话」——`--uuid` 与 `session.minecraft.net/join` 都走通才算数。需要一台开 online-mode 的服务器（用户自开或给地址）；不用改代码，属于验收项而非开发项，所以排到主线之外
+1. **真实服务器联机验证（⏸ 已搁置）**：目前只验到令牌 / 档案 / 皮肤三层，`Setting user: ShakableCat` 只在单机日志里出现过，**没有连过一台强制正版验证的服务器**。真正能验的是「服务器接受这个会话」——`--uuid` 与 `session.minecraft.net/join` 都走通才算数。需要一台开 online-mode 的服务器（用户自开或给地址）；不用改代码，属于验收项而非开发项，所以排到主线之外
 
 ### 建议里程碑
 
@@ -1185,6 +1184,66 @@ if (hash != null && !Equals(actual, job.Sha1)) throw new IOException(...);
 **已知小瑕疵**：继续后进度从 0 重新涨（新一轮的 `DownloadQueue` 重新计数），已下完的文件会在几秒内被批量 `Skipped` 补回来。文件多或网慢时会看到进度短暂回退。
 
 **顺手发现的既有缺陷（未修）**：`ModpackInstaller.Inspect` 在没有清单的普通 zip 上会先抛「没能从整合包里读出 Minecraft 版本」，`InstallAsync` 里的 `fallbackBaseVersion` 分支永远走不到——「指定基础版本导入普通压缩包」这条路实际上不通。修它要动 `Inspect` 的签名和四处调用，没有并进这次改动。
+
+
+### 界面细节：高 DPI / 键盘 / 日志搜索（✅ 2026-11-05 落地）
+
+待办里最后一项打磨，三件事一起做。
+
+**高 DPI：清单里声明，而不是代码里改**
+
+新增 `src/SlopeX/app.manifest`，`csproj` 用 `<ApplicationManifest>` 引进去：
+
+```xml
+<dpiAware>true/pm</dpiAware>                                <!-- Win8.1 及更早 -->
+<dpiAwareness>PerMonitorV2, PerMonitor</dpiAwareness>       <!-- Win10 起 -->
+```
+
+不声明的话进程按系统 DPI 感知跑，把窗口拖到缩放比不同的显示器上时 Windows 直接把渲染好的位图拉伸，字和线一起糊。声明 V2 之后由 WPF 按新显示器重新排版。清单里顺带开了 `longPathAware`（模组 / 整合包路径容易顶到 260 字符，还需要系统 `LongPathsEnabled=1`）。
+
+验证方式：`dotnet publish` 出来的 `SlopeX.exe` 里能直接搜到 `PerMonitorV2` 与 `dpiAware` 两段；启动日志多了一行 `窗口 DPI：96（缩放 100%），窗口 1280×820 DIP`，换显示器时另记一条 `显示缩放切换为 …`。
+
+**窗口尺寸按工作区收敛，下限也跟着收**
+
+原来只有 `Math.Max(MinWidth, work.Width - 40)`：可用区比 `MinWidth` 还窄时（例如 1920×1080 @200% 只有 960×540 DIP），窗口依旧比屏幕宽，右侧内容被切掉。现在先算 `fit = max(下限, 工作区 - 40)`，再把 `MinWidth/MinHeight/Width/Height` 一起压到 `fit`，硬下限 720×480。
+
+**键盘：先解决"看不见焦点"**
+
+WPF 自绘模板的控件默认没有焦点视觉，Tab 走一圈等于摸黑。`Style.xaml` 加了一个 `FocusRing`（`FocusVisualStyle` → 墨色 2px 圆角环，负 Margin 画在控件外沿），套到 `BtnPrimary / BtnGhost / BtnText / BtnWin / BtnLink / Chip / Chk / OptionRow / RowItemPick / NavItem`。`FocusVisualStyle` 天生只在键盘操作时出现，鼠标点击不会亮。
+
+- 标题栏三个按钮设 `IsTabStop=False`：自定义窗口里它们排在视觉树最前，不关掉的话第一下 Tab 会落在「最小化」上
+- `NavList` 设 `KeyboardNavigation.TabNavigation="Once"`，并在 `GotKeyboardFocus` 里把焦点转给选中项——Tab 进侧栏直接落到「启动」那一行，环画得出来
+- 快捷键（模态打开时不生效）：`Ctrl+1…7` 直达侧栏第 N 项（按视觉顺序，第 7 项就是「设置」）、`Ctrl+Tab` / `Ctrl+Shift+Tab` 前后翻页、`Ctrl+F` 切到任务页并聚焦日志搜索
+- 日志框内：`Enter` / `Shift+Enter` / `F3` 跳匹配，`Esc` 清空搜索并回到日志
+
+**日志搜索：不能靠 TextBox 的选中色**
+
+WPF 的 `TextBox` 只在「自己拿到过焦点」时渲染选中区，`IsInactiveSelectionHighlightEnabled` 也救不回来——实测搜索时焦点在搜索框上，`Select()` 设进去的选中区一个像素都不画（对照：先点一下日志再 Ctrl+A，整块变灰；重启后直接搜，同词无任何高亮）。跨过这一步的做法是换机制：
+
+- 搜索框（`Input` 样式加高 28）→ 180ms 防抖 → 在 `LogBox.Text` 上做不区分大小写的 `IndexOf`，最多记 500 条
+- 命中位置用一层 `Canvas` **画在文字底下**：`GetRectFromCharacterIndex` 取首尾矩形，铺一块墨色 22% 的圆角块；滚动 / 改窗口大小时按 `ScrollChanged` 重画，切主题跟着 `Ink` 变
+- 计数 `3/10`（超过 500 条带 `+`），无结果显示红色「无匹配」并收起上下箭头
+- 搜索期间**不再跟着滚到底**：`AppendText` 会把光标带到文末并滚过去，所以追加前后要存 / 还原 `VerticalOffset`，否则每次来日志都从命中处被拉走
+- 行数自己数：`TextBox.LineCount` 在控件没测量过时返回 `-1`，首屏会显示「-1 行」；改成按追加条数累加、截断时减去被切走的换行数
+
+**日志导出**：`SaveFileDialog` 默认落在 `SlopeXData\logs`，文件名 `SlopeX-yyyyMMdd-HHmm.log`，UTF-8 带 BOM；文件头两行写启动器版本、导出时间与游戏目录，正文按屏上内容原样导出，成功给 Toast（`已导出 10 行日志`）。
+
+**实测**（Debug 构建，1280×820 / 96 DPI）
+
+| 操作 | 结果 |
+|---|---|
+| 启动后按一次 Tab | 焦点环落在侧栏「启动」 |
+| `Ctrl+5` | 切到「任务与日志」，侧栏同步选中 |
+| `Ctrl+4` | 切到「整合包」，收起状态的子项自动滑出并选中 |
+| `Ctrl+Tab` / `Ctrl+F` | 下一页 / 聚焦搜索框（`1/10`） |
+| `Enter` ×2 | `3/10`，标记落到第二行第二个 `SlopeX` |
+| 搜 `zzzz` | 红色「无匹配」，箭头收起，标记清除 |
+| `Esc` | 清空搜索，占位提示回来 |
+| `F3` | `1/4` → `2/4` |
+| Shift+Tab 走到「打开日志目录」 | 焦点环清晰可见；再一格是「导出日志」 |
+| 导出 | `SlopeX-20261105-1721.log`，916 B，两行文件头 + 10 行正文 |
+
+**已知范围**：搜索只覆盖屏上这段缓冲（上限 240k 字符、约 3000 行），更早的记录在磁盘日志里；`verify --hash` 能查出坏文件但不会自动重下，仍要靠重装。
 
 
 ### 美术与主题（结论，2026-10-31 精简）
