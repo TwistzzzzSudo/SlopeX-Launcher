@@ -33,13 +33,18 @@ namespace SlopeX.Modules.ModMods
         private const string Base = "https://mod.mcimirror.top/curseforge/v1";
 
         private const int GameId = 432;        // 432 = Minecraft
-        private const int ClassMods = 6;
+        /// <summary>模组分类（CF 的 classId 是 6；整合包见 <see cref="ClassModpacks"/>）。</summary>
+        public const int ClassMods = 6;
 
         /// <summary>整合包分类（CF 的 classId）。模组是 6，整合包是 4471。</summary>
         public const int ClassModpacks = 4471;
 
         /// <summary>写进 <see cref="ModSearchHit.Source"/> 的标记，安装时靠它分派。</summary>
         public const string SourceName = "CurseForge";
+
+        /// <summary>排序字段：2 = 热度（相关度更接近人挑的结果），6 = 总下载量（浏览榜单用）。</summary>
+        public const int SortPopularity = 2;
+        public const int SortDownloads = 6;
 
         /// <summary>CF 的 <c>modLoaderType</c> 枚举；未装加载器时返回 null（不过滤）。</summary>
         public static int? LoaderType(string loader) => (loader ?? "").ToLowerInvariant() switch
@@ -61,7 +66,8 @@ namespace SlopeX.Modules.ModMods
         /// jei / create 都能落到第一条附近，再叠加一次"名称或 slug 精确命中提前"。
         /// </summary>
         public static async Task<List<ModSearchHit>> SearchAsync(string query, string mcVersion, string loader,
-            int limit = 20, CancellationToken ct = default, int classId = ClassMods)
+            int limit = 20, CancellationToken ct = default, int classId = ClassMods,
+            int sortField = SortPopularity)
         {
             var q = new List<string>
             {
@@ -70,7 +76,7 @@ namespace SlopeX.Modules.ModMods
                 "searchFilter=" + Uri.EscapeDataString(query ?? ""),
                 "pageSize=" + Math.Clamp(limit, 1, 50),
                 "index=0",
-                "sortField=2",     // 2 = Popularity
+                "sortField=" + sortField,
                 "sortOrder=desc"
             };
 

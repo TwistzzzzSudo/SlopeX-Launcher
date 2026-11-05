@@ -240,7 +240,8 @@ namespace SlopeX.Modules.ModMods
         };
 
         public static async Task<List<ModSearchHit>> SearchAsync(string query, string mcVersion, string loader,
-            int limit = 20, int offset = 0, CancellationToken ct = default, bool mirror = false)
+            int limit = 20, int offset = 0, CancellationToken ct = default, bool mirror = false,
+            string index = "relevance")
         {
             var facets = new List<string> { "[\"project_type:mod\"]" };
             if (!string.IsNullOrWhiteSpace(mcVersion))
@@ -250,7 +251,7 @@ namespace SlopeX.Modules.ModMods
             if (!string.IsNullOrEmpty(l))
                 facets.Add($"[\"categories:{l}\"]");
 
-            return await QueryAsync(query, facets, limit, offset, mirror, ct).ConfigureAwait(false);
+            return await QueryAsync(query, facets, limit, offset, mirror, ct, index).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -260,19 +261,22 @@ namespace SlopeX.Modules.ModMods
         /// 硬过滤会漏掉大半结果 —— 所以这两类由用户自己在结果里挑包版本。
         /// </summary>
         /// <param name="projectType">Modrinth 的 <c>project_type</c>：<c>shader</c> / <c>resourcepack</c> / <c>mod</c> …</param>
+        /// <param name="index">排序方式：<c>relevance</c> / <c>downloads</c> / <c>newest</c> / <c>updated</c>；
+        /// 关键词为空时用 <c>downloads</c> 就能拿到「下载量最高的」。</param>
         public static async Task<List<ModSearchHit>> SearchByTypeAsync(string query, string projectType,
-            int limit = 20, int offset = 0, CancellationToken ct = default)
+            int limit = 20, int offset = 0, CancellationToken ct = default, string index = "relevance")
         {
             var facets = new List<string> { $"[\"project_type:{projectType}\"]" };
-            return await QueryAsync(query, facets, limit, offset, false, ct).ConfigureAwait(false);
+            return await QueryAsync(query, facets, limit, offset, false, ct, index).ConfigureAwait(false);
         }
 
         private static async Task<List<ModSearchHit>> QueryAsync(string query, List<string> facets,
-            int limit, int offset, bool mirror, CancellationToken ct)
+            int limit, int offset, bool mirror, CancellationToken ct, string index = "relevance")
         {
             var url = $"{BaseUrl(mirror)}/search?query={Uri.EscapeDataString(query ?? "")}" +
                       $"&limit={limit}&offset={offset}" +
-                      $"&index=relevance&facets={Uri.EscapeDataString("[" + string.Join(",", facets) + "]")}";
+                      $"&index={Uri.EscapeDataString(string.IsNullOrWhiteSpace(index) ? "relevance" : index)}" +
+                      $"&facets={Uri.EscapeDataString("[" + string.Join(",", facets) + "]")}";
 
             var node = await Net.GetJsonRawAsync(url, ct).ConfigureAwait(false);
             var hits = new List<ModSearchHit>();

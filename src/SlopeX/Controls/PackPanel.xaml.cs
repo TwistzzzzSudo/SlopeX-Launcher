@@ -56,6 +56,9 @@ namespace SlopeX.Controls
 
             ApplyKind();
             RefreshCounts();
+
+            // 进面板就把榜单列出来：空关键词按下载量排，用户不必先想到搜什么
+            _ = SearchAsync();
         }
 
         // ---------------- 类型 ----------------
@@ -71,7 +74,8 @@ namespace SlopeX.Controls
             ApplyKind();
             RefreshCounts();
 
-            if (PackList.Items.Count > 0) _ = SearchAsync();
+            // 换页签就换榜单：光影和材质是两套项目，旧结果不能留着
+            _ = SearchAsync();
         }
 
         private void ApplyKind()
@@ -79,9 +83,7 @@ namespace SlopeX.Controls
             ShaderHint.Visibility = _kind == PackKind.Shader ? Visibility.Visible : Visibility.Collapsed;
             VersionPopup.IsOpen = false;
             EmptyTitle.Text = _kind == PackKind.Shader ? "还没有搜到光影" : "还没有搜到材质包";
-            EmptyHint.Text = _kind == PackKind.Shader
-                ? "上面输入关键词，比如 complementary、bsl、bsl-shaders"
-                : "上面输入关键词，比如 stay-true、fresh-animations";
+            EmptyHint.Text = "输入关键词可以筛选；列表空着就点「刷新」重试。";
 
             // 列表还空着就把空状态亮出来，否则刚进面板会是一大块空白卡片，没有引导
             if (PackList.Items.Count == 0) EmptyPanel.Visibility = Visibility.Visible;
@@ -113,23 +115,24 @@ namespace SlopeX.Controls
         private async Task SearchAsync()
         {
             var query = QueryBox.Text?.Trim() ?? "";
-            if (query.Length == 0)
-            {
-                SetStatus("先输入要搜索的名字，比如 complementary（光影）或 stay-true（材质）。");
-                return;
-            }
+
+            // 空关键词 = 看榜单（按总下载量从高到低），有关键词才按相关度搜
+            var browsing = query.Length == 0;
 
             _cts?.Cancel();
             _cts = new CancellationTokenSource();
 
             var projectType = _kind == PackKind.Shader ? "shader" : "resourcepack";
-            SetStatus($"正在搜索「{query}」…");
+            var kindText = _kind == PackKind.Shader ? "光影" : "材质包";
+
+            SetStatus(browsing ? $"正在列出下载量最高的{kindText}…" : $"正在搜索「{query}」…");
             PackList.ItemsSource = null;
             EmptyPanel.Visibility = Visibility.Collapsed;
 
             try
             {
-                var hits = await ModrinthSource.SearchByTypeAsync(query, projectType, 20, 0, _cts.Token);
+                var hits = await ModrinthSource.SearchByTypeAsync(query, projectType, 20, 0, _cts.Token,
+                    browsing ? "downloads" : "relevance");
 
                 if (_cts.IsCancellationRequested) return;
 
@@ -139,13 +142,21 @@ namespace SlopeX.Controls
                 // 列表先出来，图标随后补
                 _ = IconLoader.FillAsync(hits, _cts.Token);
 
-                var kindText = _kind == PackKind.Shader ? "光影" : "材质包";
-                SetStatus(rows.Count == 0
-                    ? $"没有找到「{query}」相关的{kindText}。换个关键词，或确认识别方式是英文名。"
-                    : $"找到 {rows.Count} 个{kindText}。点每行的「安装」，挑一个包版本就开始下载。");
+                if (browsing)
+                {
+                    SetStatus(rows.Count == 0
+                        ? $"没能列出{kindText}榜单，检查网络后点「刷新」重试。"
+                        : $"下载量最高的 {rows.Count} 个{kindText}。点每行的「安装」，挑一个包版本就开始下载。");
+                }
+                else
+                {
+                    SetStatus(rows.Count == 0
+                        ? $"没有找到「{query}」相关的{kindText}。换个关键词，或确认识别方式是英文名。"
+                        : $"找到 {rows.Count} 个{kindText}。点每行的「安装」，挑一个包版本就开始下载。");
+                }
 
                 EmptyPanel.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-                Log.Info($"资源包搜索「{query}」（{projectType}）：{rows.Count} 个结果");
+                Log.Info($"资源包{(browsing ? "榜单" : "搜索「" + query + "」")}（{projectType}）：{rows.Count} 个结果");
             }
             catch (OperationCanceledException)
             {
@@ -306,7 +317,7 @@ namespace SlopeX.Controls
         private void Refresh_Click(object sender, RoutedEventArgs e)
         {
             RefreshCounts();
-            if (PackList.Items.Count > 0) _ = SearchAsync();
+            _ = SearchAsync();
         }
 
         private void Back_Click(object sender, RoutedEventArgs e)

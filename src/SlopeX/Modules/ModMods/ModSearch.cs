@@ -47,9 +47,20 @@ namespace SlopeX.Modules.ModMods
         public int ModrinthCount { get; set; }
         public int CurseForgeCount { get; set; }
 
+        /// <summary>关键词为空、按下载量浏览榜单（不是搜索）。状态文案据此换个说法。</summary>
+        public bool Browsing { get; set; }
+
         public string StatusText(string mcVersion, string loader)
         {
             var target = TargetLabel(mcVersion, loader);
+
+            if (Browsing && !FromMcMod)
+            {
+                if (Hits.Count == 0)
+                    return "没能列出热门模组，检查网络后点「搜索」重试。";
+
+                return $"下载量最高的 {Hits.Count} 个模组。已按 {target} 过滤。";
+            }
 
             if (!FromMcMod)
             {
@@ -148,10 +159,11 @@ namespace SlopeX.Modules.ModMods
         }
 
         public static async Task<ModSearchResult> SearchAsync(string query, string mcVersion, string loader,
-            ModSourceFilter filter, int limit = CheckLimit, CancellationToken ct = default)
+            ModSourceFilter filter, int limit = CheckLimit, CancellationToken ct = default,
+            string index = "relevance")
         {
             if (!HasChinese(query))
-                return await SearchDirectAsync(query, mcVersion, loader, filter, limit, ct).ConfigureAwait(false);
+                return await SearchDirectAsync(query, mcVersion, loader, filter, limit, ct, index).ConfigureAwait(false);
 
             return await SearchChineseAsync(query, mcVersion, loader, filter, limit, ct).ConfigureAwait(false);
         }
@@ -159,17 +171,20 @@ namespace SlopeX.Modules.ModMods
         // ---------------- 英文：直接问平台 ----------------
 
         private static async Task<ModSearchResult> SearchDirectAsync(string query, string mcVersion, string loader,
-            ModSourceFilter filter, int limit, CancellationToken ct)
+            ModSourceFilter filter, int limit, CancellationToken ct, string index)
         {
-            // 全部模式下 Modrinth 也走镜像：两个源同一个出口，行为一致
-            var mirror = filter == ModSourceFilter.All;
+            // 空关键词 + downloads = 浏览「下载量最高的模组」
+            var browsing = string.IsNullOrWhiteSpace(query) && index == "downloads";
 
             var modrinthTask = filter != ModSourceFilter.CurseForge
-                ? ModrinthSource.SearchAsync(query, mcVersion, loader, limit, 0, ct, mirror)
+                ? ModrinthSource.SearchAsync(query, mcVersion, loader, limit, 0, ct, filter == ModSourceFilter.All, index)
                 : Task.FromResult(new List<ModSearchHit>());
 
+            // CF 没有「相关度」可选，浏览时换成总下载量，否则用热度
             var curseforgeTask = filter != ModSourceFilter.Modrinth
-                ? CurseForgeSource.SearchAsync(query, mcVersion, loader, limit, ct)
+                ? CurseForgeSource.SearchAsync(query, mcVersion, loader, limit, ct,
+                    CurseForgeSource.ClassMods,
+                    browsing ? CurseForgeSource.SortDownloads : CurseForgeSource.SortPopularity)
                 : Task.FromResult(new List<ModSearchHit>());
 
             // 一个源挂了不该让整次搜索失败：另一个的结果照样能用
@@ -179,6 +194,7 @@ namespace SlopeX.Modules.ModMods
             var result = new ModSearchResult
             {
                 Filter = filter,
+                Browsing = browsing,
                 ModrinthCount = modrinth.Count,
                 CurseForgeCount = curseforge.Count,
                 Total = modrinth.Count + curseforge.Count,
@@ -196,6 +212,10 @@ namespace SlopeX.Modules.ModMods
             {
                 if (seen.Add(hit.DedupeKey)) result.Hits.Add(hit);
             }
+
+            // 榜单模式要的是「整体按下载量从高到低」：两个源的排序规则不同，合并后统一再排一次
+            if (browsing)
+                result.Hits.Sort((a, b) => b.Downloads.CompareTo(a.Downloads));
 
             return result;
         }

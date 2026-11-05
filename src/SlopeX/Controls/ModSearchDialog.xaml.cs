@@ -54,6 +54,9 @@ namespace SlopeX.Controls
                 StatusText.Text = "这个版本没有安装加载器，模组装进去也不会被加载。建议先安装 Fabric / Forge / NeoForge。";
             else
                 StatusText.Text = "输入关键词后回车搜索；默认两个平台一起搜，点上方 Chip 可以只搜其中一个。";
+
+            // 打开就列出下载量最高的模组：多数人进来是想「看看有什么」，不是先想好名字
+            _ = SearchAsync();
         }
 
         public void FocusQuery()
@@ -83,6 +86,13 @@ namespace SlopeX.Controls
 
             ResultList.ItemsSource = null;
 
+            // 浏览态（没输关键词）换源就等于换榜单，直接重新列，不用用户再点一次搜索
+            if (string.IsNullOrWhiteSpace(QueryBox.Text))
+            {
+                _ = SearchAsync();
+                return;
+            }
+
             StatusText.Text = _filter switch
             {
                 ModSourceFilter.Modrinth => "只搜 Modrinth（官方接口）。输入关键词后回车。",
@@ -94,11 +104,9 @@ namespace SlopeX.Controls
         private async System.Threading.Tasks.Task SearchAsync()
         {
             var query = QueryBox.Text?.Trim() ?? "";
-            if (query.Length == 0)
-            {
-                StatusText.Text = "先输入要搜索的模组名（中文、英文都行，如 机械动力 / jei）。";
-                return;
-            }
+
+            // 空关键词 = 看榜单（按总下载量从高到低），有关键词才按相关度搜
+            var browsing = query.Length == 0;
 
             if (string.IsNullOrEmpty(_mcVersion))
                 StatusText.Text = "读不出这个版本的 Minecraft 版本号，搜索结果可能不匹配。";
@@ -108,18 +116,27 @@ namespace SlopeX.Controls
 
             var chinese = ModSearch.HasChinese(query);
 
-            StatusText.Text = chinese
-                ? $"正在 MC百科 检索「{query}」…（要把词条对上平台项目，可能慢几秒）"
-                : _filter == ModSourceFilter.All
-                    ? $"正在 Modrinth 与 CurseForge 搜索「{query}」…"
-                    : $"正在 {(_filter == ModSourceFilter.CurseForge ? "CurseForge" : "Modrinth")} 搜索「{query}」…";
+            if (browsing)
+            {
+                StatusText.Text = $"正在列出下载量最高的模组…（按 {_mcVersion}" +
+                                  (string.IsNullOrEmpty(_loader) ? "" : " / " + _loader) + " 过滤）";
+            }
+            else
+            {
+                StatusText.Text = chinese
+                    ? $"正在 MC百科 检索「{query}」…（要把词条对上平台项目，可能慢几秒）"
+                    : _filter == ModSourceFilter.All
+                        ? $"正在 Modrinth 与 CurseForge 搜索「{query}」…"
+                        : $"正在 {(_filter == ModSourceFilter.CurseForge ? "CurseForge" : "Modrinth")} 搜索「{query}」…";
+            }
 
             ResultList.ItemsSource = null;
 
             try
             {
                 var result = await ModSearch.SearchAsync(query, _mcVersion, _loader, _filter,
-                    ModSearch.CheckLimit, _cts.Token);
+                    browsing ? 20 : ModSearch.CheckLimit, _cts.Token,
+                    browsing ? "downloads" : "relevance");
 
                 if (_cts.IsCancellationRequested) return;
 
