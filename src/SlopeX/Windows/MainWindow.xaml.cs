@@ -30,6 +30,7 @@ namespace SlopeX.Windows
         private PageTasks _tasks;
         private PageAccount _account;
         private PageSettings _settings;
+        private PageModpack _modpack;
         private int _currentIndex = -1;
 
         public MainWindow()
@@ -97,18 +98,34 @@ namespace SlopeX.Windows
         {
             if (!(NavList.SelectedItem is ListBoxItem item)) return;
             if (!int.TryParse(item.Tag?.ToString(), out var index)) return;
+
+            // 选中「整合包」时子项必须留在外面，否则选中态跟着高度一起收没了；
+            // 点「下载」时鼠标还停在它上面，这时也不收——否则刚滑出来就没了，得挪开再挪回来才重现
+            if (index == 6) OpenModpackNav();
+            else if (!NavDownload.IsMouseOver) CloseModpackNav();
+
             ShowPage(index);
         }
 
         public void Navigate(int index)
         {
-            if (index < 0 || index > 5) return;
-            if (NavList.SelectedIndex == index)
+            if (index < 0 || index > 6) return;
+
+            // 「整合包」子项插在「下载」之后，列表位置与 Tag 不再一一对应（Tag 才是页面编号），
+            // 所以这里按 Tag 找项，不能直接拿 index 当 SelectedIndex。
+            var item = NavList.Items.OfType<ListBoxItem>()
+                .FirstOrDefault(i => string.Equals(i.Tag?.ToString(), index.ToString()));
+
+            if (item == null) return;
+            if (ReferenceEquals(NavList.SelectedItem, item))
             {
                 ShowPage(index);
                 return;
             }
-            NavList.SelectedIndex = index;
+
+            // 子项平时是塌的，塌着选不中：先滑出来再选
+            if (index == 6) OpenModpackNav();
+            NavList.SelectedIndex = NavList.Items.IndexOf(item);
         }
 
         private void ShowPage(int index)
@@ -124,11 +141,85 @@ namespace SlopeX.Windows
                 3 => _tasks ??= new PageTasks(),
                 4 => _account ??= new PageAccount(),
                 5 => _settings ??= new PageSettings(),
+                6 => _modpack ??= new PageModpack(),
                 _ => null
             };
 
             PageHost.Content = page;
             (page as ILauncherPage)?.OnShown();
+        }
+
+        // ---------------- 导航：下载 → 整合包 ----------------
+
+        private static readonly TimeSpan NavOpenDuration = TimeSpan.FromMilliseconds(180);
+        private static readonly TimeSpan NavCloseDuration = TimeSpan.FromMilliseconds(130);
+
+        /// <summary>鼠标离开侧栏后的缓冲：这段时间内移回来就不收。</summary>
+        private DispatcherTimer _navCloseTimer;
+
+        private bool _navPackOpen;
+
+        private void NavDownload_MouseEnter(object sender, MouseEventArgs e) => OpenModpackNav();
+
+        private void NavModpack_MouseEnter(object sender, MouseEventArgs e) => OpenModpackNav();
+
+        private void NavList_MouseEnter(object sender, MouseEventArgs e) => _navCloseTimer?.Stop();
+
+        private void NavList_MouseLeave(object sender, MouseEventArgs e)
+        {
+            if (_navCloseTimer == null)
+            {
+                _navCloseTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(260) };
+                _navCloseTimer.Tick += (s, args) =>
+                {
+                    _navCloseTimer.Stop();
+
+                    // 鼠标绕回来、或者正停在整合包页上，都不该收
+                    if (NavList.IsMouseOver) return;
+                    if (NavModpack.IsSelected) return;
+
+                    CloseModpackNav();
+                };
+            }
+
+            _navCloseTimer.Start();
+        }
+
+        /// <summary>
+        /// 子项滑出。动画改的是 ListBoxItem 自己的 Height：0 → 36 的过程里下面的导航项被顶下去，
+        /// 视觉上就是"从「下载」下方长出来"，不需要另铺一层浮层，也不会盖住别的内容。
+        /// </summary>
+        private void OpenModpackNav()
+        {
+            _navCloseTimer?.Stop();
+            if (_navPackOpen) return;
+
+            _navPackOpen = true;
+            NavModpack.Visibility = Visibility.Visible;
+            AnimateNav(36, 1, NavOpenDuration, null);
+        }
+
+        private void CloseModpackNav()
+        {
+            if (!_navPackOpen) return;
+
+            _navPackOpen = false;
+            AnimateNav(0, 0, NavCloseDuration,
+                () => NavModpack.Visibility = Visibility.Collapsed);
+        }
+
+        private void AnimateNav(double height, double opacity, TimeSpan duration, Action done)
+        {
+            var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+
+            var heightAnimation = new DoubleAnimation(height, duration) { EasingFunction = ease };
+            var opacityAnimation = new DoubleAnimation(opacity, duration) { EasingFunction = ease };
+
+            // 收起动画结束后再真正塌掉，否则高度还没走完就消失了
+            if (done != null) opacityAnimation.Completed += (s, e) => done();
+
+            NavModpack.BeginAnimation(FrameworkElement.HeightProperty, heightAnimation);
+            NavModpack.BeginAnimation(UIElement.OpacityProperty, opacityAnimation);
         }
 
         // ---------------- 窗口按钮 ----------------

@@ -35,6 +35,9 @@ namespace SlopeX.Modules.ModMods
         private const int GameId = 432;        // 432 = Minecraft
         private const int ClassMods = 6;
 
+        /// <summary>整合包分类（CF 的 classId）。模组是 6，整合包是 4471。</summary>
+        public const int ClassModpacks = 4471;
+
         /// <summary>写进 <see cref="ModSearchHit.Source"/> 的标记，安装时靠它分派。</summary>
         public const string SourceName = "CurseForge";
 
@@ -58,12 +61,12 @@ namespace SlopeX.Modules.ModMods
         /// jei / create 都能落到第一条附近，再叠加一次"名称或 slug 精确命中提前"。
         /// </summary>
         public static async Task<List<ModSearchHit>> SearchAsync(string query, string mcVersion, string loader,
-            int limit = 20, CancellationToken ct = default)
+            int limit = 20, CancellationToken ct = default, int classId = ClassMods)
         {
             var q = new List<string>
             {
                 "gameId=" + GameId,
-                "classId=" + ClassMods,
+                "classId=" + classId,
                 "searchFilter=" + Uri.EscapeDataString(query ?? ""),
                 "pageSize=" + Math.Clamp(limit, 1, 50),
                 "index=0",
@@ -97,12 +100,15 @@ namespace SlopeX.Modules.ModMods
         /// 按 slug 精确查一个项目——中文搜索从 MC百科 词条拿到的是 CurseForge 的 slug，
         /// 要先换成数字 ID 才能取文件。
         /// </summary>
-        public static async Task<ModSearchHit> SearchBySlugAsync(string slug, CancellationToken ct = default)
+        public static async Task<ModSearchHit> SearchBySlugAsync(string slug, CancellationToken ct = default,
+            int? classId = null)
         {
             if (string.IsNullOrWhiteSpace(slug)) return null;
 
+            // 带上 classId 时只在该分类里找：整合包与模组可能撞 slug（如 create）
             var url = Base + "/mods/search?gameId=" + GameId +
-                      "&slug=" + Uri.EscapeDataString(slug.Trim()) + "&pageSize=10";
+                      "&slug=" + Uri.EscapeDataString(slug.Trim()) + "&pageSize=10" +
+                      (classId.HasValue ? "&classId=" + classId.Value : "");
 
             try
             {

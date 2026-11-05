@@ -128,7 +128,8 @@
                         </Grid.RowDefinitions>
 
                         <ListBox x:Name="NavList" Grid.Row="0" Style="{StaticResource PlainList}"
-                                 SelectionChanged="Nav_SelectionChanged">
+                                 SelectionChanged="Nav_SelectionChanged"
+                                 MouseEnter="NavList_MouseEnter" MouseLeave="NavList_MouseLeave">
                             <ListBoxItem Style="{StaticResource NavItem}" Tag="0">
                                 <StackPanel Orientation="Horizontal">
                                     <Path Style="{StaticResource NavIconFill}"
@@ -143,11 +144,24 @@
                                     <TextBlock Text="版本管理" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </ListBoxItem>
-                            <ListBoxItem Style="{StaticResource NavItem}" Tag="2">
+                            <ListBoxItem x:Name="NavDownload" Style="{StaticResource NavItem}" Tag="2"
+                                         MouseEnter="NavDownload_MouseEnter">
                                 <StackPanel Orientation="Horizontal">
                                     <Path Style="{StaticResource NavIconStroke}"
                                           Data="M8,2.9 L8,10.2 M5.3,7.6 L8,10.3 L10.7,7.6 M3.2,13.1 L12.8,13.1"/>
                                     <TextBlock Text="下载" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </ListBoxItem>
+
+                            <!-- 「下载」的子项：鼠标停在该项上时从它下方滑出（见 NavDownload_MouseEnter）。
+                                 默认 Height=0 + Collapsed，动画期间才占位；文案缩进一级以示从属。 -->
+                            <ListBoxItem x:Name="NavModpack" Style="{StaticResource NavItem}" Tag="6"
+                                         Height="0" Opacity="0" Visibility="Collapsed"
+                                         MouseEnter="NavModpack_MouseEnter">
+                                <StackPanel Orientation="Horizontal" Margin="20,0,0,0">
+                                    <Path Style="{StaticResource NavIconStroke}"
+                                          Data="M3.1,5.5 L8,2.9 L12.9,5.5 L12.9,10.5 L8,13.1 L3.1,10.5 Z M3.1,5.5 L8,8.1 L12.9,5.5 M8,8.1 L8,13.1"/>
+                                    <TextBlock Text="整合包" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </ListBoxItem>
                             <ListBoxItem Style="{StaticResource NavItem}" Tag="3">

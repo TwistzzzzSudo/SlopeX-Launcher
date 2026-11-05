@@ -99,7 +99,9 @@ namespace SlopeX.Modules.ModCli
                     Out("  legal [brief]            打印内置法律声明（brief = 首次启动的简版）");
                     Out("  packs-search <关键词> [shader|resourcepack]   搜光影 / 材质包（不做版本过滤）");
                     Out("  packs-versions <项目ID>  列出该资源包的全部版本");
-                    Out("  packs-install <版本> <shader|resourcepack> <项目ID> [版本号]   下载到该版本目录");                    Out("  mods-install <版本> <关键词|项目ID>   搜索并安装首个结果（含必需依赖）");
+                    Out("  packs-install <版本> <shader|resourcepack> <项目ID> [版本号]   下载到该版本目录");
+                    Out("  modpacks-search <关键词> [all|modrinth|curseforge]   搜整合包（中文走 MC百科）");
+                    Out("  modpacks-versions <modrinth|curseforge> <项目ID>   列出该整合包可下载的包版本");                    Out("  mods-install <版本> <关键词|项目ID>   搜索并安装首个结果（含必需依赖）");
                     Out("  plan <版本>              打印启动命令行（不启动）");
                     Out("  launch <版本>            启动游戏");
                     Out("  fabric-list <原版版本>   列出该原版可用的 Fabric 加载器");
@@ -164,6 +166,12 @@ namespace SlopeX.Modules.ModCli
 
                 case "packs-install":
                     return PacksInstall(args);
+
+                case "modpacks-search":
+                    return ModpacksSearch(args);
+
+                case "modpacks-versions":
+                    return ModpacksVersions(args);
 
                 case "msa-explain":
                     return MsaExplain(args.FirstOrDefault(), string.Join(" ", args.Skip(1)));
@@ -862,6 +870,80 @@ namespace SlopeX.Modules.ModCli
             catch (Exception ex)
             {
                 Out("搜索失败：" + ex.Message);
+                return 1;
+            }
+        }
+
+        /// <summary>整合包搜索的排障入口：中文走 MC百科，英文直接问两个平台。</summary>
+        private static int ModpacksSearch(System.Collections.Generic.List<string> args)
+        {
+            var query = args.FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                Out("用法：modpacks-search <关键词> [all|modrinth|curseforge]");
+                return 2;
+            }
+
+            var filter = (args.Skip(1).FirstOrDefault() ?? "all").ToLowerInvariant() switch
+            {
+                "modrinth" => ModMods.ModSourceFilter.Modrinth,
+                "curseforge" => ModMods.ModSourceFilter.CurseForge,
+                _ => ModMods.ModSourceFilter.All
+            };
+
+            try
+            {
+                var result = ModMods.PackSearch.SearchAsync(query, filter).GetAwaiter().GetResult();
+
+                Out($"整合包搜索「{query}」({filter})：{result.Hits.Count} 个结果" +
+                    (result.FromMcMod ? $"，MC百科 命中 {result.Total}、核对 {result.Checked}" : ""));
+
+                foreach (var h in result.Hits)
+                {
+                    Out($"  [{h.SourceText}] {h.Title}  [支持 {h.VersionSupportText}]  {h.DownloadsText}  " +
+                        $"id={h.ProjectId}  slug={h.Slug}" + (h.HasMcMod ? $"  百科={h.McModUrl}" : ""));
+                }
+
+                Out("  " + result.StatusText().Replace("\n", " "));
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Out("搜索失败：" + ex.Message);
+                return 1;
+            }
+        }
+
+        private static int ModpacksVersions(System.Collections.Generic.List<string> args)
+        {
+            var source = args.FirstOrDefault();
+            var projectId = args.Skip(1).FirstOrDefault();
+            if (string.IsNullOrEmpty(source) || string.IsNullOrEmpty(projectId))
+            {
+                Out("用法：modpacks-versions <modrinth|curseforge> <项目 ID>");
+                return 2;
+            }
+
+            var hit = new ModMods.ModSearchHit
+            {
+                Source = source.Equals("curseforge", StringComparison.OrdinalIgnoreCase) ? "CurseForge" : "Modrinth",
+                ProjectId = projectId
+            };
+
+            try
+            {
+                var versions = ModMods.PackSearch.ListVersionsAsync(hit).GetAwaiter().GetResult();
+                Out($"{source}/{projectId}：{versions.Count} 个可下载的包版本（新的在前）");
+
+                foreach (var v in versions.Take(30))
+                    Out($"  {(string.IsNullOrEmpty(v.VersionLabel) ? v.FileName : v.VersionLabel),-28} " +
+                        $"{(v.Size > 0 ? ModNet.Format.Bytes(v.Size) : "—"),9}  {v.FileName}");
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Out("读取版本失败：" + ex.Message);
                 return 1;
             }
         }

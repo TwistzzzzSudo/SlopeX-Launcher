@@ -21,6 +21,27 @@ namespace SlopeX.Modules.ModMods
         public string ClassUrl => McModSource.Host + "/class/" + ClassId + ".html";
     }
 
+    /// <summary>MC百科 整合包词条（<c>/modpack/&lt;id&gt;.html</c>）。</summary>
+    public sealed class McModPackEntry
+    {
+        /// <summary>词条 ID，也就是 <c>/modpack/1234.html</c> 里的数字。</summary>
+        public string PackId { get; set; } = "";
+
+        /// <summary>站上的显示名，通常形如「[ATM9] AllTheMods 9 (AllTheMods 9)」。</summary>
+        public string Name { get; set; } = "";
+
+        /// <summary>一句话简介（结果卡片里的 body）。</summary>
+        public string Intro { get; set; } = "";
+
+        public string PackUrl => McModSource.Host + "/modpack/" + PackId + ".html";
+
+        /// <summary>
+        /// 名字里括号中的英文名。绝大多数整合包词条都是「中文名 (English Name)」两段式；
+        /// 中文搜索没登记平台链接时，用它去平台做一次精确兜底。
+        /// </summary>
+        public string EnglishName => McModSource.PickEnglishName(Name);
+    }
+
     /// <summary>
     /// MC百科（mcmod.cn）的只读抓取。
     ///
@@ -59,6 +80,25 @@ namespace SlopeX.Modules.ModMods
 
         private static readonly Regex TargetRx =
             new Regex(@"link\.mcmod\.cn/target/([A-Za-z0-9+/=%]+)", RegexOptions.Compiled);
+
+        // 全站检索的结果卡片：<div class="result-item"><div class="head"><a href=".../modpack/ID.html">名称</a>…
+        private static readonly Regex PackResultSplit =
+            new Regex(@"<div class=""result-item"">", RegexOptions.Compiled);
+
+        private static readonly Regex PackHeadRx =
+            new Regex(@"<div class=""head""><a[^>]*href=""[^""]*?/modpack/(\d+)\.html""[^>]*>(.*?)</a>",
+                RegexOptions.Compiled | RegexOptions.Singleline);
+
+        private static readonly Regex PackBodyRx =
+            new Regex(@"<div class=""body"">(.*?)</div>", RegexOptions.Compiled | RegexOptions.Singleline);
+
+        // 整合包在平台上的路径与模组不同，单独一套（见 PackLinksAsync）
+        private static readonly Regex ModrinthPackSlugRx =
+            new Regex(@"modrinth\.com/modpack/([A-Za-z0-9_\-.]+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        private static readonly Regex CurseForgePackSlugRx =
+            new Regex(@"curseforge\.com/minecraft/modpacks/([A-Za-z0-9_\-.]+)",
+                RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         private static readonly Regex ModrinthSlugRx =
             new Regex(@"modrinth\.com/(?:mod|project|datapack|shader|resourcepack|plugin)/([A-Za-z0-9_\-.]+)",
@@ -202,6 +242,160 @@ namespace SlopeX.Modules.ModMods
             }
 
             return (modrinth, curseforge);
+        }
+
+        // ---------------- 整合包 ----------------
+
+        /// <summary>
+        /// 按关键词搜**整合包**。
+        ///
+        /// 整合包没有像 <c>modlist.html</c> 那样的专用搜索入口（<c>modpack.html</c> 只支持元素 / 版本筛选，
+        /// 传 <c>key</c> 会被忽略，永远返回默认列表），所以这里走全站检索再把结果限定在
+        /// <c>filter=2</c>（整合包），返回的卡片结构与模组搜索不同，需要单独解析。
+        /// </summary>
+        public static async Task<List<McModPackEntry>> SearchPacksAsync(string query, CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(query)) return new List<McModPackEntry>();
+
+            var url = "https://search.mcmod.cn/s?key=" + Uri.EscapeDataString(query.Trim()) + "&filter=2";
+
+            for (var attempt = 0; ; attempt++)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                string html;
+                try
+                {
+                    html = await Net.GetStringRawAsync(url, ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    if (attempt >= 1)
+                        throw new InvalidOperationException("连不上 MC百科：" + ex.Message, ex);
+
+                    await Task.Delay(1200, ct).ConfigureAwait(false);
+                    continue;
+                }
+
+                // 全站检索的限流提示与模组列表不是同一句
+                if (html.IndexOf("检索速度过快", StringComparison.Ordinal) >= 0 ||
+                    html.IndexOf("搜索太频繁", StringComparison.Ordinal) >= 0)
+                {
+                    if (attempt >= 1)
+                        throw new InvalidOperationException("MC百科 提示检索太快，等十几秒再试。");
+
+                    await Task.Delay(2000, ct).ConfigureAwait(false);
+                    continue;
+                }
+
+                return ParsePackList(html);
+            }
+        }
+
+        private static List<McModPackEntry> ParsePackList(string html)
+        {
+            var list = new List<McModPackEntry>();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+
+            var blocks = PackResultSplit.Split(html);
+            for (var i = 1; i < blocks.Length; i++)
+            {
+                var block = blocks[i];
+
+                var head = PackHeadRx.Match(block);
+                if (!head.Success) continue;
+
+                var id = head.Groups[1].Value;
+                if (!seen.Add(id)) continue;
+
+                var body = PackBodyRx.Match(block);
+
+                list.Add(new McModPackEntry
+                {
+                    PackId = id,
+                    Name = Clean(head.Groups[2].Value),
+                    Intro = body.Success ? Clean(body.Groups[1].Value) : ""
+                });
+            }
+
+            return list;
+        }
+
+        /// <summary>
+        /// 读整合包词条页，取出 Modrinth / CurseForge 的整合包 slug。
+        ///
+        /// 词条页的"相关链接"同样是 <c>link.mcmod.cn/target/{base64}</c> 跳转，
+        /// 但整合包在平台上的路径是 <c>/modpack/&lt;slug&gt;</c> 与 <c>/minecraft/modpacks/&lt;slug&gt;</c>，
+        /// 和模组的 <c>/mod/</c>、<c>/mc-mods/</c> 不通用，必须单独匹配。
+        /// 很多国产整合包只挂了网盘 / 论坛链接，这种情况下两个都为空。
+        /// </summary>
+        public static async Task<(string Modrinth, string CurseForge)> PackLinksAsync(string packId,
+            CancellationToken ct = default)
+        {
+            if (string.IsNullOrEmpty(packId)) return ("", "");
+
+            string html;
+            try
+            {
+                html = await Net.GetStringRawAsync(Host + "/modpack/" + packId + ".html", ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"读取 MC百科 整合包页 {packId} 失败：{ex.Message}");
+                return ("", "");
+            }
+
+            var modrinth = "";
+            var curseforge = "";
+
+            foreach (Match m in TargetRx.Matches(html))
+            {
+                var target = DecodeTarget(m.Groups[1].Value);
+                if (target.Length == 0) continue;
+
+                if (modrinth.Length == 0)
+                {
+                    var slug = ModrinthPackSlugRx.Match(target);
+                    if (slug.Success) modrinth = Uri.UnescapeDataString(slug.Groups[1].Value);
+                }
+
+                if (curseforge.Length == 0)
+                {
+                    var slug = CurseForgePackSlugRx.Match(target);
+                    if (slug.Success) curseforge = Uri.UnescapeDataString(slug.Groups[1].Value);
+                }
+
+                if (modrinth.Length > 0 && curseforge.Length > 0) break;
+            }
+
+            return (modrinth, curseforge);
+        }
+
+        /// <summary>
+        /// 从「中文名 (English Name)」里挑出英文名；挑不出来返回空串。
+        /// 只认含拉丁字母的那一对括号，避免把「（1.16.5）」这种版本号当成名字。
+        /// </summary>
+        internal static string PickEnglishName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return "";
+
+            var matches = Regex.Matches(name, @"[(（]([^()（）]{2,80})[)）]");
+            for (var i = matches.Count - 1; i >= 0; i--)
+            {
+                var inner = matches[i].Groups[1].Value.Trim();
+                if (inner.Length >= 2 && inner.Any(char.IsAsciiLetter))
+                    return inner;
+            }
+
+            return "";
         }
 
         /// <summary>把 link.mcmod.cn 的 base64 跳转还原成真实地址。</summary>

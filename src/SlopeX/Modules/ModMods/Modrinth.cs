@@ -71,10 +71,18 @@ namespace SlopeX.Modules.ModMods
         /// <summary>来自 MC百科 的那条结果才有：百科的模组 ID（class/xxxx.html 里的 xxxx）。</summary>
         public string McModId { get; set; } = "";
 
+        /// <summary>
+        /// 百科词条的类型段：模组是 <c>class</c>，整合包是 <c>modpack</c>。
+        /// 两种词条的地址只差这一段，链接与查询都跟着它走。
+        /// </summary>
+        public string McModKind { get; set; } = "class";
+
         public bool HasMcMod => !string.IsNullOrEmpty(McModId);
 
         /// <summary>百科词条地址，给"百科"按钮用。</summary>
-        public string McModUrl => HasMcMod ? McModSource.Host + "/class/" + McModId + ".html" : "";
+        public string McModUrl => HasMcMod
+            ? McModSource.Host + "/" + (McModKind == "modpack" ? "modpack" : "class") + "/" + McModId + ".html"
+            : "";
 
         public string DownloadsText => Downloads <= 0
             ? ""
