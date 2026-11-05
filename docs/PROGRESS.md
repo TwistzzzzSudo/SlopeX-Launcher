@@ -203,8 +203,9 @@ UI 层         5 页 + 主窗口 + 控件 + 样式 + 双主题调色板 + ThemeS
 
 没有排期中的新增项。已知未修（不阻塞，记录备查）：
 
-1. **`ModpackInstaller.Inspect` 的普通 zip 分支是死代码**：`fallbackBaseVersion` 永远走不到，传入不带 `minecraftinstance.json` / `mmc-pack.json` / `modrinth.index.json` 的裸 zip 会在推断基础版本前抛异常；
-2. **`verify --hash` 只查不修**：能列出内容不符的文件，但要修复仍得走 `install` / `repair` 重装。真要做成「一键修」需要给每个文件留来源信息，属于新功能不是补漏
+1. **`verify --hash` 只查不修**：能列出内容不符的文件，但要修复仍得走 `install` / `repair` 重装。真要做成「一键修」需要给每个文件留来源信息，属于新功能不是补漏
+
+> 2026-11-05 补：`ModpackInstaller.Inspect` 的普通 zip 死分支已修，见 §6「普通压缩包导入」。
 
 ### 建议里程碑
 
@@ -1056,6 +1057,31 @@ SlopeX.exe --cli skin-clear                          恢复内置默认
 - 截图（用临时调试入口渲染，验证后已撤除）：导航「下载」下的「整合包」为选中态，页面标题、来源筛选、搜索框、结果表（图标 / 来源 / 作者 / 下载量 / 支持版本 / 更新 / 安装）全部正常
 
 **悬停手感**：当时前台是全屏游戏（SCUM），鼠标被游戏捕获，`SetCursorPos` 与 `PostMessage(WM_MOUSEMOVE)` 都到不了启动器窗口，只能靠临时入口渲染 + 代码审阅。**2026-11-05 用户确认实际悬停手感没问题**，滑出 / 收起不需要再调。
+
+
+### 普通压缩包导入（✅ 2026-11-05 修掉死分支）
+
+**问题**：`ModpackInstaller.Inspect` 在结尾统一校验 `plan.McVersion`，读不到就抛「没能从整合包里读出 Minecraft 版本」。普通 zip 本来就没有清单、`McVersion` 必然是空，于是异常总在 `InstallAsync` 之前抛出——`InstallAsync` 里那段 `fallbackBaseVersion` 分支**一次都没执行过**，界面入口连选基础版本的机会都没有，直接报「这个文件不像整合包」。
+
+**改动**
+
+| 位置 | 内容 |
+| --- | --- |
+| `Modpack.Inspect` | 只有「有清单但没读出 MC 版本」才抛；`PlainZip` 放行，版本交给调用方 |
+| `Modpack.Inspect` | 普通 zip 的 `Name` 改由文件名推（`plain.zip` → `plain`），`SuggestVersionId` 不再一律是「整合包」 |
+| `Controls/VersionPickDialog` | 新增：普通 zip 导入前先选一个已装版本；只列不带 `inheritsFrom` 的版本（加载器版本自己要继承原版，不能当基础）；列表为空时「导入」置灰并提示去下载页；Esc 取消、回车 / 双击确认 |
+| `PageVersions.ImportPack_Click` | 拆出 `ConfirmImport`：普通 zip 先走选版本弹窗，其余格式照旧直接给摘要 |
+| `--cli pack-info` | 补第二个参数 `[基础版本]`，普通 zip 也能读到「导入时会用的样子」 |
+
+**验证**（样本是 `mods/testmod.jar` + `config/test.txt` 的裸 zip，基础版本用一个只有 json + 空 jar 的假 1.21.1）
+
+| 命令 | 结果 |
+| --- | --- |
+| `pack-info .tmp/plain.zip` | 格式 普通压缩包 / 名称 plain / `Minecraft：（需作为基础版本的已安装版本）`，退出码 0（以前这里是「解析失败」） |
+| `import-pack .tmp/plain.zip 1.21.1` | 生成 `versions\plain\plain.json`：`inheritsFrom: 1.21.1`、`slopexPack.format = PlainZip`；`mods/testmod.jar`、`config/test.txt` 均已落位，耗时 0.1 秒 |
+| `import-pack .tmp/plain.zip`（不给基础版本） | `导入失败：普通压缩包没有版本清单，需要指定一个已安装的原版版本作为基础。` |
+
+界面截图（临时入口渲染，验证后已撤除）：三条假版本里只出现 `26.3` 与 `1.21.1`，带 `inheritsFrom` 的 `Fabulously-Optimized-6.5.0` 被滤掉；列表为空时提示「还没有装过原版版本，先去「下载」里装一个。」且「导入」置灰。`dotnet build -c Release` 0 警告 0 错误。
 
 
 ### 启动器自更新（✅ 2026-11-05 落地）

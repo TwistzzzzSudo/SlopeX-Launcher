@@ -187,6 +187,28 @@ namespace SlopeX.Pages
                 return;
             }
 
+            // 普通压缩包没有清单，得先问清楚贴到哪个版本上
+            if (plan.Format == PackFormat.PlainZip)
+            {
+                var picker = new Controls.VersionPickDialog(_all);
+                picker.Closed += baseId =>
+                {
+                    MainWindow.Current?.HideModal();
+                    if (baseId == null) return;
+
+                    plan.McVersion = baseId;
+                    ConfirmImport(dlg.FileName, plan);
+                };
+                MainWindow.Current?.ShowModal(picker);
+                return;
+            }
+
+            ConfirmImport(dlg.FileName, plan);
+        }
+
+        /// <summary>给出摘要，确认后交给任务中心；普通 zip 的基础版本已由调用方填进 <c>plan.McVersion</c>。</summary>
+        private void ConfirmImport(string zipPath, PackPlan plan)
+        {
             var loader = string.IsNullOrEmpty(plan.LoaderKind)
                 ? "原版"
                 : plan.LoaderKind + " " + plan.LoaderVersion;
@@ -208,7 +230,8 @@ namespace SlopeX.Pages
                     MessageBoxImage.Question) != MessageBoxResult.OK)
                 return;
 
-            var task = TaskCenter.StartModpackInstall(dlg.FileName);
+            var task = TaskCenter.StartModpackInstall(zipPath,
+                plan.Format == PackFormat.PlainZip ? plan.McVersion : null);
             MainWindow.Current?.SetStatus($"正在导入 {plan.Name}…（进度见「任务与日志」）", null);
 
             task.Updated += t =>

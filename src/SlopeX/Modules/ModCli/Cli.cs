@@ -116,7 +116,7 @@ namespace SlopeX.Modules.ModCli
                     Out("  install-forge <原版版本> [加载器版本]   安装 Forge（调官方 installer，缺原版会先补）");
                     Out("  neoforge-list <原版版本>   列出该原版可用的 NeoForge 版本");
                     Out("  install-neoforge <原版版本> [加载器版本]   安装 NeoForge（镜像优先，缺原版会先补）");
-                    Out("  pack-info <整合包路径>   识别整合包格式与版本，不安装");
+                    Out("  pack-info <整合包路径> [基础版本]   识别整合包格式与版本，不安装");
                     Out("  import-pack <整合包路径> [基础版本]   导入整合包（.mrpack / CurseForge / MultiMC / 普通 zip）");
                     Out("  login                    微软正版登录（设备码，在浏览器里确认）");
                     Out("  account                  查看当前账号");
@@ -256,7 +256,7 @@ namespace SlopeX.Modules.ModCli
                     return InstallNeoForge(args.FirstOrDefault(), args.Skip(1).FirstOrDefault());
 
                 case "pack-info":
-                    return PackInfo(args.FirstOrDefault());
+                    return PackInfo(args.FirstOrDefault(), args.Skip(1).FirstOrDefault());
 
                 case "import-pack":
                     return ImportPack(args.FirstOrDefault(), args.Skip(1).FirstOrDefault());
@@ -1637,16 +1637,21 @@ namespace SlopeX.Modules.ModCli
             }
         }
 
-        private static int PackInfo(string zipPath)
+        private static int PackInfo(string zipPath, string baseVersion)
         {
-            if (string.IsNullOrEmpty(zipPath)) { Out("用法：pack-info <整合包路径>"); return 2; }
+            if (string.IsNullOrEmpty(zipPath)) { Out("用法：pack-info <整合包路径> [基础版本]"); return 2; }
 
             try
             {
                 var plan = ModpackInstaller.Inspect(zipPath);
+
+                // 普通压缩包没有清单，版本只能由命令行给；给了就按「导入时会用的样子」显示
+                if (plan.Format == PackFormat.PlainZip && !string.IsNullOrEmpty(baseVersion))
+                    plan.McVersion = baseVersion;
+
                 Out($"格式      ：{plan.FormatLabel}");
                 Out($"名称      ：{plan.Name} {plan.PackVersion}".TrimEnd());
-                Out($"Minecraft ：{plan.McVersion}");
+                Out($"Minecraft ：{(string.IsNullOrEmpty(plan.McVersion) ? "（需作为基础版本的已安装版本）" : plan.McVersion)}");
                 Out($"加载器    ：{(string.IsNullOrEmpty(plan.LoaderKind) ? "原版" : plan.LoaderKind + " " + plan.LoaderVersion)}");
                 Out($"文件清单  ：{plan.Files.Count} 个" +
                     (plan.Format == PackFormat.CurseForge ? "（CurseForge 需在线解析文件名）" : ""));

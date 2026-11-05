@@ -147,10 +147,15 @@ namespace SlopeX.Modules.ModDownload
                 }
             }
 
-            if (string.IsNullOrWhiteSpace(plan.McVersion))
+            // 普通压缩包本来就没有版本清单，版本由调用方指定（InstallAsync 的 fallbackBaseVersion）。
+            // 这里必须放行，否则那条分支永远走不到——Inspect 会先把「读不出版本」抛出来。
+            if (string.IsNullOrWhiteSpace(plan.McVersion) && plan.Format != PackFormat.PlainZip)
                 throw new InvalidDataException(
-                    $"没能从整合包里读出 Minecraft 版本（识别为 {plan.FormatLabel}）。" +
-                    "如果是普通压缩包，请指定一个原版版本作为基础。");
+                    $"没能从整合包里读出 Minecraft 版本（识别为 {plan.FormatLabel}）。");
+
+            // 普通压缩包没有名字可读，用文件名（版本 ID 也由它推出来）
+            if (plan.Format == PackFormat.PlainZip && string.IsNullOrWhiteSpace(plan.PackVersion))
+                plan.Name = Path.GetFileNameWithoutExtension(zipPath);
 
             // 覆盖目录：Modrinth 固定 overrides；CurseForge 由 manifest 的 overrides 字段指定
             if (string.IsNullOrEmpty(plan.OverridesPrefix))
