@@ -70,7 +70,7 @@
 | **版本补全**              | ✅           | `VersionRepair.Check/RepairAsync`：库 / 客户端 jar / 资源索引 / 资源对象；启动失败自动提示一键补全并重试；CLI `repair`                                                                                                                                                             |
 | **模组管理**              | ✅           | 本地：列表（jar 元数据）/ 启停 / 删除 / 打开目录；在线：**三个来源可选**——`全部`（Modrinth + CurseForge，同名去重）/ `Modrinth`（官方接口）/ `CurseForge`（经 MCIM 镜像，官方接口要 API Key）；必需依赖按来源各自补齐；**中文搜索**走 MC百科 词条映射（`modlist.html?key=` 检索 → 词条里 base64 的 Modrinth / CurseForge 链接 → 项目核对版本/加载器）；UIA 与 CLI 双向实测；**面板打开即列出下载量最高的模组**（空关键词 + `index=downloads`，CF 用 `sortField=6`，合并后统一按下载量再排一次），**每页 20 个、底部翻页** |
 | **整合包导入**             | ✅           | `.mrpack` / CurseForge zip / MultiMC 实例 / 普通 zip；自动补原版与加载器、下载模组、解压 overrides；已导入 Fabulously Optimized（149 模组）实测                                                                                                                                      |
-| **光影 / 材质包下载**        | ✅           | 版本行「资源包」→ 光影包 / 材质包两页签；`project_type` 参数化走 `/v2/search`，**不做版本过滤**、由用户挑包版本；落 `shaderpacks\` / `resourcepacks\` 且已存在跳过；实测 Complementary Reimagined r5.9.3（553 KB）与 Stay True Amendment3（40.8 KB）；**进页签就自动列出按下载量排序的榜单**（空关键词 + `index=downloads`），**每页 20 个、底部翻页，总数取自 `total_hits`**（光影 1,093 个 = 55 页）|
+| **光影 / 材质包下载**        | ✅           | 版本行「资源包」→ 光影包 / 材质包两页签；`project_type` 参数化走 `/v2/search`，**不做版本过滤**、由用户挑包版本；落 `shaderpacks\` / `resourcepacks\` 且已存在跳过；实测 Complementary Reimagined r5.9.3（553 KB）与 Stay True Amendment3（40.8 KB）；**进页签就自动列出按下载量排序的榜单**（空关键词 + `index=downloads`），**每页 20 个、底部翻页**（只显示当前页，不报总数与总页数）|
 | **安装类型选择**            | ✅           | 点「安装」弹出类型选择：原版 / Fabric / Forge / NeoForge 四选一；已安装版本仍可点（用于加装加载器或补齐文件）                                                                                                                                                                                |
 | **便携（折中）**            | ✅           | 配置与日志进 `SlopeXData\`，首次启用从 `%APPDATA%` 复制（原文件保留）；Java 运行时目录可配；目录不可写时整体回落 `%APPDATA%`                                                                                                                                                                 |
 | **微软正版登录**            | ✅ 2026-11-01 实测可用 | 设备码 → Xbox Live → XSTS → 档案；令牌存 `SlopeXData\accounts.json`，24 小时过期后静默刷新（refresh_token 同步轮换）。**Mojang 白名单已于 2026-11-01 通过**：`/minecraft/profile` 返回 200、皮肤 ACTIVE、2 个披风；任一环节失败自动回落**离线登录**（自定义玩家名），不阻塞启动 |
@@ -1093,14 +1093,14 @@ SlopeX.exe --cli skin-clear                          恢复内置默认
 | 位置 | 行为 |
 | --- | --- |
 | `ModrinthSource.QueryAsync` | `index` 参数化（`relevance` / `downloads` / `newest` / `updated`），原来写死 `relevance`；同时把 `total_hits` 带回来 |
-| `PackPanel` | 关键词为空按 `downloads` 排；每页 20 条，底部「上一页 / 第 x / y 页 · 共 N 个 / 下一页」，总页数由 `total_hits` 算出；换页签、换关键词都回到第 1 页 |
+| `PackPanel` | 关键词为空按 `downloads` 排；每页 20 条，底部「上一页 / 第 N 页 / 下一页」——**只显示当前页**，总数与总页数都不报（`total_hits` 只在内部用来判断「下一页」能不能点）；换页签、换关键词都回到第 1 页 |
 | `ModSearchDialog` | 同上。浏览时 Modrinth 用 `index=downloads`、CurseForge 用 `sortField=6`（总下载量），合并去重后**整体再按下载量降序排一次**（两个源的排序规则不可比，不重排会变成"Modrinth 一段、CF 一段"） |
 | `ModSearch.SearchPageAsync` | 分页取「两源各自前 `limit×page` 条」→ 去重 → 排序 → 切当前页。这样每页正好 20 条、翻回上一页内容不变；窗口封顶 500 条，避免翻太深把请求数拖爆 |
 | 单源超时 | 每个源 10 秒没响应就当它「本页无结果」，日志留一行——CF 走社区镜像，镜像抽风时界面不能一直转圈 |
 
 **实测**
 
-- 光影：第 1 页 Complementary Reimagined 71.9M → Unbound 46.7M → BSL 31.5M；第 2 页 I Like Vanilla 2.9M → Vanilla Plus 2.7M；页码「第 1 / 55 页 · 共 1,093 个」
+- 光影：第 1 页 Complementary Reimagined 71.9M → Unbound 46.7M → BSL 31.5M；第 2 页 I Like Vanilla 2.9M → Vanilla Plus 2.7M；页码显示「第 2 页」
 - 材质：Fresh Animations 51.3M → Translations for Sodium 23M → Better Leaves 21.4M
 - 模组（1.21.1 / fabric / 全部）：第 1 页 Fabric API 282.8M → Sodium 248.7M → Iris 192.4M；第 2 页 Reese's Sodium Options 87.5M → JEI 84.6M；第 1 页「上一页」置灰
 - 回归：`--cli mods-search 1.21.1 jei` 仍 22 条（Modrinth 在前）；`--cli packs-search complementary shader` 仍 20 条

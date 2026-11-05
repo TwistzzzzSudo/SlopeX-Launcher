@@ -75,16 +75,8 @@ namespace SlopeX.Modules.ModMods
                           "可以切到「全部」看看另一个平台有没有。";
                 }
 
-                var detail = Filter switch
-                {
-                    ModSourceFilter.All =>
-                        $"Modrinth {ModrinthCount} 个、CurseForge {CurseForgeCount} 个，去重后 {Hits.Count} 个" +
-                        "（Modrinth 在前，CurseForge 补充在后）",
-                    ModSourceFilter.CurseForge => $"CurseForge 共 {Hits.Count} 个",
-                    _ => $"Modrinth 共 {Hits.Count} 个"
-                };
-
-                return $"找到 {detail}。已按 {target} 过滤。";
+                // 不报数量：总数是接口口径的参考值，对挑模组没有帮助
+                return $"已按 {target} 过滤。点「安装」下载。";
             }
 
             if (Total == 0)
@@ -93,16 +85,11 @@ namespace SlopeX.Modules.ModMods
             if (Hits.Count == 0)
             {
                 return Checked == 0
-                    ? $"MC百科 命中 {Total} 个，但没有能对应到{(Filter == ModSourceFilter.CurseForge ? " CurseForge" : " Modrinth")} 的条目。"
-                    : $"MC百科 命中 {Total} 个；核对前 {Checked} 个，平台上都找不到，或者不支持 {target}。";
+                    ? $"MC百科 有这个模组，但没有能对应到{(Filter == ModSourceFilter.CurseForge ? " CurseForge" : " Modrinth")} 的条目。"
+                    : $"MC百科 有这个模组，但核对过的条目在平台上都找不到，或者不支持 {target}。";
             }
 
-            var tail = new List<string>();
-            if (NotOnPlatform > 0) tail.Add($"{NotOnPlatform} 个平台上没有");
-            if (Incompatible > 0) tail.Add($"{Incompatible} 个没有 {target} 版本");
-
-            var text = $"MC百科 命中 {Total} 个，核对前 {Checked} 个，其中 {Hits.Count} 个可安装" +
-                       (tail.Count > 0 ? "（" + string.Join("，", tail) + "）" : "") + "。";
+            var text = $"已按 {target} 过滤。";
 
             if (Filter == ModSourceFilter.All && CurseForgeCount > 0)
                 text += " 同一个模组两边都有时优先取 CurseForge。";

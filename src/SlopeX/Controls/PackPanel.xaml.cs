@@ -36,7 +36,6 @@ namespace SlopeX.Controls
         private const int PageSize = 20;
         private int _page = 1;
         private int _pages = 1;
-        private int _total;
 
         /// <summary>返回版本列表。</summary>
         public event EventHandler BackRequested;
@@ -127,8 +126,9 @@ namespace SlopeX.Controls
 
         private void UpdatePager()
         {
+            // 只显示当前页：总页数与总数都是接口口径的参考值，对「继续往下翻」没有帮助
             Pager.Visibility = _pages > 1 ? Visibility.Visible : Visibility.Collapsed;
-            PageText.Text = $"第 {_page} / {_pages} 页 · 共 {_total:N0} 个";
+            PageText.Text = $"第 {_page} 页";
             PrevPageBtn.IsEnabled = _page > 1;
             NextPageBtn.IsEnabled = _page < _pages;
         }
@@ -172,7 +172,6 @@ namespace SlopeX.Controls
 
                 if (_cts.IsCancellationRequested) return;
 
-                _total = total;
                 _pages = Math.Max(1, (int)Math.Ceiling(total / (double)PageSize));
 
                 var rows = hits.Select(h => new PackRow(h)).ToList();
@@ -186,13 +185,13 @@ namespace SlopeX.Controls
                 {
                     SetStatus(rows.Count == 0
                         ? $"没能列出{kindText}榜单，检查网络后点「刷新」重试。"
-                        : $"下载量最高的{kindText}，共 {total:N0} 个。点每行的「安装」，挑一个包版本就开始下载。");
+                        : "点每行的「安装」，挑一个包版本就开始下载。");
                 }
                 else
                 {
                     SetStatus(rows.Count == 0
                         ? $"没有找到「{query}」相关的{kindText}。换个关键词，或确认识别方式是英文名。"
-                        : $"找到 {total:N0} 个{kindText}。点每行的「安装」，挑一个包版本就开始下载。");
+                        : "点每行的「安装」，挑一个包版本就开始下载。");
                 }
 
                 EmptyPanel.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
