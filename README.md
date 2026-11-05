@@ -235,8 +235,8 @@ SlopeX.exe --cli selftest                 # 自检：中文搜索 5 条 + 账号
 SlopeX.exe --cli skin-premium             # 读当前正版皮肤并渲染成 PNG（排障用）
 SlopeX.exe --cli skin-render out.png      # 渲染内置默认皮肤的 3D 预览
 SlopeX.exe --cli skin-set skin.png        # 设为离线皮肤（等同账号页的上传）
-SlopeX.exe --cli pack-info 包.mrpack     # 识别整合包格式与版本（不安装）
-SlopeX.exe --cli import-pack 包.mrpack   # 导入整合包
+SlopeX.exe --cli pack-info 包.mrpack     # 识别整合包格式与版本（不安装；普通 zip 可在末尾补基础版本）
+SlopeX.exe --cli import-pack 包.mrpack   # 导入整合包（普通 zip 必须在末尾给基础版本，如 1.21.1）
 ```
 
 ## 构建
