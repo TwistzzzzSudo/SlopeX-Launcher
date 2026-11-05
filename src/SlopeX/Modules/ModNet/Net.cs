@@ -361,6 +361,12 @@ namespace SlopeX.Modules.ModNet
                     timeoutCts.CancelAfter(timeoutMs);
                     var token = timeoutCts.Token;
 
+                    // 边下边算：哈希在拷贝过程中顺带累积，大文件不必落盘后再读一遍，
+                    // 校验的时间正好被网络 IO 掩盖——所以这里不做体积豁免。
+                    using var hash = string.IsNullOrEmpty(job.Sha1)
+                        ? (IncrementalHash)null
+                        : IncrementalHash.CreateHash(HashAlgorithmName.SHA1);
+
                     using (var resp = await Net.Client.GetAsync(target, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false))
                     {
                         resp.EnsureSuccessStatusCode();
@@ -374,6 +380,7 @@ namespace SlopeX.Modules.ModNet
                             while ((read = await src.ReadAsync(buffer, 0, buffer.Length, token).ConfigureAwait(false)) > 0)
                             {
                                 await dst.WriteAsync(buffer, 0, read, token).ConfigureAwait(false);
+                                hash?.AppendData(buffer, 0, read);
                                 got += read;
                                 job.Downloaded = got;
                                 Interlocked.Add(ref _doneBytes, read);
@@ -382,16 +389,16 @@ namespace SlopeX.Modules.ModNet
                             }
                         }
 
-                        if (job.Size > 0 && new FileInfo(tmp).Length != job.Size)
-                            throw new IOException($"大小不符（期望 {job.Size}，实际 {new FileInfo(tmp).Length}）");
+                        var actualSize = new FileInfo(tmp).Length;
+                        if (job.Size > 0 && actualSize != job.Size)
+                            throw new IOException($"大小不符（期望 {job.Size}，实际 {actualSize}）");
                     }
 
-                    // 只对小型文件做 SHA1 校验，避免大文件重复读盘
-                    if (!string.IsNullOrEmpty(job.Sha1) && job.Size > 0 && job.Size < 8 * 1024 * 1024)
+                    if (hash != null)
                     {
-                        var actual = Net.Sha1OfFile(tmp);
+                        var actual = Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
                         if (!string.Equals(actual, job.Sha1, StringComparison.OrdinalIgnoreCase))
-                            throw new IOException("SHA1 校验失败");
+                            throw new IOException($"SHA1 校验失败（期望 {job.Sha1}，实际 {actual}）");
                     }
 
                     if (File.Exists(job.Path)) File.Delete(job.Path);

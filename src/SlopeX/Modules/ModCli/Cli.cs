@@ -78,7 +78,8 @@ namespace SlopeX.Modules.ModCli
                     Out("  java-ensure <主版本>     确保存在可用 Java，缺失则自动下载安装");
                     Out("  manifest [数量]          列出可安装的版本（默认 20 条）");
                     Out("  install <版本>           安装原版版本");
-                    Out("  verify <版本>            校验依赖/资源是否齐全");
+                    Out("  verify <版本> [--hash]   校验依赖/资源是否齐全（--hash 比对内容，要读盘）");
+                    Out("                           加 --assets 连资源对象一起比对（几百 MB，较慢）");
                     Out("  repair <版本>            补齐缺失的库 / 客户端 jar / 资源（不改写版本 JSON）");
                     Out("  diagnose <版本> [日志文本]  对最近一次启动失败做诊断（排障用）");
                     Out("  music-test               播放当前主题背景音乐 3 秒并打印进度（排障用）");
@@ -227,7 +228,8 @@ namespace SlopeX.Modules.ModCli
                     return FixLibs(args.FirstOrDefault());
 
                 case "verify":
-                    return Verify(args.FirstOrDefault());
+                    return Verify(args.FirstOrDefault(),
+                        args.Any(a => a == "--hash"), args.Any(a => a == "--assets"));
 
                 case "plan":
                     return Plan(args.FirstOrDefault());
@@ -1788,7 +1790,7 @@ namespace SlopeX.Modules.ModCli
             return 0;
         }
 
-        private static int Verify(string versionId)
+        private static int Verify(string versionId, bool deep = false, bool withAssets = false)
         {
             if (string.IsNullOrEmpty(versionId)) { Out("请指定版本 ID"); return 2; }
 
@@ -1828,12 +1830,43 @@ namespace SlopeX.Modules.ModCli
             Out($"版本 {versionId}：库 {resolved.Libraries.Count} 个，继承链 {string.Join(" -> ", resolved.Chain)}");
             Out($"Java 要求：{JavaFinder.RequiredMajor(versionId, resolved.JavaMajor)}");
 
-            if (missing.Count == 0) { Out("校验通过，依赖齐全 ✓"); return 0; }
+            // ---- 内容校验（--hash）----
+            // 存在性检查只回答「文件在不在」，这里回答「内容对不对」——
+            // 库文件坏了的后果是启动直接抛 NoClassDefFoundError，报错跟文件名对不上，很难查。
+            List<string> broken = new List<string>();
+            if (deep)
+            {
+                Out(withAssets ? "正在比对内容（库 + 客户端 + 资源对象）…" : "正在比对内容（库 + 客户端）…");
 
-            Out($"缺失 {missing.Count} 项：");
-            foreach (var m in missing.Take(20)) Out("  " + m);
-            if (missing.Count > 20) Out($"  …… 另有 {missing.Count - 20} 项");
-            Out("可用 repair <版本> 自动补齐");
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                var hashes = ModDownload.VersionRepair.CheckHashes(gameDir, versionId, withAssets);
+                sw.Stop();
+
+                broken = hashes.Broken;
+
+                Out($"读取 {Format.Bytes(hashes.Bytes)}：通过 {hashes.Checked} 个 · " +
+                    $"内容不符 {broken.Count} 个 · 无 SHA1 跳过 {hashes.Skipped} 个 · " +
+                    $"用时 {sw.Elapsed.TotalSeconds:0.0} s");
+            }
+
+            if (missing.Count == 0 && broken.Count == 0) { Out("校验通过，依赖齐全 ✓"); return 0; }
+
+            if (missing.Count > 0)
+            {
+                Out($"缺失 {missing.Count} 项：");
+                foreach (var m in missing.Take(20)) Out("  " + m);
+                if (missing.Count > 20) Out($"  …… 另有 {missing.Count - 20} 项");
+            }
+
+            if (broken.Count > 0)
+            {
+                Out($"内容不符 {broken.Count} 个（删掉这些文件后 repair 会重新下载）：");
+                foreach (var b in broken.Take(10)) Out("  " + b);
+                if (broken.Count > 10) Out($"  …… 另有 {broken.Count - 10} 个");
+            }
+
+            if (missing.Count > 0) Out("可用 repair <版本> 自动补齐");
+
             return 1;
         }
 
