@@ -227,6 +227,9 @@
                             <ToggleButton x:Name="ChipThread64" Style="{StaticResource Chip}" Content="64"
                                           Margin="8,0,0,0" Click="Thread_Click" ToolTip="最快，也最容易触发路由器连接数上限，需要先确认"/>
                         </StackPanel>
+
+                        <!-- 子功能：拿当前线程数下一个直链 -->
+                        <controls:QuickDownload x:Name="QuickDl" Margin="0,14,0,0"/>
                     </StackPanel>
                 </Border>
 

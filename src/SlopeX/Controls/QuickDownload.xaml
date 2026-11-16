@@ -1,0 +1,55 @@
+<UserControl x:Class="SlopeX.Controls.QuickDownload"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FontFamily="{StaticResource UiFont}">
+
+    <!--
+        「下载线程」卡片里的子功能：粘贴公开直链，用当前线程数下载。
+        只处理 http/https 直链——网盘、需要登录态、签名会过期的链接不在这里解决。
+    -->
+
+    <StackPanel>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <Grid Grid.Column="0">
+                <TextBox x:Name="UrlBox" Style="{StaticResource Input}" KeyDown="Url_KeyDown"/>
+                <TextBlock Text="粘贴 http/https 下载直链" Foreground="{DynamicResource Muted}" FontSize="12.5"
+                           Margin="11,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Text, ElementName=UrlBox}" Value="">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+
+            <Button x:Name="GoBtn" Grid.Column="1" Style="{StaticResource BtnPrimary}" Content="下载"
+                    Margin="8,0,0,0" Click="Go_Click"/>
+            <Button x:Name="CancelBtn" Grid.Column="2" Style="{StaticResource BtnGhost}" Content="取消"
+                    Margin="8,0,0,0" Visibility="Collapsed" Click="Cancel_Click"/>
+        </Grid>
+
+        <TextBlock x:Name="FileText" Style="{StaticResource TCaption}" TextWrapping="Wrap"
+                   Margin="0,10,0,0" Text="" Visibility="Collapsed"/>
+
+        <ProgressBar x:Name="Bar" Style="{StaticResource Bar}" Height="4" Margin="0,6,0,0"
+                     Minimum="0" Maximum="100" Value="0" Visibility="Collapsed"/>
+
+        <Grid Margin="0,6,0,0">
+            <TextBlock x:Name="StatusText" Style="{StaticResource TCaption}" TextWrapping="Wrap" Text=""/>
+            <Button x:Name="OpenDirBtn" Style="{StaticResource BtnText}" Content="打开目录"
+                    HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Collapsed"
+                    Click="OpenDir_Click"/>
+        </Grid>
+    </StackPanel>
+</UserControl>

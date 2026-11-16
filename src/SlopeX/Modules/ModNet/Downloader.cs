@@ -139,15 +139,19 @@ namespace SlopeX.Modules.ModNet
 
         private readonly struct ProbeResult
         {
-            public ProbeResult(long total, bool supportsRange, string resolvedUrl)
+            public ProbeResult(long total, bool supportsRange, string resolvedUrl, string fileName = null)
             {
                 Total = total;
                 SupportsRange = supportsRange;
                 ResolvedUrl = resolvedUrl;
+                FileName = fileName;
             }
 
             public long Total { get; }
             public bool SupportsRange { get; }
+
+            /// <summary>服务器在 <c>Content-Disposition</c> 里给的文件名；没给就是 null。</summary>
+            public string FileName { get; }
 
             /// <summary>
             /// 跟随 302 之后的真实地址。分段必须打这个地址：
@@ -174,8 +178,9 @@ namespace SlopeX.Modules.ModNet
                     var len = resp.Content.Headers.ContentLength ?? 0;
                     var range = resp.Headers.AcceptRanges.Contains("bytes");
                     var finalUrl = resp.RequestMessage?.RequestUri?.ToString() ?? url;
+                    var name = HeaderFileName(resp);
 
-                    if (len > 0 && range) return new ProbeResult(len, true, finalUrl);
+                    if (len > 0 && range) return new ProbeResult(len, true, finalUrl, name);
                     if (len > 0) return await ProbeRangeAsync(finalUrl, len, ct).ConfigureAwait(false);
                 }
             }
@@ -205,7 +210,7 @@ namespace SlopeX.Modules.ModNet
                 {
                     var total = resp.Content.Headers.ContentRange?.Length ?? knownLength;
                     var finalUrl = resp.RequestMessage?.RequestUri?.ToString() ?? url;
-                    return new ProbeResult(total, total > 0, finalUrl);
+                    return new ProbeResult(total, total > 0, finalUrl, HeaderFileName(resp));
                 }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -218,6 +223,27 @@ namespace SlopeX.Modules.ModNet
             }
 
             return new ProbeResult(knownLength, false, url);
+        }
+
+        /// <summary>
+        /// 下载工具用：只探测不下，把文件名 / 大小 / 是否支持分段交回界面。
+        /// </summary>
+        internal static async Task<(string FileName, long Total, bool SupportsRange)> InspectAsync(
+            string url, CancellationToken ct)
+        {
+            var probe = await ProbeAsync(url, ct).ConfigureAwait(false);
+            return (probe.FileName, probe.Total, probe.SupportsRange);
+        }
+
+        /// <summary>从 <c>Content-Disposition</c> 取文件名；带路径的、空白的都当没给。</summary>
+        private static string HeaderFileName(HttpResponseMessage resp)
+        {
+            var cd = resp.Content.Headers.ContentDisposition;
+            var name = cd?.FileNameStar ?? cd?.FileName;
+            if (string.IsNullOrWhiteSpace(name)) return null;
+
+            name = name.Trim().Trim('"');
+            return name.IndexOfAny(new[] { '/', '\\', ':' }) >= 0 ? null : name;
         }
 
         // ---------------- 单流 ----------------
