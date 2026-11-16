@@ -67,8 +67,13 @@ namespace SlopeX.Modules.ModNet
         private const long SplitThreshold = 1024 * 1024;
         private const int BufferSize = 64 * 1024;
 
+        /// <param name="headers">
+        /// 额外的请求头（下载工具用来带 Referer / Cookie）。为空就完全走原来的流程。
+        /// 只允许调用方自己传自己需要的，别往这里塞 Authorization 之类会进日志的东西。
+        /// </param>
         public static async Task DownloadAsync(string url, string targetPath, string sha1, long size,
-            CancellationToken ct, int timeoutMs, Action<DownloadProgress> progress)
+            CancellationToken ct, int timeoutMs, Action<DownloadProgress> progress,
+            IReadOnlyDictionary<string, string> headers = null)
         {
             if (string.IsNullOrEmpty(url)) throw new ArgumentNullException(nameof(url));
             if (string.IsNullOrEmpty(targetPath)) throw new ArgumentNullException(nameof(targetPath));
@@ -82,7 +87,7 @@ namespace SlopeX.Modules.ModNet
                 using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 timeoutCts.CancelAfter(Math.Max(30000, timeoutMs));
 
-                var probe = await ProbeAsync(url, timeoutCts.Token).ConfigureAwait(false);
+                var probe = await ProbeAsync(url, headers, timeoutCts.Token).ConfigureAwait(false);
                 var total = probe.Total > 0 ? probe.Total : Math.Max(0, size);
 
                 var ok = false;
@@ -91,7 +96,7 @@ namespace SlopeX.Modules.ModNet
                     try
                     {
                         // 打跳转后的真实地址：带 Range 请求打跳转前的域名会被部分 CDN 判 404
-                        await DownloadSegmentedAsync(probe.ResolvedUrl, tmp, total, timeoutCts.Token, progress)
+                        await DownloadSegmentedAsync(probe.ResolvedUrl, tmp, total, timeoutCts.Token, progress, headers)
                             .ConfigureAwait(false);
                         ok = true;
                     }
@@ -109,7 +114,7 @@ namespace SlopeX.Modules.ModNet
                 }
 
                 if (!ok)
-                    await DownloadSingleAsync(url, tmp, total, timeoutCts.Token, progress).ConfigureAwait(false);
+                    await DownloadSingleAsync(url, tmp, total, timeoutCts.Token, progress, headers).ConfigureAwait(false);
 
                 if (size > 0)
                 {
@@ -165,11 +170,13 @@ namespace SlopeX.Modules.ModNet
         /// 先 HEAD 拿大小与 <c>Accept-Ranges</c>；HEAD 被拒（403/405）或没给 Accept-Ranges 时，
         /// 再用 <c>Range: bytes=0-0</c> 实探一次——有的 CDN 不给头但确实支持分段。
         /// </summary>
-        private static async Task<ProbeResult> ProbeAsync(string url, CancellationToken ct)
+        private static async Task<ProbeResult> ProbeAsync(string url, IReadOnlyDictionary<string, string> headers,
+            CancellationToken ct)
         {
             try
             {
                 using var req = new HttpRequestMessage(HttpMethod.Head, url);
+                ApplyHeaders(req, headers);
                 using var resp = await Net.Client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct)
                     .ConfigureAwait(false);
 
@@ -181,7 +188,7 @@ namespace SlopeX.Modules.ModNet
                     var name = HeaderFileName(resp);
 
                     if (len > 0 && range) return new ProbeResult(len, true, finalUrl, name);
-                    if (len > 0) return await ProbeRangeAsync(finalUrl, len, ct).ConfigureAwait(false);
+                    if (len > 0) return await ProbeRangeAsync(finalUrl, len, headers, ct).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -193,14 +200,16 @@ namespace SlopeX.Modules.ModNet
                 // HEAD 被拒很常见，继续走 Range 探测
             }
 
-            return await ProbeRangeAsync(url, 0, ct).ConfigureAwait(false);
+            return await ProbeRangeAsync(url, 0, headers, ct).ConfigureAwait(false);
         }
 
-        private static async Task<ProbeResult> ProbeRangeAsync(string url, long knownLength, CancellationToken ct)
+        private static async Task<ProbeResult> ProbeRangeAsync(string url, long knownLength,
+            IReadOnlyDictionary<string, string> headers, CancellationToken ct)
         {
             try
             {
                 using var req = new HttpRequestMessage(HttpMethod.Get, url);
+                ApplyHeaders(req, headers);
                 req.Headers.Range = new RangeHeaderValue(0, 0);
 
                 using var resp = await Net.Client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct)
@@ -229,10 +238,25 @@ namespace SlopeX.Modules.ModNet
         /// 下载工具用：只探测不下，把文件名 / 大小 / 是否支持分段交回界面。
         /// </summary>
         internal static async Task<(string FileName, long Total, bool SupportsRange)> InspectAsync(
-            string url, CancellationToken ct)
+            string url, CancellationToken ct, IReadOnlyDictionary<string, string> headers = null)
         {
-            var probe = await ProbeAsync(url, ct).ConfigureAwait(false);
+            var probe = await ProbeAsync(url, headers, ct).ConfigureAwait(false);
             return (probe.FileName, probe.Total, probe.SupportsRange);
+        }
+
+        /// <summary>
+        /// 把调用方给的额外请求头贴到请求上。走 <c>TryAddWithoutValidation</c>：
+        /// Referer 不一定是合法绝对 URI、Cookie 里也可能有奇怪字符，硬校验反而会挡下正常请求。
+        /// </summary>
+        private static void ApplyHeaders(HttpRequestMessage req, IReadOnlyDictionary<string, string> headers)
+        {
+            if (headers == null) return;
+
+            foreach (var kv in headers)
+            {
+                if (string.IsNullOrWhiteSpace(kv.Key) || string.IsNullOrWhiteSpace(kv.Value)) continue;
+                req.Headers.TryAddWithoutValidation(kv.Key, kv.Value);
+            }
         }
 
         /// <summary>从 <c>Content-Disposition</c> 取文件名；带路径的、空白的都当没给。</summary>
@@ -249,12 +273,16 @@ namespace SlopeX.Modules.ModNet
         // ---------------- 单流 ----------------
 
         private static async Task DownloadSingleAsync(string url, string tmp, long total, CancellationToken ct,
-            Action<DownloadProgress> progress)
+            Action<DownloadProgress> progress, IReadOnlyDictionary<string, string> headers = null)
         {
             var done = 0L;
             var sw = Stopwatch.StartNew();
 
-            using (var resp = await Net.Client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct)
+            using var req = new HttpRequestMessage(HttpMethod.Get, url);
+            ApplyHeaders(req, headers);
+
+            using (var resp = await Net.Client
+                       .SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct)
                        .ConfigureAwait(false))
             {
                 resp.EnsureSuccessStatusCode();
@@ -296,7 +324,7 @@ namespace SlopeX.Modules.ModNet
         }
 
         private static async Task DownloadSegmentedAsync(string url, string tmp, long total, CancellationToken ct,
-            Action<DownloadProgress> progress)
+            Action<DownloadProgress> progress, IReadOnlyDictionary<string, string> headers = null)
         {
             var workers = Math.Clamp(Config.Current.DownloadThreads, 1, 64);
             var chunks = BuildChunks(total, workers);
@@ -332,7 +360,7 @@ namespace SlopeX.Modules.ModNet
                             if (index >= chunks.Count) return;
 
                             var chunk = chunks[index];
-                            await DownloadChunkAsync(url, handle, chunk, ct, n => Interlocked.Add(ref done, n))
+                            await DownloadChunkAsync(url, handle, chunk, ct, n => Interlocked.Add(ref done, n), headers)
                                 .ConfigureAwait(false);
                         }
                     }, ct));
@@ -370,7 +398,7 @@ namespace SlopeX.Modules.ModNet
         /// 重试也不会把进度条往回拉。
         /// </summary>
         private static async Task DownloadChunkAsync(string url, SafeFileHandle handle, Chunk chunk,
-            CancellationToken ct, Action<long> advance)
+            CancellationToken ct, Action<long> advance, IReadOnlyDictionary<string, string> headers = null)
         {
             var pos = chunk.Start;
             Exception last = null;
@@ -385,6 +413,7 @@ namespace SlopeX.Modules.ModNet
                     chunkCts.CancelAfter(TimeSpan.FromSeconds(90));   // 单段卡死不要拖住整个文件
 
                     using var req = new HttpRequestMessage(HttpMethod.Get, url);
+                    ApplyHeaders(req, headers);
                     req.Headers.Range = new RangeHeaderValue(pos, chunk.End);
 
                     using var resp = await Net.Client
