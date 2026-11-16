@@ -39,49 +39,6 @@
                     Margin="8,0,0,0" Visibility="Collapsed" Click="Cancel_Click"/>
         </Grid>
 
-        <!-- 可选请求头：防盗链 / 需要登录态的直链用得上。留空就按普通公开直链下。 -->
-        <Grid Margin="0,8,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="8"/>
-                <ColumnDefinition Width="1.6*"/>
-            </Grid.ColumnDefinitions>
-
-            <Grid Grid.Column="0">
-                <TextBox x:Name="RefererBox" Style="{StaticResource Input}"/>
-                <TextBlock Text="Referer（可选）" Foreground="{DynamicResource Muted}" FontSize="12.5"
-                           Margin="11,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding Text, ElementName=RefererBox}" Value="">
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
-            </Grid>
-
-            <Grid Grid.Column="2">
-                <TextBox x:Name="CookieBox" Style="{StaticResource Input}"/>
-                <TextBlock Text="Cookie（可选）" Foreground="{DynamicResource Muted}" FontSize="12.5"
-                           Margin="11,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding Text, ElementName=CookieBox}" Value="">
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
-            </Grid>
-        </Grid>
-
         <TextBlock x:Name="FileText" Style="{StaticResource TCaption}" TextWrapping="Wrap"
                    Margin="0,10,0,0" Text="" Visibility="Collapsed"/>
 

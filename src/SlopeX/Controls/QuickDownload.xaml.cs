@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -32,20 +31,6 @@ namespace SlopeX.Controls
         public QuickDownload()
         {
             InitializeComponent();
-        }
-
-        /// <summary>只带用户真填了的头；两个都空就返回 null，走普通下载。</summary>
-        private Dictionary<string, string> Headers()
-        {
-            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-            var referer = RefererBox.Text?.Trim();
-            if (!string.IsNullOrEmpty(referer)) map["Referer"] = referer;
-
-            var cookie = CookieBox.Text?.Trim();
-            if (!string.IsNullOrEmpty(cookie)) map["Cookie"] = cookie;
-
-            return map.Count == 0 ? null : map;
         }
 
         private static string DownloadDir()
@@ -93,12 +78,10 @@ namespace SlopeX.Controls
             Bar.Value = 0;
             FileText.Visibility = Visibility.Collapsed;
 
-            var headers = Headers();
-
             try
             {
                 SetStatus("正在探测文件…");
-                var (headerName, total, supportsRange) = await Downloader.InspectAsync(url, ct, headers);
+                var (headerName, total, supportsRange) = await Downloader.InspectAsync(url, ct);
                 if (ct.IsCancellationRequested) throw new OperationCanceledException(ct);
 
                 var name = SafeName(headerName ?? NameFromUrl(uri));
@@ -111,7 +94,7 @@ namespace SlopeX.Controls
                 SetStatus("");
 
                 // sha1 传 null、size 有就传：引擎会自己再探一次，大小不符会报错
-                await Downloader.DownloadAsync(url, path, null, total, ct, TimeoutMs, UpdateProgress, headers);
+                await Downloader.DownloadAsync(url, path, null, total, ct, TimeoutMs, UpdateProgress);
 
                 SetStatus($"已保存到 {path}");
                 OpenDirBtn.Visibility = Visibility.Visible;
@@ -157,8 +140,6 @@ namespace SlopeX.Controls
             GoBtn.IsEnabled = !busy;
             CancelBtn.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
             UrlBox.IsEnabled = !busy;
-            RefererBox.IsEnabled = !busy;
-            CookieBox.IsEnabled = !busy;
         }
 
         private void SetStatus(string text) => StatusText.Text = text ?? "";
@@ -223,7 +204,7 @@ namespace SlopeX.Controls
         {
             var msg = ex.Message ?? "";
 
-            if (msg.Contains("403")) return "服务器拒绝了这次请求（403）。试试在下面填 Referer 或 Cookie；都不行说明不是公开直链。";
+            if (msg.Contains("403")) return "服务器拒绝了这次请求（403）。多半需要登录态或 Referer，本工具只支持公开直链。";
             if (msg.Contains("404")) return "地址不存在（404）。链接可能已失效，或者少复制了一段。";
             if (msg.Contains("401")) return "需要登录才能下载（401）。";
             if (msg.Contains("文件大小不符")) return msg + "。服务器可能限制了单连接，或者文件在下载过程中变了。";

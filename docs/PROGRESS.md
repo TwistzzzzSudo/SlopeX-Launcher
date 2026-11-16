@@ -1119,12 +1119,7 @@ SlopeX.exe --cli skin-clear                          恢复内置默认
 
 **放哪**：不单独开页、也不加侧栏子项，直接作为「设置 → 下载线程」卡片里的子功能（`Controls/QuickDownload`）。理由：它用的就是这张卡片上的线程数，放在一起才说得通；也省掉一个导航入口。
 
-**范围**：默认当公开直链处理；需要时可以在同一行下面填 **Referer / Cookie**（防盗链、需要登录态的直链）。
-
-- 请求头由 `Downloader.ApplyHeaders` 贴到每一个请求上：HEAD 探测、Range 探测、每个分片、单流回退**都要带**，漏一处就会被服务端踢回 403。
-- 走 `TryAddWithoutValidation`：Referer 不一定是合法绝对 URI、Cookie 里也可能有怪字符，硬校验反而挡下正常请求。
-- 这两个值**只在内存里**：不写 config、不进日志、界面也不回显到别处；关掉启动器就没了。
-- 网盘（要专门客户端）、几分钟就过期的签名链接仍然不覆盖——探测阶段会因 403 / 不是文件给出明确提示（`Explain()` 把 401/403/404/超时/大小不符翻成人话）。
+**范围**：只支持公开直链。不转发 Cookie / Referer，所以网盘、要登录的附件、几分钟过期的签名链接都不覆盖——探测阶段会因 403 / 不是文件而给出明确提示（`Explain()` 把 401/403/404/超时/大小不符翻成人话）。
 
 **实现**
 
@@ -1135,11 +1130,7 @@ SlopeX.exe --cli skin-clear                          恢复内置默认
 | `Controls/QuickDownload` | 地址框 + 下载 / 取消 + 文件名行 + 进度条 + 状态行；同名文件自动加 ` (2)`；落盘 `<数据目录>\downloads` |
 | 线程数 | 直接用 `Config.DownloadThreads`，改卡片上的 Chip 立刻生效 |
 
-**实测**
-
-1. 本机支持 Range 的测试服务器（32 MB，`Accept-Ranges: bytes` + `Content-Disposition`）：文件名取自响应头、33,554,432 字节、**逐字节比对内容一致**（验证分片按绝对偏移写对了位置）。
-2. 请求头是否真的发出去了：拿 `https://httpbin.org/headers` 当回显靶子，填 Referer `https://example.com/ref-check`、Cookie `sx_probe=1`，收到的文件里两个头原样出现。
-3. 带 Referer 重跑第 1 条的分段路径，依然 32 MB / 内容一致（改完签名没把分片链路弄坏）。
+**实测**：本机起了个支持 Range 的测试服务器（32 MB，`Accept-Ranges: bytes` + `Content-Disposition: attachment; filename="sample-pack.bin"`），贴 `http://127.0.0.1:8777/test.bin` 后：文件名取自响应头、下载 33,554,432 字节、**逐字节比对内容一致**（验证分片按绝对偏移写对了位置）。
 
 **踩到的坑**：启动器的 `HttpClient` 走系统代理，访问 `127.0.0.1` 会被代理拦成 502。测试时要给进程加 `NO_PROXY=127.0.0.1,localhost`；真实使用是公网链接，不受影响。
 
